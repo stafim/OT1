@@ -42,7 +42,7 @@ import IntegrationsPage from "@/pages/integrations/index";
 import ApiDocsPage from "@/pages/api-docs/index";
 import PortariaPage from "@/pages/portaria/index";
 import RoutingPage from "@/pages/routing/index";
-import FinanceiroPage from "@/pages/financeiro/index";
+import AcertoDeContasPage from "@/pages/acerto-de-contas/index";
 
 function AuthenticatedRouter() {
   return (
@@ -66,7 +66,7 @@ function AuthenticatedRouter() {
       <Route path="/trafego-agora" component={TrafficPage} />
       <Route path="/portaria" component={PortariaPage} />
       <Route path="/roteirizacao" component={RoutingPage} />
-      <Route path="/financeiro" component={FinanceiroPage} />
+      <Route path="/acerto-de-contas" component={AcertoDeContasPage} />
       <Route path="/usuarios" component={UsersPage} />
       <Route path="/usuarios/:id" component={UserFormPage} />
       <Route path="/integracoes" component={IntegrationsPage} />

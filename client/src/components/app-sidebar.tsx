@@ -79,9 +79,12 @@ const operationItems: MenuItem[] = [
     url: "/roteirizacao",
     icon: Route,
   },
+];
+
+const financeiroItems: MenuItem[] = [
   {
-    title: "Financeiro",
-    url: "/financeiro",
+    title: "Acerto de Contas",
+    url: "/acerto-de-contas",
     icon: Receipt,
   },
 ];
@@ -179,6 +182,27 @@ export function AppSidebar() {
                     isActive={location === item.url}
                   >
                     <Link href={item.url} data-testid={`link-nav-${item.url.replace("/", "") || "dashboard"}`}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Financeiro</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {financeiroItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.url}
+                  >
+                    <Link href={item.url} data-testid={`link-nav-${item.url.replace("/", "")}`}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
