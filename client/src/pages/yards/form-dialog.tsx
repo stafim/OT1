@@ -45,6 +45,8 @@ const formSchema = z.object({
   neighborhood: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
   phone: z.string().optional(),
   maxVehicles: z.coerce.number().int().min(0).optional().nullable(),
   isActive: z.string().default("true"),
@@ -90,6 +92,8 @@ export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogPro
       neighborhood: "",
       city: "",
       state: "",
+      latitude: "",
+      longitude: "",
       phone: "",
       maxVehicles: null,
       isActive: "true",
@@ -108,6 +112,8 @@ export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogPro
         neighborhood: yard.neighborhood || "",
         city: yard.city || "",
         state: yard.state || "",
+        latitude: yard.latitude || "",
+        longitude: yard.longitude || "",
         phone: yard.phone || "",
         maxVehicles: yard.maxVehicles ?? null,
         isActive: yard.isActive || "true",
@@ -123,6 +129,8 @@ export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogPro
         neighborhood: "",
         city: "",
         state: "",
+        latitude: "",
+        longitude: "",
         phone: "",
         maxVehicles: null,
         isActive: "true",
@@ -156,6 +164,8 @@ export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogPro
     state: string;
     cep: string;
     formattedAddress: string;
+    latitude?: number;
+    longitude?: number;
   }) => {
     form.setValue("fullAddress", addressData.formattedAddress);
     form.setValue("address", addressData.address);
@@ -164,6 +174,12 @@ export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogPro
     form.setValue("city", addressData.city);
     form.setValue("state", addressData.state);
     form.setValue("cep", addressData.cep);
+    if (addressData.latitude) {
+      form.setValue("latitude", String(addressData.latitude));
+    }
+    if (addressData.longitude) {
+      form.setValue("longitude", String(addressData.longitude));
+    }
   };
 
   return (

@@ -140,6 +140,8 @@ export const yards = pgTable("yards", {
   neighborhood: text("neighborhood"),
   city: text("city"),
   state: varchar("state", { length: 2 }),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
   phone: varchar("phone", { length: 20 }),
   maxVehicles: integer("max_vehicles"),
   isActive: text("is_active").default("true"),
