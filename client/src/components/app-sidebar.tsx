@@ -83,8 +83,8 @@ const operationItems: MenuItem[] = [
 
 const financeiroItems: MenuItem[] = [
   {
-    title: "Acerto de Contas",
-    url: "/acerto-de-contas",
+    title: "Prestação de Contas",
+    url: "/prestacao-de-contas",
     icon: Receipt,
   },
 ];
