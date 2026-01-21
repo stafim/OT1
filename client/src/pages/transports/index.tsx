@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye, Navigation } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye, Navigation, Clock, Fuel, Receipt, Route, Car, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { normalizeImageUrl } from "@/lib/utils";
@@ -36,6 +36,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -275,11 +276,13 @@ export default function TransportsPage() {
   const [routeSummary, setRouteSummary] = useState<{
     distance: { text: string; value: number };
     duration: { text: string; value: number };
+    durationInTraffic: { text: string; value: number } | null;
     tollCost: { amount: string; currency: string } | null;
     originAddress: string;
     destinationAddress: string;
     fuelCost: number;
   } | null>(null);
+  const [showRouteDetails, setShowRouteDetails] = useState(false);
   const [loadingRoute, setLoadingRoute] = useState(false);
   const { toast } = useToast();
 
@@ -323,8 +326,8 @@ export default function TransportsPage() {
       setLoadingRoute(true);
       try {
         const response = await apiRequest("POST", "/api/routing/calculate", {
-          origin: { lat: parseFloat(originYard.latitude), lng: parseFloat(originYard.longitude) },
-          destination: { lat: parseFloat(destLocation.latitude), lng: parseFloat(destLocation.longitude) },
+          origin: { lat: parseFloat(originYard.latitude!), lng: parseFloat(originYard.longitude!) },
+          destination: { lat: parseFloat(destLocation.latitude!), lng: parseFloat(destLocation.longitude!) },
         });
 
         const data = await response.json();
@@ -1400,9 +1403,21 @@ export default function TransportsPage() {
                             R$ {(routeSummary.fuelCost + (routeSummary.tollCost ? parseFloat(routeSummary.tollCost.amount) : 0)).toFixed(2)}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          * Baseado em consumo de 4 km/litro e diesel a R$ 6,50/litro
-                        </p>
+                        <div className="flex justify-between items-center mt-2">
+                          <p className="text-xs text-muted-foreground">
+                            * Baseado em consumo de 4 km/litro e diesel a R$ 6,50/litro
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowRouteDetails(true)}
+                            data-testid="button-view-route-details"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Ver Detalhes
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ) : null}
@@ -1474,6 +1489,141 @@ export default function TransportsPage() {
               ) : (
                 "Salvar"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Route Details Dialog */}
+      <Dialog open={showRouteDetails} onOpenChange={setShowRouteDetails}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Route className="h-5 w-5" />
+              Detalhes da Rota
+            </DialogTitle>
+            <DialogDescription>
+              Informações detalhadas sobre a rota calculada
+            </DialogDescription>
+          </DialogHeader>
+          
+          {routeSummary && (
+            <div className="space-y-4">
+              {/* Origin and Destination */}
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
+                  <MapPin className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-green-700 dark:text-green-400">ORIGEM</p>
+                    <p className="text-sm font-medium break-words">{routeSummary.originAddress}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-900">
+                  <MapPin className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-red-700 dark:text-red-400">DESTINO</p>
+                    <p className="text-sm font-medium break-words">{routeSummary.destinationAddress}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Route Metrics */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Car className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Distância</span>
+                  </div>
+                  <p className="text-lg font-bold">{routeSummary.distance.text}</p>
+                </div>
+                
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Tempo Estimado</span>
+                  </div>
+                  <p className="text-lg font-bold">{routeSummary.duration.text}</p>
+                </div>
+                
+                {routeSummary.durationInTraffic && (
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock className="h-4 w-4 text-orange-500" />
+                      <span className="text-xs text-muted-foreground">Com Trânsito</span>
+                    </div>
+                    <p className="text-lg font-bold text-orange-600">{routeSummary.durationInTraffic.text}</p>
+                  </div>
+                )}
+                
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Fuel className="h-4 w-4 text-blue-500" />
+                    <span className="text-xs text-muted-foreground">Consumo Estimado</span>
+                  </div>
+                  <p className="text-lg font-bold text-blue-600">
+                    {(routeSummary.distance.value / 1000 / 4).toFixed(1)} L
+                  </p>
+                  <p className="text-xs text-muted-foreground">Base: 4 km/litro</p>
+                </div>
+              </div>
+
+              {/* Cost Breakdown */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <Receipt className="h-4 w-4" />
+                  Custos Estimados
+                </h4>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <div className="flex items-center gap-2">
+                      <Fuel className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm">Combustível</span>
+                    </div>
+                    <span className="font-medium">R$ {routeSummary.fuelCost.toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <div className="flex items-center gap-2">
+                      <Receipt className="h-4 w-4 text-orange-500" />
+                      <span className="text-sm">Pedágios</span>
+                    </div>
+                    <span className="font-medium">
+                      {routeSummary.tollCost 
+                        ? `R$ ${parseFloat(routeSummary.tollCost.amount).toFixed(2)}`
+                        : "Sem pedágios"}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                    <span className="font-medium">Total Estimado</span>
+                    <span className="text-xl font-bold text-primary">
+                      R$ {(routeSummary.fuelCost + (routeSummary.tollCost ? parseFloat(routeSummary.tollCost.amount) : 0)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Note */}
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-sm">
+                <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                <div className="text-muted-foreground">
+                  <p className="font-medium text-blue-700 dark:text-blue-400 mb-1">Observações:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Combustível calculado a R$ 6,50/litro (diesel)</li>
+                    <li>Consumo base de 4 km/litro</li>
+                    <li>Pedágios são estimativas para veículos comerciais</li>
+                    <li>Valores podem variar conforme condições da viagem</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRouteDetails(false)}>
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
