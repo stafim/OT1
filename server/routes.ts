@@ -650,12 +650,16 @@ export async function registerRoutes(
           const [driver] = transport.driverId
             ? await db.select().from(drivers).where(eq(drivers.id, transport.driverId))
             : [null];
-          const [createdByUser] = transport.createdByUserId
-            ? await db.select({ id: systemUsers.id, username: systemUsers.username, firstName: systemUsers.firstName, lastName: systemUsers.lastName }).from(systemUsers).where(eq(systemUsers.id, transport.createdByUserId))
-            : [null];
-          const [driverAssignedByUser] = transport.driverAssignedByUserId
-            ? await db.select({ id: systemUsers.id, username: systemUsers.username, firstName: systemUsers.firstName, lastName: systemUsers.lastName }).from(systemUsers).where(eq(systemUsers.id, transport.driverAssignedByUserId))
-            : [null];
+          let createdByUser = null;
+          if (transport.createdByUserId) {
+            const [user] = await db.select({ id: systemUsers.id, username: systemUsers.username, firstName: systemUsers.firstName, lastName: systemUsers.lastName }).from(systemUsers).where(eq(systemUsers.id, transport.createdByUserId));
+            createdByUser = user || null;
+          }
+          let driverAssignedByUser = null;
+          if (transport.driverAssignedByUserId) {
+            const [user] = await db.select({ id: systemUsers.id, username: systemUsers.username, firstName: systemUsers.firstName, lastName: systemUsers.lastName }).from(systemUsers).where(eq(systemUsers.id, transport.driverAssignedByUserId));
+            driverAssignedByUser = user || null;
+          }
           return { ...transport, client, deliveryLocation, driver, createdByUser, driverAssignedByUser };
         })
       );
