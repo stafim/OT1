@@ -436,7 +436,10 @@ export async function registerRoutes(
           const [driver] = collect.driverId
             ? await db.select().from(drivers).where(eq(drivers.id, collect.driverId))
             : [null];
-          return { ...collect, manufacturer, yard, driver };
+          const [checkoutApprovedBy] = collect.checkoutApprovedById
+            ? await db.select({ firstName: users.firstName, lastName: users.lastName, username: users.username }).from(users).where(eq(users.id, collect.checkoutApprovedById))
+            : [null];
+          return { ...collect, manufacturer, yard, driver, checkoutApprovedBy };
         })
       );
       res.json(collectsWithRelations);
@@ -467,7 +470,10 @@ export async function registerRoutes(
           const [driver] = collect.driverId
             ? await db.select().from(drivers).where(eq(drivers.id, collect.driverId))
             : [null];
-          return { ...collect, manufacturer, yard, driver };
+          const [checkoutApprovedBy] = collect.checkoutApprovedById
+            ? await db.select({ firstName: users.firstName, lastName: users.lastName, username: users.username }).from(users).where(eq(users.id, collect.checkoutApprovedById))
+            : [null];
+          return { ...collect, manufacturer, yard, driver, checkoutApprovedBy };
         })
       );
       res.json(collectsWithRelations);

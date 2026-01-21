@@ -323,6 +323,7 @@ export const collects = pgTable("collects", {
   checkoutDateTime: timestamp("checkout_date_time"),
   checkoutLatitude: text("checkout_latitude"),
   checkoutLongitude: text("checkout_longitude"),
+  checkoutApprovedById: varchar("checkout_approved_by_id"),
   checkoutFrontalPhoto: text("checkout_frontal_photo"),
   checkoutLateral1Photo: text("checkout_lateral1_photo"),
   checkoutLateral2Photo: text("checkout_lateral2_photo"),

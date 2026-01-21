@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { PageHeader } from "@/components/page-header";
@@ -32,6 +32,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import type { Collect } from "@shared/schema";
 import {
   AlertDialog,
@@ -50,6 +51,7 @@ interface CollectWithRelations extends Collect {
   manufacturer?: { name: string };
   yard?: { name: string };
   driver?: { name: string };
+  checkoutApprovedBy?: { firstName: string; lastName?: string; username: string };
 }
 
 const statusOptions = [
@@ -58,6 +60,52 @@ const statusOptions = [
   { value: "aguardando_checkout", label: "Aguardando Checkout" },
   { value: "finalizada", label: "Finalizada" },
 ];
+
+function MapImage({ lat, lng, title }: { lat: string; lng: string; title: string }) {
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const loadMap = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        const response = await fetch(
+          `/api/integrations/google-maps/static-image?lat=${lat}&lng=${lng}&zoom=15&size=600x200`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        );
+        if (!response.ok) throw new Error("Failed to load map");
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        setImageSrc(url);
+      } catch {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadMap();
+  }, [lat, lng]);
+
+  if (error) return null;
+  if (loading) {
+    return (
+      <div className="rounded-md border h-[150px] flex items-center justify-center bg-muted/50">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md overflow-hidden border">
+      <img 
+        src={imageSrc || ""}
+        alt={`Mapa da localização do ${title}`}
+        className="w-full h-[150px] object-cover"
+      />
+    </div>
+  );
+}
 
 export default function CollectsPage() {
   const [, navigate] = useLocation();
@@ -644,6 +692,7 @@ interface CheckInOutModalProps {
 
 function CheckInOutModal({ collect, type, onClose }: CheckInOutModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [frontalPhoto, setFrontalPhoto] = useState(
     type === "checkin" ? collect.checkinFrontalPhoto || "" : collect.checkoutFrontalPhoto || ""
   );
@@ -702,6 +751,7 @@ function CheckInOutModal({ collect, type, onClose }: CheckInOutModalProps) {
         checkoutDateTime: new Date().toISOString(),
         checkoutLatitude: latitude,
         checkoutLongitude: longitude,
+        checkoutApprovedById: user?.id,
         checkoutFrontalPhoto: frontalPhoto,
         checkoutLateral1Photo: lateral1Photo,
         checkoutLateral2Photo: lateral2Photo,
@@ -1076,6 +1126,10 @@ function CollectDetailDialog({ collect, onClose }: CollectDetailDialogProps) {
     const hasOtherPhotos = odometerPhoto || fuelLevelPhoto || selfiePhoto;
     const hasDamagePhotos = damagePhotos && damagePhotos.length > 0;
 
+    const approvedUser = type === "checkout" && collect.checkoutApprovedBy ? 
+      `${collect.checkoutApprovedBy.firstName || ''} ${collect.checkoutApprovedBy.lastName || ''}`.trim() || collect.checkoutApprovedBy.username 
+      : null;
+
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -1083,6 +1137,12 @@ function CollectDetailDialog({ collect, onClose }: CollectDetailDialogProps) {
             <Clock className="h-3.5 w-3.5" />
             {format(new Date(dateTime), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
           </div>
+          {type === "checkout" && approvedUser && (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <User className="h-3.5 w-3.5" />
+              <span>Aprovado por: <strong>{approvedUser}</strong></span>
+            </div>
+          )}
           {latitude && longitude && (
             <a
               href={`https://maps.google.com/?q=${latitude},${longitude}`}
@@ -1091,11 +1151,15 @@ function CollectDetailDialog({ collect, onClose }: CollectDetailDialogProps) {
               className="flex items-center gap-1.5 text-primary hover:underline"
             >
               <MapPin className="h-3.5 w-3.5" />
-              Ver mapa
+              Ver no Google Maps
               <ExternalLink className="h-3 w-3" />
             </a>
           )}
         </div>
+        
+        {latitude && longitude && (
+          <MapImage lat={latitude} lng={longitude} title={title} />
+        )}
 
         {hasVehiclePhotos && (
           <div>
