@@ -216,20 +216,28 @@ function MultiPhotoUpload({ label, values = [], onChange, testId, maxPhotos = 5 
 interface CheckFormData {
   latitude: string;
   longitude: string;
-  selfiePhoto: string;
+  frontalPhoto: string;
+  lateral1Photo: string;
+  lateral2Photo: string;
+  traseiraPhoto: string;
   odometerPhoto: string;
-  bodyPhotos: string[];
+  fuelLevelPhoto: string;
   damagePhotos: string[];
+  selfiePhoto: string;
   notes: string;
 }
 
 const initialCheckFormData: CheckFormData = {
   latitude: "",
   longitude: "",
-  selfiePhoto: "",
+  frontalPhoto: "",
+  lateral1Photo: "",
+  lateral2Photo: "",
+  traseiraPhoto: "",
   odometerPhoto: "",
-  bodyPhotos: [],
+  fuelLevelPhoto: "",
   damagePhotos: [],
+  selfiePhoto: "",
   notes: "",
 };
 
@@ -597,41 +605,88 @@ export default function TransportsPage() {
                 Obter Localização
               </Button>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Seção: Fotos do Veículo */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Veículo</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <PhotoUpload
+                    label="Frontal"
+                    value={checkinData.frontalPhoto}
+                    onChange={(url) => setCheckinData({ ...checkinData, frontalPhoto: url })}
+                    testId="upload-checkin-frontal"
+                  />
+                  <PhotoUpload
+                    label="Lateral 1"
+                    value={checkinData.lateral1Photo}
+                    onChange={(url) => setCheckinData({ ...checkinData, lateral1Photo: url })}
+                    testId="upload-checkin-lateral1"
+                  />
+                  <PhotoUpload
+                    label="Lateral 2"
+                    value={checkinData.lateral2Photo}
+                    onChange={(url) => setCheckinData({ ...checkinData, lateral2Photo: url })}
+                    testId="upload-checkin-lateral2"
+                  />
+                  <PhotoUpload
+                    label="Traseira"
+                    value={checkinData.traseiraPhoto}
+                    onChange={(url) => setCheckinData({ ...checkinData, traseiraPhoto: url })}
+                    testId="upload-checkin-traseira"
+                  />
+                </div>
+              </div>
+
+              {/* Seção: Fotos do Painel */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Painel</h3>
+                <div className="grid grid-cols-2 gap-3 justify-items-center">
+                  <PhotoUpload
+                    label="Foto do Odômetro"
+                    value={checkinData.odometerPhoto}
+                    onChange={(url) => setCheckinData({ ...checkinData, odometerPhoto: url })}
+                    testId="upload-checkin-odometer"
+                  />
+                  <PhotoUpload
+                    label="Nível de Combustível"
+                    value={checkinData.fuelLevelPhoto}
+                    onChange={(url) => setCheckinData({ ...checkinData, fuelLevelPhoto: url })}
+                    testId="upload-checkin-fuel"
+                  />
+                </div>
+              </div>
+
+              {/* Seção: Avarias */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+                  Avarias <span className="font-normal">({checkinData.damagePhotos.length}/10)</span>
+                </h3>
+                <MultiPhotoUpload
+                  label=""
+                  values={checkinData.damagePhotos}
+                  onChange={(urls) => setCheckinData({ ...checkinData, damagePhotos: urls })}
+                  testId="upload-checkin-damage"
+                  maxPhotos={10}
+                />
+              </div>
+
+              {/* Seção: Selfie */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Selfie do Motorista</h3>
                 <PhotoUpload
-                  label="Selfie"
+                  label=""
                   value={checkinData.selfiePhoto}
                   onChange={(url) => setCheckinData({ ...checkinData, selfiePhoto: url })}
                   testId="upload-checkin-selfie"
                 />
-                <PhotoUpload
-                  label="Odômetro"
-                  value={checkinData.odometerPhoto}
-                  onChange={(url) => setCheckinData({ ...checkinData, odometerPhoto: url })}
-                  testId="upload-checkin-odometer"
-                />
               </div>
 
-              <MultiPhotoUpload
-                label="Fotos da Lataria"
-                values={checkinData.bodyPhotos}
-                onChange={(urls) => setCheckinData({ ...checkinData, bodyPhotos: urls })}
-                testId="upload-checkin-body"
-              />
-
-              <MultiPhotoUpload
-                label="Fotos de Avarias"
-                values={checkinData.damagePhotos}
-                onChange={(urls) => setCheckinData({ ...checkinData, damagePhotos: urls })}
-                testId="upload-checkin-damage"
-              />
-
-              <div className="space-y-1">
-                <Label className="text-xs">Observações</Label>
+              {/* Seção: Observações */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Observações</h3>
                 <Textarea
                   value={checkinData.notes}
                   onChange={(e) => setCheckinData({ ...checkinData, notes: e.target.value })}
-                  placeholder="Observações..."
+                  placeholder="Observações sobre o veículo..."
                   data-testid="input-checkin-notes"
                 />
               </div>
@@ -703,41 +758,88 @@ export default function TransportsPage() {
                 Obter Localização
               </Button>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Seção: Fotos do Veículo */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Veículo</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <PhotoUpload
+                    label="Frontal"
+                    value={checkoutData.frontalPhoto}
+                    onChange={(url) => setCheckoutData({ ...checkoutData, frontalPhoto: url })}
+                    testId="upload-checkout-frontal"
+                  />
+                  <PhotoUpload
+                    label="Lateral 1"
+                    value={checkoutData.lateral1Photo}
+                    onChange={(url) => setCheckoutData({ ...checkoutData, lateral1Photo: url })}
+                    testId="upload-checkout-lateral1"
+                  />
+                  <PhotoUpload
+                    label="Lateral 2"
+                    value={checkoutData.lateral2Photo}
+                    onChange={(url) => setCheckoutData({ ...checkoutData, lateral2Photo: url })}
+                    testId="upload-checkout-lateral2"
+                  />
+                  <PhotoUpload
+                    label="Traseira"
+                    value={checkoutData.traseiraPhoto}
+                    onChange={(url) => setCheckoutData({ ...checkoutData, traseiraPhoto: url })}
+                    testId="upload-checkout-traseira"
+                  />
+                </div>
+              </div>
+
+              {/* Seção: Fotos do Painel */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Painel</h3>
+                <div className="grid grid-cols-2 gap-3 justify-items-center">
+                  <PhotoUpload
+                    label="Foto do Odômetro"
+                    value={checkoutData.odometerPhoto}
+                    onChange={(url) => setCheckoutData({ ...checkoutData, odometerPhoto: url })}
+                    testId="upload-checkout-odometer"
+                  />
+                  <PhotoUpload
+                    label="Nível de Combustível"
+                    value={checkoutData.fuelLevelPhoto}
+                    onChange={(url) => setCheckoutData({ ...checkoutData, fuelLevelPhoto: url })}
+                    testId="upload-checkout-fuel"
+                  />
+                </div>
+              </div>
+
+              {/* Seção: Avarias */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+                  Avarias <span className="font-normal">({checkoutData.damagePhotos.length}/10)</span>
+                </h3>
+                <MultiPhotoUpload
+                  label=""
+                  values={checkoutData.damagePhotos}
+                  onChange={(urls) => setCheckoutData({ ...checkoutData, damagePhotos: urls })}
+                  testId="upload-checkout-damage"
+                  maxPhotos={10}
+                />
+              </div>
+
+              {/* Seção: Selfie */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Selfie do Motorista</h3>
                 <PhotoUpload
-                  label="Selfie"
+                  label=""
                   value={checkoutData.selfiePhoto}
                   onChange={(url) => setCheckoutData({ ...checkoutData, selfiePhoto: url })}
                   testId="upload-checkout-selfie"
                 />
-                <PhotoUpload
-                  label="Odômetro"
-                  value={checkoutData.odometerPhoto}
-                  onChange={(url) => setCheckoutData({ ...checkoutData, odometerPhoto: url })}
-                  testId="upload-checkout-odometer"
-                />
               </div>
 
-              <MultiPhotoUpload
-                label="Fotos da Lataria"
-                values={checkoutData.bodyPhotos}
-                onChange={(urls) => setCheckoutData({ ...checkoutData, bodyPhotos: urls })}
-                testId="upload-checkout-body"
-              />
-
-              <MultiPhotoUpload
-                label="Fotos de Avarias"
-                values={checkoutData.damagePhotos}
-                onChange={(urls) => setCheckoutData({ ...checkoutData, damagePhotos: urls })}
-                testId="upload-checkout-damage"
-              />
-
-              <div className="space-y-1">
-                <Label className="text-xs">Observações</Label>
+              {/* Seção: Observações */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Observações</h3>
                 <Textarea
                   value={checkoutData.notes}
                   onChange={(e) => setCheckoutData({ ...checkoutData, notes: e.target.value })}
-                  placeholder="Observações..."
+                  placeholder="Observações sobre o veículo..."
                   data-testid="input-checkout-notes"
                 />
               </div>
