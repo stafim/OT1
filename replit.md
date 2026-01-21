@@ -89,3 +89,14 @@ Status enums for workflow tracking:
 - **Vite**: Build tool and dev server
 - **esbuild**: Production bundling for server
 - **TypeScript**: Type checking (no emit, bundlers handle transpilation)
+
+## Recent Changes
+
+### January 21, 2026
+- **Transport Check-in/Check-out Photo Fields**: Updated transports to use the same photo structure as collects
+  - Added individual vehicle photos: frontal, lateral1, lateral2, traseira
+  - Added panel photos: odometer, fuel level
+  - Added damage photos (up to 10) and selfie
+  - Removed old "body photos" field in favor of individual photo fields
+  - Updated transport form with organized photo sections matching collects form
+  - Added `checkinFuelLevelPhoto` and `checkoutFuelLevelPhoto` fields to transports schema

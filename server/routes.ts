@@ -720,7 +720,7 @@ export async function registerRoutes(
   // Transport Check-in (pickup from yard)
   app.patch("/api/transports/:id/checkin", isAuthenticatedJWT, async (req, res) => {
     try {
-      const { latitude, longitude, selfiePhoto, bodyPhotos, odometerPhoto, damagePhotos, notes } = req.body;
+      const { latitude, longitude, frontalPhoto, lateral1Photo, lateral2Photo, traseiraPhoto, odometerPhoto, fuelLevelPhoto, damagePhotos, selfiePhoto, notes } = req.body;
       
       const existingTransport = await storage.getTransport(req.params.id);
       if (!existingTransport) {
@@ -731,10 +731,14 @@ export async function registerRoutes(
         checkinDateTime: new Date(),
         checkinLatitude: latitude,
         checkinLongitude: longitude,
-        checkinSelfiePhoto: selfiePhoto,
-        checkinBodyPhotos: bodyPhotos || [],
+        checkinFrontalPhoto: frontalPhoto,
+        checkinLateral1Photo: lateral1Photo,
+        checkinLateral2Photo: lateral2Photo,
+        checkinTraseiraPhoto: traseiraPhoto,
         checkinOdometerPhoto: odometerPhoto,
+        checkinFuelLevelPhoto: fuelLevelPhoto,
         checkinDamagePhotos: damagePhotos || [],
+        checkinSelfiePhoto: selfiePhoto,
         checkinNotes: notes,
         status: "em_transito",
       });
@@ -754,7 +758,7 @@ export async function registerRoutes(
   // Transport Check-out (delivery to client)
   app.patch("/api/transports/:id/checkout", isAuthenticatedJWT, async (req, res) => {
     try {
-      const { latitude, longitude, selfiePhoto, bodyPhotos, odometerPhoto, damagePhotos, notes } = req.body;
+      const { latitude, longitude, frontalPhoto, lateral1Photo, lateral2Photo, traseiraPhoto, odometerPhoto, fuelLevelPhoto, damagePhotos, selfiePhoto, notes } = req.body;
       
       const existingTransport = await storage.getTransport(req.params.id);
       if (!existingTransport) {
@@ -770,10 +774,14 @@ export async function registerRoutes(
         checkoutDateTime: new Date(),
         checkoutLatitude: latitude,
         checkoutLongitude: longitude,
-        checkoutSelfiePhoto: selfiePhoto,
-        checkoutBodyPhotos: bodyPhotos || [],
+        checkoutFrontalPhoto: frontalPhoto,
+        checkoutLateral1Photo: lateral1Photo,
+        checkoutLateral2Photo: lateral2Photo,
+        checkoutTraseiraPhoto: traseiraPhoto,
         checkoutOdometerPhoto: odometerPhoto,
+        checkoutFuelLevelPhoto: fuelLevelPhoto,
         checkoutDamagePhotos: damagePhotos || [],
+        checkoutSelfiePhoto: selfiePhoto,
         checkoutNotes: notes,
         status: "entregue",
       });

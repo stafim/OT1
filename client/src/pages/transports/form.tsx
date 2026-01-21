@@ -163,7 +163,7 @@ function MultiPhotoUpload({ label, values = [], onChange, testId, maxPhotos = 5 
         body: file,
       });
 
-      const publicUrl = `/api/object-storage/${encodeURIComponent(objectPath)}`;
+      const publicUrl = `/api/object-storage${objectPath}`;
       onChange([...values, publicUrl]);
     } catch (error) {
       console.error("Upload failed:", error);
@@ -225,19 +225,29 @@ const formSchema = z.object({
   status: z.enum(["pendente", "em_transito", "entregue", "cancelado"]),
   deliveryDate: z.string().optional(),
   notes: z.string().optional(),
+  // Check-in fields
   checkinLatitude: z.string().optional(),
   checkinLongitude: z.string().optional(),
-  checkinSelfiePhoto: z.string().optional(),
-  checkinBodyPhotos: z.array(z.string()).optional(),
+  checkinFrontalPhoto: z.string().optional(),
+  checkinLateral1Photo: z.string().optional(),
+  checkinLateral2Photo: z.string().optional(),
+  checkinTraseiraPhoto: z.string().optional(),
   checkinOdometerPhoto: z.string().optional(),
+  checkinFuelLevelPhoto: z.string().optional(),
   checkinDamagePhotos: z.array(z.string()).optional(),
+  checkinSelfiePhoto: z.string().optional(),
   checkinNotes: z.string().optional(),
+  // Check-out fields
   checkoutLatitude: z.string().optional(),
   checkoutLongitude: z.string().optional(),
-  checkoutSelfiePhoto: z.string().optional(),
-  checkoutBodyPhotos: z.array(z.string()).optional(),
+  checkoutFrontalPhoto: z.string().optional(),
+  checkoutLateral1Photo: z.string().optional(),
+  checkoutLateral2Photo: z.string().optional(),
+  checkoutTraseiraPhoto: z.string().optional(),
   checkoutOdometerPhoto: z.string().optional(),
+  checkoutFuelLevelPhoto: z.string().optional(),
   checkoutDamagePhotos: z.array(z.string()).optional(),
+  checkoutSelfiePhoto: z.string().optional(),
   checkoutNotes: z.string().optional(),
 });
 
@@ -274,19 +284,29 @@ export default function TransportFormPage() {
       status: "pendente",
       deliveryDate: "",
       notes: "",
+      // Check-in fields
       checkinLatitude: "",
       checkinLongitude: "",
-      checkinSelfiePhoto: "",
-      checkinBodyPhotos: [],
+      checkinFrontalPhoto: "",
+      checkinLateral1Photo: "",
+      checkinLateral2Photo: "",
+      checkinTraseiraPhoto: "",
       checkinOdometerPhoto: "",
+      checkinFuelLevelPhoto: "",
       checkinDamagePhotos: [],
+      checkinSelfiePhoto: "",
       checkinNotes: "",
+      // Check-out fields
       checkoutLatitude: "",
       checkoutLongitude: "",
-      checkoutSelfiePhoto: "",
-      checkoutBodyPhotos: [],
+      checkoutFrontalPhoto: "",
+      checkoutLateral1Photo: "",
+      checkoutLateral2Photo: "",
+      checkoutTraseiraPhoto: "",
       checkoutOdometerPhoto: "",
+      checkoutFuelLevelPhoto: "",
       checkoutDamagePhotos: [],
+      checkoutSelfiePhoto: "",
       checkoutNotes: "",
     },
   });
@@ -309,19 +329,29 @@ export default function TransportFormPage() {
         status: transport.status,
         deliveryDate: transport.deliveryDate || "",
         notes: transport.notes || "",
+        // Check-in fields
         checkinLatitude: transport.checkinLatitude || "",
         checkinLongitude: transport.checkinLongitude || "",
-        checkinSelfiePhoto: transport.checkinSelfiePhoto || "",
-        checkinBodyPhotos: transport.checkinBodyPhotos || [],
+        checkinFrontalPhoto: transport.checkinFrontalPhoto || "",
+        checkinLateral1Photo: transport.checkinLateral1Photo || "",
+        checkinLateral2Photo: transport.checkinLateral2Photo || "",
+        checkinTraseiraPhoto: transport.checkinTraseiraPhoto || "",
         checkinOdometerPhoto: transport.checkinOdometerPhoto || "",
+        checkinFuelLevelPhoto: transport.checkinFuelLevelPhoto || "",
         checkinDamagePhotos: transport.checkinDamagePhotos || [],
+        checkinSelfiePhoto: transport.checkinSelfiePhoto || "",
         checkinNotes: transport.checkinNotes || "",
+        // Check-out fields
         checkoutLatitude: transport.checkoutLatitude || "",
         checkoutLongitude: transport.checkoutLongitude || "",
-        checkoutSelfiePhoto: transport.checkoutSelfiePhoto || "",
-        checkoutBodyPhotos: transport.checkoutBodyPhotos || [],
+        checkoutFrontalPhoto: transport.checkoutFrontalPhoto || "",
+        checkoutLateral1Photo: transport.checkoutLateral1Photo || "",
+        checkoutLateral2Photo: transport.checkoutLateral2Photo || "",
+        checkoutTraseiraPhoto: transport.checkoutTraseiraPhoto || "",
         checkoutOdometerPhoto: transport.checkoutOdometerPhoto || "",
+        checkoutFuelLevelPhoto: transport.checkoutFuelLevelPhoto || "",
         checkoutDamagePhotos: transport.checkoutDamagePhotos || [],
+        checkoutSelfiePhoto: transport.checkoutSelfiePhoto || "",
         checkoutNotes: transport.checkoutNotes || "",
       });
     }
@@ -355,10 +385,14 @@ export default function TransportFormPage() {
       return apiRequest("PATCH", `/api/transports/${id}/checkin`, {
         latitude: data.checkinLatitude,
         longitude: data.checkinLongitude,
-        selfiePhoto: data.checkinSelfiePhoto,
-        bodyPhotos: data.checkinBodyPhotos,
+        frontalPhoto: data.checkinFrontalPhoto,
+        lateral1Photo: data.checkinLateral1Photo,
+        lateral2Photo: data.checkinLateral2Photo,
+        traseiraPhoto: data.checkinTraseiraPhoto,
         odometerPhoto: data.checkinOdometerPhoto,
+        fuelLevelPhoto: data.checkinFuelLevelPhoto,
         damagePhotos: data.checkinDamagePhotos,
+        selfiePhoto: data.checkinSelfiePhoto,
         notes: data.checkinNotes,
       });
     },
@@ -379,10 +413,14 @@ export default function TransportFormPage() {
       return apiRequest("PATCH", `/api/transports/${id}/checkout`, {
         latitude: data.checkoutLatitude,
         longitude: data.checkoutLongitude,
-        selfiePhoto: data.checkoutSelfiePhoto,
-        bodyPhotos: data.checkoutBodyPhotos,
+        frontalPhoto: data.checkoutFrontalPhoto,
+        lateral1Photo: data.checkoutLateral1Photo,
+        lateral2Photo: data.checkoutLateral2Photo,
+        traseiraPhoto: data.checkoutTraseiraPhoto,
         odometerPhoto: data.checkoutOdometerPhoto,
+        fuelLevelPhoto: data.checkoutFuelLevelPhoto,
         damagePhotos: data.checkoutDamagePhotos,
+        selfiePhoto: data.checkoutSelfiePhoto,
         notes: data.checkoutNotes,
       });
     },
@@ -759,19 +797,60 @@ export default function TransportFormPage() {
                           Obter Localização
                         </Button>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <p className="text-sm font-medium text-muted-foreground">Fotos do Veículo</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                           <FormField
                             control={form.control}
-                            name="checkinSelfiePhoto"
+                            name="checkinFrontalPhoto"
                             render={({ field }) => (
                               <PhotoUpload
-                                label="Selfie"
+                                label="Frontal"
                                 value={field.value || ""}
                                 onChange={field.onChange}
-                                testId="upload-checkin-selfie"
+                                testId="upload-checkin-frontal"
                               />
                             )}
                           />
+                          <FormField
+                            control={form.control}
+                            name="checkinLateral1Photo"
+                            render={({ field }) => (
+                              <PhotoUpload
+                                label="Lateral 1"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                testId="upload-checkin-lateral1"
+                              />
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="checkinLateral2Photo"
+                            render={({ field }) => (
+                              <PhotoUpload
+                                label="Lateral 2"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                testId="upload-checkin-lateral2"
+                              />
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="checkinTraseiraPhoto"
+                            render={({ field }) => (
+                              <PhotoUpload
+                                label="Traseira"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                testId="upload-checkin-traseira"
+                              />
+                            )}
+                          />
+                        </div>
+
+                        <p className="text-sm font-medium text-muted-foreground">Painel</p>
+                        <div className="grid grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
                             name="checkinOdometerPhoto"
@@ -784,30 +863,43 @@ export default function TransportFormPage() {
                               />
                             )}
                           />
+                          <FormField
+                            control={form.control}
+                            name="checkinFuelLevelPhoto"
+                            render={({ field }) => (
+                              <PhotoUpload
+                                label="Nível de Combustível"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                testId="upload-checkin-fuel"
+                              />
+                            )}
+                          />
                         </div>
-
-                        <FormField
-                          control={form.control}
-                          name="checkinBodyPhotos"
-                          render={({ field }) => (
-                            <MultiPhotoUpload
-                              label="Fotos da Lataria"
-                              values={field.value || []}
-                              onChange={field.onChange}
-                              testId="upload-checkin-body"
-                            />
-                          )}
-                        />
 
                         <FormField
                           control={form.control}
                           name="checkinDamagePhotos"
                           render={({ field }) => (
                             <MultiPhotoUpload
-                              label="Fotos de Avarias"
+                              label="Fotos de Avarias (até 10)"
                               values={field.value || []}
                               onChange={field.onChange}
                               testId="upload-checkin-damage"
+                              maxPhotos={10}
+                            />
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="checkinSelfiePhoto"
+                          render={({ field }) => (
+                            <PhotoUpload
+                              label="Selfie do Motorista"
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              testId="upload-checkin-selfie"
                             />
                           )}
                         />
@@ -849,30 +941,48 @@ export default function TransportFormPage() {
                             <p className="text-sm font-mono">{transport?.checkinLongitude || "-"}</p>
                           </div>
                         </div>
+                        <p className="text-xs text-muted-foreground">Fotos do Veículo</p>
                         <div className="flex flex-wrap gap-2">
-                          {transport?.checkinSelfiePhoto && (
+                          {transport?.checkinFrontalPhoto && (
                             <div>
-                              <p className="text-xs text-muted-foreground mb-1">Selfie</p>
-                              <img src={transport.checkinSelfiePhoto} alt="Selfie" className="h-20 w-20 rounded-md object-cover border" />
+                              <p className="text-xs text-muted-foreground mb-1">Frontal</p>
+                              <img src={transport.checkinFrontalPhoto} alt="Frontal" className="h-16 w-16 rounded-md object-cover border" />
                             </div>
                           )}
-                          {transport?.checkinOdometerPhoto && (
+                          {transport?.checkinLateral1Photo && (
                             <div>
-                              <p className="text-xs text-muted-foreground mb-1">Odômetro</p>
-                              <img src={transport.checkinOdometerPhoto} alt="Odômetro" className="h-20 w-20 rounded-md object-cover border" />
+                              <p className="text-xs text-muted-foreground mb-1">Lateral 1</p>
+                              <img src={transport.checkinLateral1Photo} alt="Lateral 1" className="h-16 w-16 rounded-md object-cover border" />
+                            </div>
+                          )}
+                          {transport?.checkinLateral2Photo && (
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Lateral 2</p>
+                              <img src={transport.checkinLateral2Photo} alt="Lateral 2" className="h-16 w-16 rounded-md object-cover border" />
+                            </div>
+                          )}
+                          {transport?.checkinTraseiraPhoto && (
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Traseira</p>
+                              <img src={transport.checkinTraseiraPhoto} alt="Traseira" className="h-16 w-16 rounded-md object-cover border" />
                             </div>
                           )}
                         </div>
-                        {transport?.checkinBodyPhotos?.length ? (
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Fotos da Lataria</p>
-                            <div className="flex flex-wrap gap-2">
-                              {transport.checkinBodyPhotos.map((photo, i) => (
-                                <img key={i} src={photo} alt={`Lataria ${i + 1}`} className="h-16 w-16 rounded-md object-cover border" />
-                              ))}
+                        <p className="text-xs text-muted-foreground">Painel</p>
+                        <div className="flex flex-wrap gap-2">
+                          {transport?.checkinOdometerPhoto && (
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Odômetro</p>
+                              <img src={transport.checkinOdometerPhoto} alt="Odômetro" className="h-16 w-16 rounded-md object-cover border" />
                             </div>
-                          </div>
-                        ) : null}
+                          )}
+                          {transport?.checkinFuelLevelPhoto && (
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Combustível</p>
+                              <img src={transport.checkinFuelLevelPhoto} alt="Combustível" className="h-16 w-16 rounded-md object-cover border" />
+                            </div>
+                          )}
+                        </div>
                         {transport?.checkinDamagePhotos?.length ? (
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">Fotos de Avarias</p>
@@ -883,6 +993,12 @@ export default function TransportFormPage() {
                             </div>
                           </div>
                         ) : null}
+                        {transport?.checkinSelfiePhoto && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Selfie do Motorista</p>
+                            <img src={transport.checkinSelfiePhoto} alt="Selfie" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
                         {transport?.checkinNotes && (
                           <div>
                             <p className="text-xs text-muted-foreground">Observações</p>
@@ -961,19 +1077,60 @@ export default function TransportFormPage() {
                           Obter Localização
                         </Button>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <p className="text-sm font-medium text-muted-foreground">Fotos do Veículo</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                           <FormField
                             control={form.control}
-                            name="checkoutSelfiePhoto"
+                            name="checkoutFrontalPhoto"
                             render={({ field }) => (
                               <PhotoUpload
-                                label="Selfie"
+                                label="Frontal"
                                 value={field.value || ""}
                                 onChange={field.onChange}
-                                testId="upload-checkout-selfie"
+                                testId="upload-checkout-frontal"
                               />
                             )}
                           />
+                          <FormField
+                            control={form.control}
+                            name="checkoutLateral1Photo"
+                            render={({ field }) => (
+                              <PhotoUpload
+                                label="Lateral 1"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                testId="upload-checkout-lateral1"
+                              />
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="checkoutLateral2Photo"
+                            render={({ field }) => (
+                              <PhotoUpload
+                                label="Lateral 2"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                testId="upload-checkout-lateral2"
+                              />
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="checkoutTraseiraPhoto"
+                            render={({ field }) => (
+                              <PhotoUpload
+                                label="Traseira"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                testId="upload-checkout-traseira"
+                              />
+                            )}
+                          />
+                        </div>
+
+                        <p className="text-sm font-medium text-muted-foreground">Painel</p>
+                        <div className="grid grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
                             name="checkoutOdometerPhoto"
@@ -986,30 +1143,43 @@ export default function TransportFormPage() {
                               />
                             )}
                           />
+                          <FormField
+                            control={form.control}
+                            name="checkoutFuelLevelPhoto"
+                            render={({ field }) => (
+                              <PhotoUpload
+                                label="Nível de Combustível"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                testId="upload-checkout-fuel"
+                              />
+                            )}
+                          />
                         </div>
-
-                        <FormField
-                          control={form.control}
-                          name="checkoutBodyPhotos"
-                          render={({ field }) => (
-                            <MultiPhotoUpload
-                              label="Fotos da Lataria"
-                              values={field.value || []}
-                              onChange={field.onChange}
-                              testId="upload-checkout-body"
-                            />
-                          )}
-                        />
 
                         <FormField
                           control={form.control}
                           name="checkoutDamagePhotos"
                           render={({ field }) => (
                             <MultiPhotoUpload
-                              label="Fotos de Avarias"
+                              label="Fotos de Avarias (até 10)"
                               values={field.value || []}
                               onChange={field.onChange}
                               testId="upload-checkout-damage"
+                              maxPhotos={10}
+                            />
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="checkoutSelfiePhoto"
+                          render={({ field }) => (
+                            <PhotoUpload
+                              label="Selfie do Motorista"
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              testId="upload-checkout-selfie"
                             />
                           )}
                         />
@@ -1055,30 +1225,48 @@ export default function TransportFormPage() {
                             <p className="text-sm font-mono">{transport?.checkoutLongitude || "-"}</p>
                           </div>
                         </div>
+                        <p className="text-xs text-muted-foreground">Fotos do Veículo</p>
                         <div className="flex flex-wrap gap-2">
-                          {transport?.checkoutSelfiePhoto && (
+                          {transport?.checkoutFrontalPhoto && (
                             <div>
-                              <p className="text-xs text-muted-foreground mb-1">Selfie</p>
-                              <img src={transport.checkoutSelfiePhoto} alt="Selfie" className="h-20 w-20 rounded-md object-cover border" />
+                              <p className="text-xs text-muted-foreground mb-1">Frontal</p>
+                              <img src={transport.checkoutFrontalPhoto} alt="Frontal" className="h-16 w-16 rounded-md object-cover border" />
                             </div>
                           )}
-                          {transport?.checkoutOdometerPhoto && (
+                          {transport?.checkoutLateral1Photo && (
                             <div>
-                              <p className="text-xs text-muted-foreground mb-1">Odômetro</p>
-                              <img src={transport.checkoutOdometerPhoto} alt="Odômetro" className="h-20 w-20 rounded-md object-cover border" />
+                              <p className="text-xs text-muted-foreground mb-1">Lateral 1</p>
+                              <img src={transport.checkoutLateral1Photo} alt="Lateral 1" className="h-16 w-16 rounded-md object-cover border" />
+                            </div>
+                          )}
+                          {transport?.checkoutLateral2Photo && (
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Lateral 2</p>
+                              <img src={transport.checkoutLateral2Photo} alt="Lateral 2" className="h-16 w-16 rounded-md object-cover border" />
+                            </div>
+                          )}
+                          {transport?.checkoutTraseiraPhoto && (
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Traseira</p>
+                              <img src={transport.checkoutTraseiraPhoto} alt="Traseira" className="h-16 w-16 rounded-md object-cover border" />
                             </div>
                           )}
                         </div>
-                        {transport?.checkoutBodyPhotos?.length ? (
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Fotos da Lataria</p>
-                            <div className="flex flex-wrap gap-2">
-                              {transport.checkoutBodyPhotos.map((photo, i) => (
-                                <img key={i} src={photo} alt={`Lataria ${i + 1}`} className="h-16 w-16 rounded-md object-cover border" />
-                              ))}
+                        <p className="text-xs text-muted-foreground">Painel</p>
+                        <div className="flex flex-wrap gap-2">
+                          {transport?.checkoutOdometerPhoto && (
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Odômetro</p>
+                              <img src={transport.checkoutOdometerPhoto} alt="Odômetro" className="h-16 w-16 rounded-md object-cover border" />
                             </div>
-                          </div>
-                        ) : null}
+                          )}
+                          {transport?.checkoutFuelLevelPhoto && (
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Combustível</p>
+                              <img src={transport.checkoutFuelLevelPhoto} alt="Combustível" className="h-16 w-16 rounded-md object-cover border" />
+                            </div>
+                          )}
+                        </div>
                         {transport?.checkoutDamagePhotos?.length ? (
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">Fotos de Avarias</p>
@@ -1089,6 +1277,12 @@ export default function TransportFormPage() {
                             </div>
                           </div>
                         ) : null}
+                        {transport?.checkoutSelfiePhoto && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Selfie do Motorista</p>
+                            <img src={transport.checkoutSelfiePhoto} alt="Selfie" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
                         {transport?.checkoutNotes && (
                           <div>
                             <p className="text-xs text-muted-foreground">Observações</p>
