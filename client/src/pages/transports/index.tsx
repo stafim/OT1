@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { PageHeader } from "@/components/page-header";
@@ -15,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye, Navigation } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { normalizeImageUrl } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -271,6 +272,15 @@ export default function TransportsPage() {
     deliveryDate: "",
     notes: "",
   });
+  const [routeSummary, setRouteSummary] = useState<{
+    distance: { text: string; value: number };
+    duration: { text: string; value: number };
+    tollCost: { amount: string; currency: string } | null;
+    originAddress: string;
+    destinationAddress: string;
+    fuelCost: number;
+  } | null>(null);
+  const [loadingRoute, setLoadingRoute] = useState(false);
   const { toast } = useToast();
 
   const { data: transports, isLoading } = useQuery<TransportWithRelations[]>({
@@ -289,6 +299,53 @@ export default function TransportsPage() {
   const clientDeliveryLocations = deliveryLocations?.filter(
     loc => loc.clientId === newTransportData.clientId
   ) || [];
+
+  // Fetch route summary when origin and destination are selected
+  useEffect(() => {
+    const fetchRouteSummary = async () => {
+      if (!newTransportData.originYardId || !newTransportData.deliveryLocationId) {
+        setRouteSummary(null);
+        return;
+      }
+
+      const originYard = yards?.find(y => y.id === newTransportData.originYardId);
+      const destLocation = deliveryLocations?.find(l => l.id === newTransportData.deliveryLocationId);
+
+      if (!originYard?.latitude || !originYard?.longitude || !destLocation?.latitude || !destLocation?.longitude) {
+        setRouteSummary(null);
+        return;
+      }
+
+      setLoadingRoute(true);
+      try {
+        const response = await apiRequest("POST", "/api/routing/calculate", {
+          origin: { lat: parseFloat(originYard.latitude), lng: parseFloat(originYard.longitude) },
+          destination: { lat: parseFloat(destLocation.latitude), lng: parseFloat(destLocation.longitude) },
+        });
+
+        const data = await response.json();
+        
+        // Calculate fuel cost based on 4 km/liter consumption
+        // Assuming average diesel price of R$ 6.50/liter
+        const distanceKm = data.distance.value / 1000;
+        const litersNeeded = distanceKm / 4;
+        const fuelPricePerLiter = 6.50;
+        const fuelCost = litersNeeded * fuelPricePerLiter;
+
+        setRouteSummary({
+          ...data,
+          fuelCost,
+        });
+      } catch (error) {
+        console.error("Error fetching route:", error);
+        setRouteSummary(null);
+      } finally {
+        setLoadingRoute(false);
+      }
+    };
+
+    fetchRouteSummary();
+  }, [newTransportData.originYardId, newTransportData.deliveryLocationId, yards, deliveryLocations]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -1267,7 +1324,89 @@ export default function TransportsPage() {
                   <p className="text-xs text-muted-foreground">Nenhum local de entrega cadastrado para este cliente</p>
                 )}
               </div>
+            </div>
 
+            {/* Route Summary Card */}
+            {(loadingRoute || routeSummary) && (
+              <Card className="bg-muted/50">
+                <CardHeader className="py-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Navigation className="h-4 w-4" />
+                    Resumo da Viagem
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="py-2">
+                  {loadingRoute ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-sm text-muted-foreground">Calculando rota...</span>
+                    </div>
+                  ) : routeSummary ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-green-600" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Origem</p>
+                            <p className="font-medium truncate" title={routeSummary.originAddress}>
+                              {routeSummary.originAddress}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-red-600" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Destino</p>
+                            <p className="font-medium truncate" title={routeSummary.destinationAddress}>
+                              {routeSummary.destinationAddress}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t">
+                        <div className="text-center p-2 bg-background rounded">
+                          <p className="text-xs text-muted-foreground">Distância</p>
+                          <p className="font-semibold text-primary">{routeSummary.distance.text}</p>
+                        </div>
+                        <div className="text-center p-2 bg-background rounded">
+                          <p className="text-xs text-muted-foreground">Tempo Estimado</p>
+                          <p className="font-semibold text-primary">{routeSummary.duration.text}</p>
+                        </div>
+                        <div className="text-center p-2 bg-background rounded">
+                          <p className="text-xs text-muted-foreground">Pedágios</p>
+                          <p className="font-semibold text-orange-600">
+                            {routeSummary.tollCost 
+                              ? `R$ ${parseFloat(routeSummary.tollCost.amount).toFixed(2)}`
+                              : "Sem pedágios"}
+                          </p>
+                        </div>
+                        <div className="text-center p-2 bg-background rounded">
+                          <p className="text-xs text-muted-foreground">Combustível (4km/L)</p>
+                          <p className="font-semibold text-blue-600">
+                            R$ {routeSummary.fuelCost.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Custo Total Estimado:</span>
+                          <span className="font-bold text-lg">
+                            R$ {(routeSummary.fuelCost + (routeSummary.tollCost ? parseFloat(routeSummary.tollCost.amount) : 0)).toFixed(2)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          * Baseado em consumo de 4 km/litro e diesel a R$ 6,50/litro
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Motorista</Label>
                 <Select
