@@ -1343,21 +1343,21 @@ export default function TransportsPage() {
                     </div>
                   ) : routeSummary ? (
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-green-600" />
-                          <div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-start gap-2 p-2 bg-background rounded">
+                          <MapPin className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                          <div className="min-w-0 flex-1">
                             <p className="text-xs text-muted-foreground">Origem</p>
-                            <p className="font-medium truncate" title={routeSummary.originAddress}>
+                            <p className="font-medium break-words" title={routeSummary.originAddress}>
                               {routeSummary.originAddress}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-red-600" />
-                          <div>
+                        <div className="flex items-start gap-2 p-2 bg-background rounded">
+                          <MapPin className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                          <div className="min-w-0 flex-1">
                             <p className="text-xs text-muted-foreground">Destino</p>
-                            <p className="font-medium truncate" title={routeSummary.destinationAddress}>
+                            <p className="font-medium break-words" title={routeSummary.destinationAddress}>
                               {routeSummary.destinationAddress}
                             </p>
                           </div>
