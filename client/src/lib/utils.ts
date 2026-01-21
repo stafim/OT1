@@ -7,7 +7,11 @@ export function cn(...inputs: ClassValue[]) {
 
 export function normalizeImageUrl(url: string | null | undefined): string {
   if (!url) return "";
-  if (url.startsWith("/api/object-storage")) return url;
-  if (url.startsWith("/objects/")) return `/api/object-storage${url}`;
+  // URLs já no formato correto
+  if (url.startsWith("/objects/")) return url;
+  // URLs antigas com prefixo /api/object-storage - remover prefixo
+  if (url.startsWith("/api/object-storage/objects/")) {
+    return url.replace("/api/object-storage", "");
+  }
   return url;
 }
