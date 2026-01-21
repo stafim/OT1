@@ -32,16 +32,27 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, X, CreditCard } from "lucide-react";
 import type { Driver } from "@shared/schema";
-import { fetchAddressFromCep } from "@/lib/cep";
 import { getAccessToken } from "@/hooks/use-auth";
-
-const brazilianStates = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-] as const;
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 const cnhTypes = ["A", "B", "C", "D", "E", "AB", "AC", "AD", "AE"] as const;
+
+function buildFullAddress(driver: Driver): string {
+  const parts = [];
+  if (driver.address) {
+    let addressPart = driver.address;
+    if (driver.addressNumber) addressPart += `, ${driver.addressNumber}`;
+    parts.push(addressPart);
+  }
+  if (driver.neighborhood) parts.push(driver.neighborhood);
+  if (driver.city) {
+    let cityPart = driver.city;
+    if (driver.state) cityPart += ` - ${driver.state}`;
+    parts.push(cityPart);
+  }
+  if (driver.cep) parts.push(driver.cep);
+  return parts.join(", ");
+}
 
 const driverFormSchema = z.object({
   name: z.string().min(2, "Nome é obrigatório"),
@@ -49,13 +60,16 @@ const driverFormSchema = z.object({
   phone: z.string().min(10, "Telefone é obrigatório"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   birthDate: z.string().min(1, "Data de nascimento é obrigatória"),
-  cep: z.string().min(8, "CEP é obrigatório"),
-  address: z.string().min(5, "Endereço é obrigatório"),
-  addressNumber: z.string().min(1, "Número é obrigatório"),
+  fullAddress: z.string().min(1, "Endereço é obrigatório"),
+  cep: z.string().optional(),
+  address: z.string().optional(),
+  addressNumber: z.string().optional(),
   complement: z.string().optional(),
-  neighborhood: z.string().min(2, "Bairro é obrigatório"),
-  city: z.string().min(2, "Município é obrigatório"),
-  state: z.enum(brazilianStates, { required_error: "UF é obrigatória" }),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
   modality: z.enum(["pj", "clt", "agregado"], { required_error: "Modalidade é obrigatória" }),
   cnhType: z.enum(cnhTypes, { required_error: "Tipo de CNH é obrigatório" }),
   cnhFrontPhoto: z.string().optional(),
@@ -82,7 +96,6 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
   });
 
   const [isUploading, setIsUploading] = useState(false);
-  const [isFetchingCep, setIsFetchingCep] = useState(false);
 
   const form = useForm<DriverFormData>({
     resolver: zodResolver(driverFormSchema),
@@ -92,13 +105,16 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
       phone: "",
       email: "",
       birthDate: "",
+      fullAddress: "",
       cep: "",
       address: "",
       addressNumber: "",
       complement: "",
       neighborhood: "",
       city: "",
-      state: undefined,
+      state: "",
+      latitude: "",
+      longitude: "",
       modality: undefined,
       cnhType: undefined,
       cnhFrontPhoto: "",
@@ -116,13 +132,16 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
         phone: driver.phone || "",
         email: driver.email || "",
         birthDate: driver.birthDate || "",
+        fullAddress: buildFullAddress(driver),
         cep: driver.cep || "",
         address: driver.address || "",
         addressNumber: driver.addressNumber || "",
         complement: driver.complement || "",
         neighborhood: driver.neighborhood || "",
         city: driver.city || "",
-        state: (driver.state as typeof brazilianStates[number]) || undefined,
+        state: driver.state || "",
+        latitude: driver.latitude || "",
+        longitude: driver.longitude || "",
         modality: driver.modality,
         cnhType: driver.cnhType as typeof cnhTypes[number],
         cnhFrontPhoto: driver.cnhFrontPhoto || "",
@@ -137,13 +156,16 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
         phone: "",
         email: "",
         birthDate: "",
+        fullAddress: "",
         cep: "",
         address: "",
         addressNumber: "",
         complement: "",
         neighborhood: "",
         city: "",
-        state: undefined,
+        state: "",
+        latitude: "",
+        longitude: "",
         modality: undefined,
         cnhType: undefined,
         cnhFrontPhoto: "",
@@ -217,32 +239,44 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
     mutation.mutate(data);
   };
 
-  const handleCepBlur = async (cepValue: string) => {
-    const cleanCep = cepValue.replace(/\D/g, "");
-    if (cleanCep.length !== 8) return;
-
-    setIsFetchingCep(true);
-    try {
-      const addressData = await fetchAddressFromCep(cleanCep);
-      if (addressData) {
-        form.setValue("address", addressData.address);
-        form.setValue("neighborhood", addressData.neighborhood);
-        form.setValue("city", addressData.city);
-        form.setValue("state", addressData.state as typeof brazilianStates[number]);
-        toast({ title: "Endereço preenchido automaticamente" });
-      } else {
-        toast({ title: "CEP não encontrado", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao buscar CEP", variant: "destructive" });
-    } finally {
-      setIsFetchingCep(false);
+  const handleAddressSelect = (addressData: {
+    address: string;
+    addressNumber: string;
+    complement: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    cep: string;
+    formattedAddress: string;
+    latitude?: number;
+    longitude?: number;
+  }) => {
+    form.setValue("fullAddress", addressData.formattedAddress);
+    form.setValue("address", addressData.address);
+    form.setValue("addressNumber", addressData.addressNumber);
+    form.setValue("neighborhood", addressData.neighborhood);
+    form.setValue("city", addressData.city);
+    form.setValue("state", addressData.state);
+    form.setValue("cep", addressData.cep);
+    if (addressData.latitude) {
+      form.setValue("latitude", String(addressData.latitude));
+    }
+    if (addressData.longitude) {
+      form.setValue("longitude", String(addressData.longitude));
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+      <DialogContent 
+        className="max-w-4xl max-h-[90vh] p-0"
+        onPointerDownOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-address-suggestion]')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>{isEditing ? "Editar Motorista" : "Novo Motorista"}</DialogTitle>
         </DialogHeader>
@@ -328,54 +362,21 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
 
                 <div className="space-y-4">
                   <h3 className="font-medium text-sm text-muted-foreground">Endereço</h3>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
-                      name="cep"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>CEP *</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input 
-                                {...field} 
-                                placeholder="00000-000" 
-                                data-testid="input-driver-cep"
-                                onBlur={(e) => {
-                                  field.onBlur();
-                                  handleCepBlur(e.target.value);
-                                }}
-                              />
-                              {isFetchingCep && (
-                                <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                              )}
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="address"
+                      name="fullAddress"
                       render={({ field }) => (
                         <FormItem className="md:col-span-2">
                           <FormLabel>Endereço *</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-driver-address" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="addressNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Número *</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-driver-number" />
+                            <AddressAutocomplete
+                              value={field.value || ""}
+                              onChange={handleAddressSelect}
+                              onInputChange={field.onChange}
+                              placeholder="Digite o endereço para buscar..."
+                              testId="input-driver-address"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -385,61 +386,11 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
                       control={form.control}
                       name="complement"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="md:col-span-2">
                           <FormLabel>Complemento</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-driver-complement" />
+                            <Input {...field} placeholder="Apto, Casa, Bloco..." data-testid="input-driver-complement" />
                           </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="neighborhood"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bairro *</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-driver-neighborhood" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Município *</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-driver-city" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>UF *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-driver-state">
-                                <SelectValue placeholder="Selecione" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {brazilianStates.map((state) => (
-                                <SelectItem key={state} value={state}>
-                                  {state}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -599,6 +550,10 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
                       )}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium text-sm text-muted-foreground">Status</h3>
                   <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
@@ -606,8 +561,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                           <div className="space-y-0.5">
-                            <FormLabel className="text-base">Apto para Serviço</FormLabel>
-                            <p className="text-xs text-muted-foreground">Motorista disponível para transportes</p>
+                            <FormLabel className="text-base">Apto para Trabalhar</FormLabel>
                           </div>
                           <FormControl>
                             <Switch
