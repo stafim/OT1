@@ -302,20 +302,24 @@ export default function TransportsPage() {
 
   // Fetch route summary when origin and destination are selected
   useEffect(() => {
+    // Reset summary immediately when inputs change
+    setRouteSummary(null);
+    
+    const originYardId = newTransportData.originYardId;
+    const deliveryLocationId = newTransportData.deliveryLocationId;
+    
+    if (!originYardId || !deliveryLocationId) {
+      return;
+    }
+
+    const originYard = yards?.find(y => y.id === originYardId);
+    const destLocation = deliveryLocations?.find(l => l.id === deliveryLocationId);
+
+    if (!originYard?.latitude || !originYard?.longitude || !destLocation?.latitude || !destLocation?.longitude) {
+      return;
+    }
+
     const fetchRouteSummary = async () => {
-      if (!newTransportData.originYardId || !newTransportData.deliveryLocationId) {
-        setRouteSummary(null);
-        return;
-      }
-
-      const originYard = yards?.find(y => y.id === newTransportData.originYardId);
-      const destLocation = deliveryLocations?.find(l => l.id === newTransportData.deliveryLocationId);
-
-      if (!originYard?.latitude || !originYard?.longitude || !destLocation?.latitude || !destLocation?.longitude) {
-        setRouteSummary(null);
-        return;
-      }
-
       setLoadingRoute(true);
       try {
         const response = await apiRequest("POST", "/api/routing/calculate", {
