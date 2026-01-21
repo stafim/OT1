@@ -17,6 +17,7 @@ export const vehicleStatusEnum = pgEnum("vehicle_status", [
 
 export const transportStatusEnum = pgEnum("transport_status", [
   "pendente",
+  "aguardando_saida",
   "em_transito",
   "entregue",
   "cancelado"

@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 type VehicleStatus = "pre_estoque" | "em_estoque" | "despachado" | "entregue" | "retirado";
-type TransportStatus = "pendente" | "em_transito" | "entregue" | "cancelado";
+type TransportStatus = "pendente" | "aguardando_saida" | "em_transito" | "entregue" | "cancelado";
 type CollectStatus = "em_transito" | "aguardando_checkout" | "finalizada";
 type NotificationStatus = "pendente" | "aceito" | "recusado";
 
@@ -15,6 +15,7 @@ const statusConfig: Record<StatusType, { label: string; className: string }> = {
   entregue: { label: "Entregue", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
   retirado: { label: "Retirado", className: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400" },
   pendente: { label: "Pendente", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+  aguardando_saida: { label: "Aguardando Saída", className: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" },
   em_transito: { label: "Em trânsito", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
   aguardando_checkout: { label: "Aguardando Checkout", className: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" },
   finalizada: { label: "Finalizada", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },

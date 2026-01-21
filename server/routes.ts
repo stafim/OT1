@@ -624,9 +624,10 @@ export async function registerRoutes(
         });
       }
 
-      // Update transport status to em_transito
+      // Update transport status to em_transito and set transit start time
       await storage.updateTransport(req.params.id, { 
         status: "em_transito",
+        transitStartedAt: new Date(),
       });
 
       res.json({ success: true, message: "Saída autorizada com sucesso" });
@@ -775,8 +776,7 @@ export async function registerRoutes(
         checkinDamagePhotos: damagePhotos || [],
         checkinSelfiePhoto: selfiePhoto,
         checkinNotes: notes,
-        status: "em_transito",
-        transitStartedAt: new Date(),
+        status: "aguardando_saida",
       });
       
       // Update vehicle status to "despachado" (dispatched)
