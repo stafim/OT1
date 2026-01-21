@@ -1410,5 +1410,202 @@ export async function registerRoutes(
     }
   });
 
+  // ============== PRESTAÇÃO DE CONTAS (Expense Settlements) ==============
+  app.get("/api/expense-settlements", async (req, res) => {
+    try {
+      const settlements = await storage.getExpenseSettlements();
+      
+      // Enrich with related data
+      const enrichedSettlements = await Promise.all(
+        settlements.map(async (settlement) => {
+          const [transport, driver, items] = await Promise.all([
+            storage.getTransport(settlement.transportId),
+            storage.getDriver(settlement.driverId),
+            storage.getExpenseSettlementItems(settlement.id),
+          ]);
+          
+          // Get transport related data
+          let client = null;
+          let deliveryLocation = null;
+          let originYard = null;
+          
+          if (transport) {
+            [client, deliveryLocation, originYard] = await Promise.all([
+              transport.clientId ? storage.getClient(transport.clientId) : null,
+              transport.deliveryLocationId ? storage.getDeliveryLocation(transport.deliveryLocationId) : null,
+              transport.originYardId ? storage.getYard(transport.originYardId) : null,
+            ]);
+          }
+          
+          return {
+            ...settlement,
+            transport: transport ? { ...transport, client, deliveryLocation, originYard } : null,
+            driver,
+            items,
+          };
+        })
+      );
+      
+      res.json(enrichedSettlements);
+    } catch (error) {
+      console.error("Error fetching expense settlements:", error);
+      res.status(500).json({ message: "Failed to fetch expense settlements" });
+    }
+  });
+
+  app.get("/api/expense-settlements/:id", async (req, res) => {
+    try {
+      const settlement = await storage.getExpenseSettlement(req.params.id);
+      if (!settlement) {
+        return res.status(404).json({ message: "Expense settlement not found" });
+      }
+      
+      const [transport, driver, items] = await Promise.all([
+        storage.getTransport(settlement.transportId),
+        storage.getDriver(settlement.driverId),
+        storage.getExpenseSettlementItems(settlement.id),
+      ]);
+      
+      let client = null;
+      let deliveryLocation = null;
+      let originYard = null;
+      
+      if (transport) {
+        [client, deliveryLocation, originYard] = await Promise.all([
+          transport.clientId ? storage.getClient(transport.clientId) : null,
+          transport.deliveryLocationId ? storage.getDeliveryLocation(transport.deliveryLocationId) : null,
+          transport.originYardId ? storage.getYard(transport.originYardId) : null,
+        ]);
+      }
+      
+      res.json({
+        ...settlement,
+        transport: transport ? { ...transport, client, deliveryLocation, originYard } : null,
+        driver,
+        items,
+      });
+    } catch (error) {
+      console.error("Error fetching expense settlement:", error);
+      res.status(500).json({ message: "Failed to fetch expense settlement" });
+    }
+  });
+
+  app.post("/api/expense-settlements", async (req, res) => {
+    try {
+      const settlement = await storage.createExpenseSettlement(req.body);
+      res.status(201).json(settlement);
+    } catch (error) {
+      console.error("Error creating expense settlement:", error);
+      res.status(500).json({ message: "Failed to create expense settlement" });
+    }
+  });
+
+  app.patch("/api/expense-settlements/:id", async (req, res) => {
+    try {
+      const settlement = await storage.updateExpenseSettlement(req.params.id, req.body);
+      if (!settlement) {
+        return res.status(404).json({ message: "Expense settlement not found" });
+      }
+      res.json(settlement);
+    } catch (error) {
+      console.error("Error updating expense settlement:", error);
+      res.status(500).json({ message: "Failed to update expense settlement" });
+    }
+  });
+
+  // Devolver prestação para motorista
+  app.post("/api/expense-settlements/:id/return", async (req, res) => {
+    try {
+      const { returnReason } = req.body;
+      const settlement = await storage.updateExpenseSettlement(req.params.id, {
+        status: "devolvido",
+        returnReason,
+        reviewedAt: new Date(),
+      });
+      if (!settlement) {
+        return res.status(404).json({ message: "Expense settlement not found" });
+      }
+      res.json(settlement);
+    } catch (error) {
+      console.error("Error returning expense settlement:", error);
+      res.status(500).json({ message: "Failed to return expense settlement" });
+    }
+  });
+
+  // Aprovar prestação de contas
+  app.post("/api/expense-settlements/:id/approve", async (req, res) => {
+    try {
+      const settlement = await storage.updateExpenseSettlement(req.params.id, {
+        status: "aprovado",
+        approvedAt: new Date(),
+        reviewedAt: new Date(),
+      });
+      if (!settlement) {
+        return res.status(404).json({ message: "Expense settlement not found" });
+      }
+      res.json(settlement);
+    } catch (error) {
+      console.error("Error approving expense settlement:", error);
+      res.status(500).json({ message: "Failed to approve expense settlement" });
+    }
+  });
+
+  app.delete("/api/expense-settlements/:id", async (req, res) => {
+    try {
+      await storage.deleteExpenseSettlement(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting expense settlement:", error);
+      res.status(500).json({ message: "Failed to delete expense settlement" });
+    }
+  });
+
+  // Settlement Items
+  app.get("/api/expense-settlements/:settlementId/items", async (req, res) => {
+    try {
+      const items = await storage.getExpenseSettlementItems(req.params.settlementId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching expense settlement items:", error);
+      res.status(500).json({ message: "Failed to fetch expense settlement items" });
+    }
+  });
+
+  app.post("/api/expense-settlements/:settlementId/items", async (req, res) => {
+    try {
+      const item = await storage.createExpenseSettlementItem({
+        ...req.body,
+        settlementId: req.params.settlementId,
+      });
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating expense settlement item:", error);
+      res.status(500).json({ message: "Failed to create expense settlement item" });
+    }
+  });
+
+  app.patch("/api/expense-settlement-items/:id", async (req, res) => {
+    try {
+      const item = await storage.updateExpenseSettlementItem(req.params.id, req.body);
+      if (!item) {
+        return res.status(404).json({ message: "Expense settlement item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating expense settlement item:", error);
+      res.status(500).json({ message: "Failed to update expense settlement item" });
+    }
+  });
+
+  app.delete("/api/expense-settlement-items/:id", async (req, res) => {
+    try {
+      await storage.deleteExpenseSettlementItem(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting expense settlement item:", error);
+      res.status(500).json({ message: "Failed to delete expense settlement item" });
+    }
+  });
+
   return httpServer;
 }
