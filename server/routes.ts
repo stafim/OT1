@@ -284,6 +284,16 @@ export async function registerRoutes(
   });
 
   // Delivery Locations
+  app.get("/api/delivery-locations", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const data = await storage.getAllDeliveryLocations();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching all delivery locations:", error);
+      res.status(500).json({ message: "Failed to fetch delivery locations" });
+    }
+  });
+
   app.get("/api/clients/:clientId/locations", isAuthenticatedJWT, async (req, res) => {
     try {
       const data = await storage.getDeliveryLocations(req.params.clientId);

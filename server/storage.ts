@@ -45,6 +45,7 @@ export interface IStorage {
   deleteClient(id: string): Promise<void>;
 
   // Delivery Locations
+  getAllDeliveryLocations(): Promise<DeliveryLocation[]>;
   getDeliveryLocations(clientId: string): Promise<DeliveryLocation[]>;
   getDeliveryLocation(id: string): Promise<DeliveryLocation | undefined>;
   createDeliveryLocation(location: InsertDeliveryLocation): Promise<DeliveryLocation>;
@@ -201,6 +202,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Delivery Locations
+  async getAllDeliveryLocations(): Promise<DeliveryLocation[]> {
+    return db.select().from(deliveryLocations);
+  }
+
   async getDeliveryLocations(clientId: string): Promise<DeliveryLocation[]> {
     return db.select().from(deliveryLocations).where(eq(deliveryLocations.clientId, clientId));
   }
