@@ -95,7 +95,7 @@ function PhotoUpload({ label, value, onChange, testId }: PhotoUploadProps) {
       <p className="text-sm font-medium">{label}</p>
       {value ? (
         <div className="relative inline-block">
-          <img src={normalizeImageUrl(value)} alt={label} className="h-24 w-24 rounded-md object-cover border" />
+          <img src={value} alt={label} className="h-24 w-24 rounded-md object-cover border" />
           <Button
             type="button"
             size="icon"
@@ -181,7 +181,7 @@ function MultiPhotoUpload({ label, values = [], onChange, testId, maxPhotos = 5 
       <div className="flex flex-wrap gap-2">
         {values.map((url, index) => (
           <div key={index} className="relative">
-            <img src={normalizeImageUrl(url)} alt={`${label} ${index + 1}`} className="h-20 w-20 rounded-md object-cover border" />
+            <img src={url} alt={`${label} ${index + 1}`} className="h-20 w-20 rounded-md object-cover border" />
             <Button
               type="button"
               size="icon"
