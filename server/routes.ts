@@ -1311,6 +1311,11 @@ export async function registerRoutes(
             destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
             travelMode: "DRIVE",
             extraComputations: ["TOLLS"],
+            routeModifiers: {
+              vehicleInfo: {
+                emissionType: "DIESEL"
+              }
+            }
           };
 
           if (intermediates.length > 0) {
@@ -1328,6 +1333,9 @@ export async function registerRoutes(
           });
 
           const routesData = await routesResponse.json();
+          console.log("Routes API toll response:", JSON.stringify(routesData, null, 2));
+          
+          // Check for toll info at route level
           if (routesData.routes?.[0]?.travelAdvisory?.tollInfo?.estimatedPrice?.[0]) {
             const toll = routesData.routes[0].travelAdvisory.tollInfo.estimatedPrice[0];
             const amount = parseFloat(toll.units || "0") + (parseFloat(toll.nanos || "0") / 1000000000);
@@ -1335,6 +1343,28 @@ export async function registerRoutes(
               amount: amount.toFixed(2),
               currency: toll.currencyCode || "BRL",
             };
+          } 
+          // Check for toll info at legs level (sum all legs)
+          else if (routesData.routes?.[0]?.legs) {
+            let totalToll = 0;
+            let currency = "BRL";
+            for (const leg of routesData.routes[0].legs) {
+              if (leg.travelAdvisory?.tollInfo?.estimatedPrice?.[0]) {
+                const toll = leg.travelAdvisory.tollInfo.estimatedPrice[0];
+                totalToll += parseFloat(toll.units || "0") + (parseFloat(toll.nanos || "0") / 1000000000);
+                currency = toll.currencyCode || "BRL";
+              }
+            }
+            if (totalToll > 0) {
+              tollCost = {
+                amount: totalToll.toFixed(2),
+                currency,
+              };
+            }
+          }
+          
+          if (routesData.error) {
+            console.log("Routes API error:", routesData.error);
           }
         } catch (tollError) {
           console.log("Could not fetch toll information:", tollError);
