@@ -1043,6 +1043,72 @@ export async function registerRoutes(
     }
   });
 
+  // Global place search endpoint (no region restrictions)
+  app.get("/api/integrations/google-maps/places/search", isAuthenticatedJWT, async (req: any, res) => {
+    try {
+      const { query } = req.query;
+      if (!query || typeof query !== "string" || query.length < 3) {
+        return res.json({ predictions: [] });
+      }
+
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ message: "Google Maps API key not configured" });
+      }
+
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${apiKey}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === "OK" && data.predictions) {
+        const predictions = data.predictions.map((p: any) => ({
+          placeId: p.place_id,
+          description: p.description,
+        }));
+        return res.json({ predictions });
+      }
+
+      res.json({ predictions: [] });
+    } catch (error) {
+      console.error("Error searching places:", error);
+      res.status(500).json({ message: "Failed to search places" });
+    }
+  });
+
+  // Get place details by place ID
+  app.get("/api/integrations/google-maps/places/:placeId", isAuthenticatedJWT, async (req: any, res) => {
+    try {
+      const { placeId } = req.params;
+      if (!placeId) {
+        return res.status(400).json({ message: "Place ID required" });
+      }
+
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ message: "Google Maps API key not configured" });
+      }
+
+      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=geometry,formatted_address&key=${apiKey}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === "OK" && data.result) {
+        return res.json({
+          address: data.result.formatted_address,
+          lat: data.result.geometry?.location?.lat,
+          lng: data.result.geometry?.location?.lng,
+        });
+      }
+
+      res.status(404).json({ message: "Place not found" });
+    } catch (error) {
+      console.error("Error getting place details:", error);
+      res.status(500).json({ message: "Failed to get place details" });
+    }
+  });
+
   app.get("/api/integrations/google-maps/key", isAuthenticatedJWT, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -132,66 +132,67 @@ export default function RoutingPage() {
     setIsMapReady(true);
   };
 
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const searchAddress = (query: string) => {
     setNewWaypointAddress(query);
     
-    if (!query.trim() || query.length < 3 || !autocompleteServiceRef.current) {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    if (!query.trim() || query.length < 3) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
-    autocompleteServiceRef.current.getPlacePredictions(
-      {
-        input: query,
-        types: ["geocode", "establishment"],
-      },
-      (predictions, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-          setSuggestions(
-            predictions.map((p) => ({
-              placeId: p.place_id,
-              description: p.description,
-            }))
-          );
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await apiRequest("GET", `/api/integrations/google-maps/places/search?query=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        
+        if (data.predictions && data.predictions.length > 0) {
+          setSuggestions(data.predictions);
           setShowSuggestions(true);
         } else {
           setSuggestions([]);
           setShowSuggestions(false);
         }
+      } catch {
+        setSuggestions([]);
+        setShowSuggestions(false);
       }
-    );
+    }, 300);
   };
 
-  const selectSuggestion = (suggestion: AddressSuggestion) => {
-    if (!placesServiceRef.current) return;
-
+  const selectSuggestion = async (suggestion: AddressSuggestion) => {
     setIsSearchingWaypoint(true);
     setShowSuggestions(false);
 
-    placesServiceRef.current.getDetails(
-      {
-        placeId: suggestion.placeId,
-        fields: ["geometry", "formatted_address"],
-      },
-      (place, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
-          const newWaypoint: Waypoint = {
-            id: Date.now().toString(),
-            address: place.formatted_address || suggestion.description,
-            lat: place.geometry.location.lat(),
-            lng: place.geometry.location.lng(),
-          };
-          setWaypoints([...waypoints, newWaypoint]);
-          setNewWaypointAddress("");
-          setSuggestions([]);
-          setError(null);
-        } else {
-          setError("Não foi possível obter detalhes do endereço");
-        }
-        setIsSearchingWaypoint(false);
+    try {
+      const response = await apiRequest("GET", `/api/integrations/google-maps/places/${suggestion.placeId}`);
+      const data = await response.json();
+
+      if (data.lat && data.lng) {
+        const newWaypoint: Waypoint = {
+          id: Date.now().toString(),
+          address: data.address || suggestion.description,
+          lat: data.lat,
+          lng: data.lng,
+        };
+        setWaypoints([...waypoints, newWaypoint]);
+        setNewWaypointAddress("");
+        setSuggestions([]);
+        setError(null);
+      } else {
+        setError("Não foi possível obter detalhes do endereço");
       }
-    );
+    } catch {
+      setError("Não foi possível obter detalhes do endereço");
+    } finally {
+      setIsSearchingWaypoint(false);
+    }
   };
 
   const removeWaypoint = (id: string) => {
