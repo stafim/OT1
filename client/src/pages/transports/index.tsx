@@ -41,6 +41,8 @@ interface TransportWithRelations extends Transport {
   client?: { name: string };
   driver?: { name: string; phone: string };
   deliveryLocation?: { name: string; city: string; state: string };
+  createdByUser?: { id: string; username: string; firstName: string | null; lastName: string | null };
+  driverAssignedByUser?: { id: string; username: string; firstName: string | null; lastName: string | null };
 }
 
 interface PhotoUploadProps {
@@ -578,8 +580,19 @@ export default function TransportsPage() {
                     <p><span className="font-medium">Local de Entrega:</span> {viewTransport.deliveryLocation ? `${viewTransport.deliveryLocation.name} - ${viewTransport.deliveryLocation.city}/${viewTransport.deliveryLocation.state}` : "-"}</p>
                     <p><span className="font-medium">Motorista:</span> {viewTransport.driver?.name || "-"}</p>
                     <p><span className="font-medium">Data de Entrega:</span> {viewTransport.deliveryDate ? format(new Date(viewTransport.deliveryDate), "dd/MM/yyyy", { locale: ptBR }) : "-"}</p>
-                    <p><span className="font-medium">Criado em:</span> {viewTransport.createdAt ? format(new Date(viewTransport.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</p>
                     {viewTransport.notes && <p><span className="font-medium">Observações:</span> {viewTransport.notes}</p>}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Rastreabilidade</h3>
+                  <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
+                    <p><span className="font-medium">Criado por:</span> {viewTransport.createdByUser ? `${viewTransport.createdByUser.firstName || ''} ${viewTransport.createdByUser.lastName || ''} (${viewTransport.createdByUser.username})`.trim() : "-"}</p>
+                    <p><span className="font-medium">Criado em:</span> {viewTransport.createdAt ? format(new Date(viewTransport.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</p>
+                    <p><span className="font-medium">Motorista adicionado por:</span> {viewTransport.driverAssignedByUser ? `${viewTransport.driverAssignedByUser.firstName || ''} ${viewTransport.driverAssignedByUser.lastName || ''} (${viewTransport.driverAssignedByUser.username})`.trim() : "-"}</p>
+                    <p><span className="font-medium">Motorista adicionado em:</span> {viewTransport.driverAssignedAt ? format(new Date(viewTransport.driverAssignedAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</p>
+                    <p><span className="font-medium">Saída para trânsito:</span> {viewTransport.transitStartedAt ? format(new Date(viewTransport.transitStartedAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</p>
+                    <p><span className="font-medium">Check-in:</span> {viewTransport.checkinDateTime ? format(new Date(viewTransport.checkinDateTime), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</p>
+                    <p><span className="font-medium">Check-out:</span> {viewTransport.checkoutDateTime ? format(new Date(viewTransport.checkoutDateTime), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</p>
                   </div>
                 </div>
               </div>

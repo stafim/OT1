@@ -21,6 +21,7 @@ import {
   deliveryLocations,
   collects,
   featureKeys,
+  systemUsers,
   type FeatureKey,
 } from "@shared/schema";
 import { db } from "./db";
@@ -649,7 +650,13 @@ export async function registerRoutes(
           const [driver] = transport.driverId
             ? await db.select().from(drivers).where(eq(drivers.id, transport.driverId))
             : [null];
-          return { ...transport, client, deliveryLocation, driver };
+          const [createdByUser] = transport.createdByUserId
+            ? await db.select({ id: systemUsers.id, username: systemUsers.username, firstName: systemUsers.firstName, lastName: systemUsers.lastName }).from(systemUsers).where(eq(systemUsers.id, transport.createdByUserId))
+            : [null];
+          const [driverAssignedByUser] = transport.driverAssignedByUserId
+            ? await db.select({ id: systemUsers.id, username: systemUsers.username, firstName: systemUsers.firstName, lastName: systemUsers.lastName }).from(systemUsers).where(eq(systemUsers.id, transport.driverAssignedByUserId))
+            : [null];
+          return { ...transport, client, deliveryLocation, driver, createdByUser, driverAssignedByUser };
         })
       );
       res.json(transportsWithRelations);
@@ -682,10 +689,17 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/transports", isAuthenticatedJWT, async (req, res) => {
+  app.post("/api/transports", isAuthenticatedJWT, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertTransportSchema.parse(req.body);
-      const transport = await storage.createTransport(data);
+      const userId = req.user?.id;
+      const transportData = {
+        ...data,
+        createdByUserId: userId,
+        driverAssignedByUserId: data.driverId ? userId : undefined,
+        driverAssignedAt: data.driverId ? new Date() : undefined,
+      };
+      const transport = await storage.createTransport(transportData);
       res.status(201).json(transport);
     } catch (error: any) {
       console.error("Error creating transport:", error);
@@ -693,10 +707,21 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/transports/:id", isAuthenticatedJWT, async (req, res) => {
+  app.patch("/api/transports/:id", isAuthenticatedJWT, async (req: AuthenticatedRequest, res) => {
     try {
       const data = insertTransportSchema.partial().parse(req.body);
-      const transport = await storage.updateTransport(req.params.id, data);
+      const userId = req.user?.id;
+      
+      // Check if driver is being assigned for the first time
+      const existingTransport = await storage.getTransport(req.params.id);
+      let updateData: any = { ...data };
+      
+      if (data.driverId && !existingTransport?.driverId) {
+        updateData.driverAssignedByUserId = userId;
+        updateData.driverAssignedAt = new Date();
+      }
+      
+      const transport = await storage.updateTransport(req.params.id, updateData);
       if (!transport) {
         return res.status(404).json({ message: "Transport not found" });
       }
@@ -741,6 +766,7 @@ export async function registerRoutes(
         checkinSelfiePhoto: selfiePhoto,
         checkinNotes: notes,
         status: "em_transito",
+        transitStartedAt: new Date(),
       });
       
       // Update vehicle status to "despachado" (dispatched)

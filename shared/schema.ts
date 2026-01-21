@@ -415,6 +415,10 @@ export const transports = pgTable("transports", {
   notes: text("notes"),
   documents: text("documents").array(),
   createdAt: timestamp("created_at").defaultNow(),
+  createdByUserId: varchar("created_by_user_id"),
+  driverAssignedByUserId: varchar("driver_assigned_by_user_id"),
+  driverAssignedAt: timestamp("driver_assigned_at"),
+  transitStartedAt: timestamp("transit_started_at"),
   // Check-in fields (pickup from yard)
   checkinDateTime: timestamp("checkin_date_time"),
   checkinLatitude: text("checkin_latitude"),
@@ -463,6 +467,14 @@ export const transportsRelations = relations(transports, ({ one }) => ({
   driver: one(drivers, {
     fields: [transports.driverId],
     references: [drivers.id],
+  }),
+  createdByUser: one(systemUsers, {
+    fields: [transports.createdByUserId],
+    references: [systemUsers.id],
+  }),
+  driverAssignedByUser: one(systemUsers, {
+    fields: [transports.driverAssignedByUserId],
+    references: [systemUsers.id],
   }),
 }));
 
