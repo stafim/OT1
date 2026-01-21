@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,30 +19,35 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import type { Client } from "@shared/schema";
-import { fetchAddressFromCep } from "@/lib/cep";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 
-const brazilianStates = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-] as const;
+function buildFullAddress(client: Client): string {
+  const parts = [];
+  if (client.address) {
+    let addressPart = client.address;
+    if (client.addressNumber) addressPart += `, ${client.addressNumber}`;
+    parts.push(addressPart);
+  }
+  if (client.neighborhood) parts.push(client.neighborhood);
+  if (client.city) {
+    let cityPart = client.city;
+    if (client.state) cityPart += ` - ${client.state}`;
+    parts.push(cityPart);
+  }
+  if (client.cep) parts.push(client.cep);
+  return parts.join(", ");
+}
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome é obrigatório"),
   cnpj: z.string().optional(),
+  fullAddress: z.string().optional(),
   cep: z.string().optional(),
   address: z.string().optional(),
   addressNumber: z.string().optional(),
@@ -50,6 +55,8 @@ const formSchema = z.object({
   neighborhood: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   contactName: z.string().optional(),
@@ -69,7 +76,6 @@ interface ClientFormDialogProps {
 export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage }: ClientFormDialogProps) {
   const { toast } = useToast();
   const isEditing = !!clientId;
-  const [isFetchingCep, setIsFetchingCep] = useState(false);
 
   const { data: client, isLoading } = useQuery<Client>({
     queryKey: ["/api/clients", clientId],
@@ -81,6 +87,7 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
     defaultValues: {
       name: "",
       cnpj: "",
+      fullAddress: "",
       cep: "",
       address: "",
       addressNumber: "",
@@ -88,6 +95,8 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
       neighborhood: "",
       city: "",
       state: "",
+      latitude: "",
+      longitude: "",
       phone: "",
       email: "",
       contactName: "",
@@ -101,6 +110,7 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
       form.reset({
         name: client.name || "",
         cnpj: client.cnpj || "",
+        fullAddress: buildFullAddress(client),
         cep: client.cep || "",
         address: client.address || "",
         addressNumber: client.addressNumber || "",
@@ -108,6 +118,8 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
         neighborhood: client.neighborhood || "",
         city: client.city || "",
         state: client.state || "",
+        latitude: client.latitude || "",
+        longitude: client.longitude || "",
         phone: client.phone || "",
         email: client.email || "",
         contactName: client.contactName || "",
@@ -118,6 +130,7 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
       form.reset({
         name: "",
         cnpj: "",
+        fullAddress: "",
         cep: "",
         address: "",
         addressNumber: "",
@@ -125,6 +138,8 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
         neighborhood: "",
         city: "",
         state: "",
+        latitude: "",
+        longitude: "",
         phone: "",
         email: "",
         contactName: "",
@@ -151,32 +166,44 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
     },
   });
 
-  const handleCepBlur = async (cepValue: string) => {
-    const cleanCep = cepValue.replace(/\D/g, "");
-    if (cleanCep.length !== 8) return;
-
-    setIsFetchingCep(true);
-    try {
-      const addressData = await fetchAddressFromCep(cleanCep);
-      if (addressData) {
-        form.setValue("address", addressData.address);
-        form.setValue("neighborhood", addressData.neighborhood);
-        form.setValue("city", addressData.city);
-        form.setValue("state", addressData.state);
-        toast({ title: "Endereço preenchido automaticamente" });
-      } else {
-        toast({ title: "CEP não encontrado", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao buscar CEP", variant: "destructive" });
-    } finally {
-      setIsFetchingCep(false);
+  const handleAddressSelect = (addressData: {
+    address: string;
+    addressNumber: string;
+    complement: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    cep: string;
+    formattedAddress: string;
+    latitude?: number;
+    longitude?: number;
+  }) => {
+    form.setValue("fullAddress", addressData.formattedAddress);
+    form.setValue("address", addressData.address);
+    form.setValue("addressNumber", addressData.addressNumber);
+    form.setValue("neighborhood", addressData.neighborhood);
+    form.setValue("city", addressData.city);
+    form.setValue("state", addressData.state);
+    form.setValue("cep", addressData.cep);
+    if (addressData.latitude) {
+      form.setValue("latitude", String(addressData.latitude));
+    }
+    if (addressData.longitude) {
+      form.setValue("longitude", String(addressData.longitude));
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+      <DialogContent 
+        className="max-w-2xl max-h-[90vh] p-0"
+        onPointerDownOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-address-suggestion]')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>{isEditing ? "Editar Cliente" : "Novo Cliente"}</DialogTitle>
         </DialogHeader>
@@ -278,51 +305,18 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
                   <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
-                      name="cep"
+                      name="fullAddress"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>CEP</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input 
-                                {...field} 
-                                placeholder="00000-000"
-                                data-testid="input-client-cep"
-                                onBlur={(e) => {
-                                  field.onBlur();
-                                  handleCepBlur(e.target.value);
-                                }}
-                              />
-                              {isFetchingCep && (
-                                <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                              )}
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="md:col-span-2">
                           <FormLabel>Endereço</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-client-address" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="addressNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Número</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-client-number" />
+                            <AddressAutocomplete
+                              value={field.value || ""}
+                              onChange={handleAddressSelect}
+                              onInputChange={field.onChange}
+                              placeholder="Digite o endereço para buscar..."
+                              testId="input-client-address"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -332,61 +326,11 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
                       control={form.control}
                       name="complement"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="md:col-span-2">
                           <FormLabel>Complemento</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-client-complement" />
+                            <Input {...field} placeholder="Apto, Sala, Bloco..." data-testid="input-client-complement" />
                           </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="neighborhood"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bairro</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-client-neighborhood" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Município</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-client-city" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>UF</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-client-state">
-                                <SelectValue placeholder="Selecione" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {brazilianStates.map((state) => (
-                                <SelectItem key={state} value={state}>
-                                  {state}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
