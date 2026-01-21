@@ -7,19 +7,25 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Truck, CheckCircle, Clock, Building, MapPin, User, DoorOpen, Loader2, Search, LogOut, Package } from "lucide-react";
-import type { Collect, Manufacturer, Yard, Driver, Vehicle, Transport } from "@shared/schema";
+import { Truck, CheckCircle, Clock, Building, MapPin, User, DoorOpen, Loader2, Search, LogOut, Package, Eye, Shield, History } from "lucide-react";
+import type { Collect, Manufacturer, Yard, Driver, Vehicle, Transport, Client, DeliveryLocation } from "@shared/schema";
 
 interface CollectWithRelations extends Collect {
   manufacturer?: Manufacturer;
   yard?: Yard;
   driver?: Driver;
   vehicle?: Vehicle;
+  checkoutApprovedBy?: {
+    firstName: string | null;
+    lastName: string | null;
+    username: string;
+  };
 }
 
 interface TransportWithRelations extends Transport {
@@ -35,9 +41,16 @@ export default function PortariaPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [transportSearchTerm, setTransportSearchTerm] = useState("");
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+  const [selectedCollectId, setSelectedCollectId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
 
-  const { data: collects, isLoading: collectsLoading } = useQuery<Collect[]>({
+  const { data: collects, isLoading: collectsLoading } = useQuery<CollectWithRelations[]>({
     queryKey: ["/api/collects"],
+  });
+
+  const { data: selectedCollect, isLoading: selectedCollectLoading } = useQuery<CollectWithRelations>({
+    queryKey: ["/api/collects", selectedCollectId],
+    enabled: !!selectedCollectId,
   });
 
   const { data: transports, isLoading: transportsLoading } = useQuery<TransportWithRelations[]>({
@@ -106,6 +119,29 @@ export default function PortariaPage() {
     return chassiMatch || driverMatch;
   }) || [];
 
+  const finalizedCollects = collects?.filter((c) => {
+    if (c.status !== "finalizada") return false;
+    
+    if (!searchTerm.trim()) return true;
+    
+    const search = searchTerm.toLowerCase().trim();
+    const chassiMatch = c.vehicleChassi?.toLowerCase().includes(search);
+    const driver = c.driverId ? getDriver(c.driverId) : null;
+    const driverMatch = driver?.name?.toLowerCase().includes(search);
+    
+    return chassiMatch || driverMatch;
+  }).sort((a, b) => {
+    const dateA = a.checkoutDateTime ? new Date(a.checkoutDateTime).getTime() : 0;
+    const dateB = b.checkoutDateTime ? new Date(b.checkoutDateTime).getTime() : 0;
+    return dateB - dateA;
+  }).slice(0, 20) || [];
+
+  const getApproverName = (collect: CollectWithRelations) => {
+    if (!collect.checkoutApprovedBy) return null;
+    const { firstName, lastName, username } = collect.checkoutApprovedBy;
+    return `${firstName || ''} ${lastName || ''}`.trim() || username;
+  };
+
   const pendingTransports = transports?.filter((t) => {
     if (t.status !== "pendente") return false;
     
@@ -146,158 +182,274 @@ export default function PortariaPage() {
           </CardHeader>
         </Card>
 
-        <div className="mb-4 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Clock className="h-5 w-5 text-muted-foreground" />
-              Coletas Aguardando Autorização
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "pending" | "history")} className="mb-6">
+          <TabsList>
+            <TabsTrigger value="pending" className="flex items-center gap-2" data-testid="tab-pending">
+              <Clock className="h-4 w-4" />
+              Aguardando
               {pendingCollects.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {pendingCollects.length}
-                </Badge>
+                <Badge variant="secondary" className="ml-1">{pendingCollects.length}</Badge>
               )}
-            </h2>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por chassi ou motorista..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-portaria"
-              />
-            </div>
-          </div>
-        </div>
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2" data-testid="tab-history">
+              <History className="h-4 w-4" />
+              Histórico
+            </TabsTrigger>
+          </TabsList>
 
-        {collectsLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <Card key={i}>
-                <CardContent className="p-4">
-                  <Skeleton className="h-4 w-32 mb-2" />
-                  <Skeleton className="h-3 w-48 mb-4" />
-                  <Skeleton className="h-8 w-full" />
+          <TabsContent value="pending" className="mt-4">
+            <div className="mb-4">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por chassi ou motorista..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-portaria"
+                />
+              </div>
+            </div>
+
+            {collectsLoading ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="p-4">
+                      <Skeleton className="h-4 w-32 mb-2" />
+                      <Skeleton className="h-3 w-48 mb-4" />
+                      <Skeleton className="h-8 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : pendingCollects.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
+                  <p className="text-lg font-medium text-muted-foreground">
+                    Nenhuma coleta aguardando autorização
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Todas as coletas em trânsito já foram autorizadas
+                  </p>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        ) : pendingCollects.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
-              <p className="text-lg font-medium text-muted-foreground">
-                Nenhuma coleta aguardando autorização
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Todas as coletas em trânsito já foram autorizadas
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {pendingCollects.map((collect) => {
-              const manufacturer = getManufacturer(collect.manufacturerId);
-              const yard = getYard(collect.yardId);
-              const driver = collect.driverId ? getDriver(collect.driverId) : null;
-              const vehicle = getVehicle(collect.vehicleChassi);
-              const isAuthorizing = authorizeMutation.isPending;
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {pendingCollects.map((collect) => {
+                  const manufacturer = getManufacturer(collect.manufacturerId);
+                  const yard = getYard(collect.yardId);
+                  const driver = collect.driverId ? getDriver(collect.driverId) : null;
+                  const vehicle = getVehicle(collect.vehicleChassi);
+                  const isAuthorizing = authorizeMutation.isPending;
 
-              return (
-                <Card key={collect.id} className="overflow-hidden" data-testid={`card-collect-${collect.id}`}>
-                  <CardHeader className="pb-2 bg-gradient-to-r from-amber-500/10 to-amber-500/5 border-b">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Truck className="h-4 w-4 text-amber-600" />
-                        <span className="font-mono text-sm font-semibold">{collect.vehicleChassi}</span>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        Em Trânsito
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex gap-3">
-                      {collect.checkinSelfiePhoto && (
-                        <Avatar 
-                          className="h-12 w-12 shrink-0 border border-primary/20 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
-                          onClick={() => setLightboxPhoto(collect.checkinSelfiePhoto || null)}
-                          data-testid={`avatar-photo-${collect.id}`}
+                  return (
+                    <Card key={collect.id} className="overflow-hidden" data-testid={`card-collect-${collect.id}`}>
+                      <CardHeader className="pb-2 bg-gradient-to-r from-amber-500/10 to-amber-500/5 border-b">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Truck className="h-4 w-4 text-amber-600" />
+                            <span className="font-mono text-sm font-semibold">{collect.vehicleChassi}</span>
+                          </div>
+                          <Badge variant="secondary" className="text-xs">
+                            Em Trânsito
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex gap-3">
+                          {collect.checkinSelfiePhoto && (
+                            <Avatar 
+                              className="h-12 w-12 shrink-0 border border-primary/20 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                              onClick={() => setLightboxPhoto(collect.checkinSelfiePhoto || null)}
+                              data-testid={`avatar-photo-${collect.id}`}
+                            >
+                              <AvatarImage 
+                                src={collect.checkinSelfiePhoto} 
+                                alt="Foto check-in motorista" 
+                                className="object-cover"
+                              />
+                              <AvatarFallback>
+                                <User className="h-5 w-5 text-muted-foreground" />
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                          <div className="space-y-1.5 text-sm flex-1">
+                            <div className="flex items-center gap-2">
+                              <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-muted-foreground">Origem:</span>
+                              <span className="font-medium">{manufacturer?.name || "-"}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-muted-foreground">Destino:</span>
+                              <span className="font-medium">{yard?.name || "-"}</span>
+                            </div>
+                            {driver && (
+                              <div className="flex items-center gap-2">
+                                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-muted-foreground">Motorista:</span>
+                                <span className="font-medium">{driver.name}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-muted-foreground">Data:</span>
+                              <span className="font-medium">
+                                {collect.collectDate
+                                  ? (() => {
+                                      const dateStr = String(collect.collectDate);
+                                      const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+                                      if (match) {
+                                        const [, year, month, day, hour, minute] = match;
+                                        return `${day}/${month}/${year} ${hour}:${minute}`;
+                                      }
+                                      return "-";
+                                    })()
+                                  : "-"}
+                              </span>
+                            </div>
+                            {vehicle && (
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {vehicle.status === "pre_estoque" ? "Pré-Estoque" : vehicle.status}
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <Button
+                          className="w-full"
+                          onClick={() => authorizeMutation.mutate(collect.id)}
+                          disabled={isAuthorizing}
+                          data-testid={`button-authorize-${collect.id}`}
                         >
-                          <AvatarImage 
-                            src={collect.checkinSelfiePhoto} 
-                            alt="Foto check-in motorista" 
-                            className="object-cover"
-                          />
-                          <AvatarFallback>
-                            <User className="h-5 w-5 text-muted-foreground" />
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div className="space-y-1.5 text-sm flex-1">
-                        <div className="flex items-center gap-2">
-                          <Building className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-muted-foreground">Origem:</span>
-                          <span className="font-medium">{manufacturer?.name || "-"}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-muted-foreground">Destino:</span>
-                          <span className="font-medium">{yard?.name || "-"}</span>
-                        </div>
-                        {driver && (
-                          <div className="flex items-center gap-2">
-                            <User className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-muted-foreground">Motorista:</span>
-                            <span className="font-medium">{driver.name}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-muted-foreground">Data:</span>
-                          <span className="font-medium">
-                            {collect.collectDate
-                              ? (() => {
-                                  const dateStr = String(collect.collectDate);
-                                  const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-                                  if (match) {
-                                    const [, year, month, day, hour, minute] = match;
-                                    return `${day}/${month}/${year} ${hour}:${minute}`;
-                                  }
-                                  return "-";
-                                })()
-                              : "-"}
-                          </span>
-                        </div>
-                        {vehicle && (
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {vehicle.status === "pre_estoque" ? "Pré-Estoque" : vehicle.status}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                          {isAuthorizing ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                          )}
+                          Autorizar Entrada
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
 
-                    <Button
-                      className="w-full"
-                      onClick={() => authorizeMutation.mutate(collect.id)}
-                      disabled={isAuthorizing}
-                      data-testid={`button-authorize-${collect.id}`}
+          <TabsContent value="history" className="mt-4">
+            <div className="mb-4">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por chassi ou motorista..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-history"
+                />
+              </div>
+            </div>
+
+            {collectsLoading ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="p-4">
+                      <Skeleton className="h-4 w-32 mb-2" />
+                      <Skeleton className="h-3 w-48 mb-4" />
+                      <Skeleton className="h-8 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : finalizedCollects.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <History className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium text-muted-foreground">
+                    Nenhuma coleta finalizada
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {finalizedCollects.map((collect) => {
+                  const manufacturer = getManufacturer(collect.manufacturerId);
+                  const yard = getYard(collect.yardId);
+                  const driver = collect.driverId ? getDriver(collect.driverId) : null;
+                  const approverName = getApproverName(collect);
+
+                  return (
+                    <Card 
+                      key={collect.id} 
+                      className="overflow-hidden cursor-pointer hover-elevate" 
+                      onClick={() => setSelectedCollectId(collect.id)}
+                      data-testid={`card-history-${collect.id}`}
                     >
-                      {isAuthorizing ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                      )}
-                      Autorizar Entrada
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+                      <CardHeader className="pb-2 bg-gradient-to-r from-green-500/10 to-green-500/5 border-b">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Truck className="h-4 w-4 text-green-600" />
+                            <span className="font-mono text-sm font-semibold">{collect.vehicleChassi}</span>
+                          </div>
+                          <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700">
+                            Finalizada
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-2">
+                        <div className="space-y-1.5 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">Origem:</span>
+                            <span className="font-medium">{manufacturer?.name || "-"}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">Destino:</span>
+                            <span className="font-medium">{yard?.name || "-"}</span>
+                          </div>
+                          {driver && (
+                            <div className="flex items-center gap-2">
+                              <User className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-muted-foreground">Motorista:</span>
+                              <span className="font-medium">{driver.name}</span>
+                            </div>
+                          )}
+                          {collect.checkoutDateTime && (
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-muted-foreground">Entrada:</span>
+                              <span className="font-medium">
+                                {format(new Date(collect.checkoutDateTime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                              </span>
+                            </div>
+                          )}
+                          {approverName && (
+                            <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+                              <Shield className="h-3.5 w-3.5 text-primary" />
+                              <span className="text-muted-foreground">Autorizado por:</span>
+                              <span className="font-medium text-primary">{approverName}</span>
+                            </div>
+                          )}
+                        </div>
+                        <Button variant="outline" size="sm" className="w-full mt-2" data-testid={`button-view-${collect.id}`}>
+                          <Eye className="mr-2 h-3.5 w-3.5" />
+                          Ver Detalhes
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
 
         {/* Transport Exit Section */}
         <Card className="mt-8 mb-6">
@@ -475,6 +627,156 @@ export default function PortariaPage() {
               className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedCollectId} onOpenChange={() => setSelectedCollectId(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Detalhes da Coleta
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedCollectLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : selectedCollect ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Chassi</p>
+                  <p className="font-mono font-medium">{selectedCollect.vehicleChassi}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge variant="secondary" className="mt-1">
+                    {selectedCollect.status === "finalizada" ? "Finalizada" : selectedCollect.status}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Origem (Fabricante)</p>
+                  <p className="font-medium">{selectedCollect.manufacturer?.name || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Destino (Pátio)</p>
+                  <p className="font-medium">{selectedCollect.yard?.name || "-"}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Motorista</p>
+                  <p className="font-medium">{selectedCollect.driver?.name || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Data da Coleta</p>
+                  <p className="font-medium">
+                    {selectedCollect.collectDate
+                      ? format(new Date(selectedCollect.collectDate), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                      : "-"}
+                  </p>
+                </div>
+              </div>
+
+              {selectedCollect.checkinDateTime && (
+                <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <h4 className="font-medium text-blue-700 dark:text-blue-300 mb-3 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Check-in (Coleta)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Data/Hora</p>
+                      <p className="font-medium">
+                        {format(new Date(selectedCollect.checkinDateTime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                    {selectedCollect.checkinLatitude && selectedCollect.checkinLongitude && (
+                      <div>
+                        <p className="text-muted-foreground">Localização</p>
+                        <a
+                          href={`https://maps.google.com/?q=${selectedCollect.checkinLatitude},${selectedCollect.checkinLongitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline flex items-center gap-1"
+                        >
+                          <MapPin className="h-3.5 w-3.5" />
+                          Ver no Maps
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedCollect.checkoutDateTime && (
+                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <h4 className="font-medium text-green-700 dark:text-green-300 mb-3 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    Check-out (Entrada no Pátio)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Data/Hora</p>
+                      <p className="font-medium">
+                        {format(new Date(selectedCollect.checkoutDateTime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                    {selectedCollect.checkoutLatitude && selectedCollect.checkoutLongitude && (
+                      <div>
+                        <p className="text-muted-foreground">Localização</p>
+                        <a
+                          href={`https://maps.google.com/?q=${selectedCollect.checkoutLatitude},${selectedCollect.checkoutLongitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline flex items-center gap-1"
+                        >
+                          <MapPin className="h-3.5 w-3.5" />
+                          Ver no Maps
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedCollect.checkoutApprovedBy && (
+                    <div className="mt-4 pt-4 border-t border-green-500/20">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20">
+                          <Shield className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Autorizado por</p>
+                          <p className="font-medium text-green-700 dark:text-green-300">
+                            {`${selectedCollect.checkoutApprovedBy.firstName || ''} ${selectedCollect.checkoutApprovedBy.lastName || ''}`.trim() || selectedCollect.checkoutApprovedBy.username}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedCollect.checkinNotes && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Observações do Check-in</p>
+                  <p className="text-sm bg-muted/50 p-3 rounded-md">{selectedCollect.checkinNotes}</p>
+                </div>
+              )}
+
+              {selectedCollect.checkoutNotes && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Observações do Check-out</p>
+                  <p className="text-sm bg-muted/50 p-3 rounded-md">{selectedCollect.checkoutNotes}</p>
+                </div>
+              )}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
