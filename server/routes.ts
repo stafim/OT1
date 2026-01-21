@@ -1043,7 +1043,7 @@ export async function registerRoutes(
     }
   });
 
-  // Global place search endpoint (no region restrictions)
+  // Global place search endpoint using new Places API (v1) - supports Mercosul countries
   app.get("/api/integrations/google-maps/places/search", isAuthenticatedJWT, async (req: any, res) => {
     try {
       const { query } = req.query;
@@ -1056,16 +1056,30 @@ export async function registerRoutes(
         return res.status(500).json({ message: "Google Maps API key not configured" });
       }
 
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${apiKey}`;
+      // Using the new Places API (v1) with POST request - no IP biasing
+      const url = `https://places.googleapis.com/v1/places:autocomplete`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+        },
+        body: JSON.stringify({
+          input: query,
+          includedRegionCodes: ['BR', 'AR', 'PE', 'BO', 'PY', 'CL', 'UY', 'VE', 'CO', 'EC'],
+        }),
+      });
+      
       const data = await response.json();
 
-      if (data.status === "OK" && data.predictions) {
-        const predictions = data.predictions.map((p: any) => ({
-          placeId: p.place_id,
-          description: p.description,
-        }));
+      if (data.suggestions && data.suggestions.length > 0) {
+        const predictions = data.suggestions
+          .filter((s: any) => s.placePrediction)
+          .map((s: any) => ({
+            placeId: s.placePrediction.placeId,
+            description: s.placePrediction.text?.text || s.placePrediction.structuredFormat?.mainText?.text || '',
+          }));
         return res.json({ predictions });
       }
 
@@ -1076,7 +1090,7 @@ export async function registerRoutes(
     }
   });
 
-  // Get place details by place ID
+  // Get place details by place ID using new Places API (v1)
   app.get("/api/integrations/google-maps/places/:placeId", isAuthenticatedJWT, async (req: any, res) => {
     try {
       const { placeId } = req.params;
@@ -1089,16 +1103,21 @@ export async function registerRoutes(
         return res.status(500).json({ message: "Google Maps API key not configured" });
       }
 
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=geometry,formatted_address&key=${apiKey}`;
+      // Using new Places API (v1)
+      const url = `https://places.googleapis.com/v1/places/${placeId}?fields=formattedAddress,location&key=${apiKey}`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'X-Goog-Api-Key': apiKey,
+        },
+      });
       const data = await response.json();
 
-      if (data.status === "OK" && data.result) {
+      if (data.location) {
         return res.json({
-          address: data.result.formatted_address,
-          lat: data.result.geometry?.location?.lat,
-          lng: data.result.geometry?.location?.lng,
+          address: data.formattedAddress || '',
+          lat: data.location.latitude,
+          lng: data.location.longitude,
         });
       }
 
