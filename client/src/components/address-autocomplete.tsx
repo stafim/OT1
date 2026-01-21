@@ -172,35 +172,52 @@ export function AddressAutocomplete({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const fetchPredictions = useCallback((input: string) => {
-    if (!autocompleteServiceRef.current || input.length < 3) {
+  const fetchPredictions = useCallback(async (input: string) => {
+    if (input.length < 3) {
       setPredictions([]);
       return;
     }
 
     setIsFetching(true);
 
-    autocompleteServiceRef.current.getPlacePredictions(
-      {
-        input,
-        componentRestrictions: { country: "br" },
-        types: ["address"],
-      },
-      (results, status) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
         setIsFetching(false);
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          setPredictions(
-            results.map((r) => ({
-              description: r.description,
-              place_id: r.place_id,
-            }))
-          );
-          setShowDropdown(true);
-        } else {
-          setPredictions([]);
-        }
+        return;
       }
-    );
+
+      const response = await fetch(`/api/integrations/google-maps/places/search?query=${encodeURIComponent(input)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        setIsFetching(false);
+        setPredictions([]);
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (data.predictions && data.predictions.length > 0) {
+        setPredictions(
+          data.predictions.map((p: { placeId: string; description: string }) => ({
+            description: p.description,
+            place_id: p.placeId,
+          }))
+        );
+        setShowDropdown(true);
+      } else {
+        setPredictions([]);
+      }
+    } catch (error) {
+      console.error("Error fetching predictions:", error);
+      setPredictions([]);
+    } finally {
+      setIsFetching(false);
+    }
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -218,27 +235,64 @@ export function AddressAutocomplete({
     }, 300);
   };
 
-  const handleSelectPlace = useCallback((placeId: string, description: string) => {
-    if (!placesServiceRef.current) return;
-
+  const handleSelectPlace = useCallback(async (placeId: string, description: string) => {
     setInputValue(description);
     setShowDropdown(false);
     setPredictions([]);
     setSelectedIndex(-1);
 
-    placesServiceRef.current.getDetails(
-      {
-        placeId,
-        fields: ["address_components", "formatted_address", "geometry"],
-      },
-      (place, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-          const addressData = parseAddressComponents(place);
-          setInputValue(addressData.formattedAddress);
-          onChange(addressData);
-        }
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) return;
+
+      const response = await fetch(`/api/integrations/google-maps/places/${placeId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error("Failed to get place details");
+        return;
       }
-    );
+
+      const data = await response.json();
+      
+      const addressData: AddressComponents = {
+        address: "",
+        addressNumber: "",
+        complement: "",
+        neighborhood: "",
+        city: "",
+        state: "",
+        cep: "",
+        formattedAddress: data.address || description,
+        latitude: data.lat,
+        longitude: data.lng,
+      };
+      
+      // Parse the address from the formatted string
+      if (data.address) {
+        const parts = data.address.split(",").map((p: string) => p.trim());
+        if (parts.length > 0) {
+          const streetParts = parts[0].match(/^(.+?)\s*,?\s*(\d+)?$/);
+          if (streetParts) {
+            addressData.address = streetParts[1] || parts[0];
+            if (streetParts[2]) addressData.addressNumber = streetParts[2];
+          } else {
+            addressData.address = parts[0];
+          }
+        }
+        if (parts.length > 1) addressData.neighborhood = parts[1];
+        if (parts.length > 2) addressData.city = parts[2];
+        if (parts.length > 3) addressData.state = parts[3];
+      }
+
+      setInputValue(addressData.formattedAddress);
+      onChange(addressData);
+    } catch (error) {
+      console.error("Error getting place details:", error);
+    }
   }, [onChange]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
