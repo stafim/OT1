@@ -578,6 +578,9 @@ function CheckInOutModal({ collect, type, onClose }: CheckInOutModalProps) {
   const [odometerPhoto, setOdometerPhoto] = useState(
     type === "checkin" ? collect.checkinOdometerPhoto || "" : collect.checkoutOdometerPhoto || ""
   );
+  const [fuelLevelPhoto, setFuelLevelPhoto] = useState(
+    type === "checkin" ? collect.checkinFuelLevelPhoto || "" : collect.checkoutFuelLevelPhoto || ""
+  );
   const [damagePhotos, setDamagePhotos] = useState<string[]>(
     type === "checkin" ? collect.checkinDamagePhotos || [] : collect.checkoutDamagePhotos || []
   );
@@ -610,6 +613,7 @@ function CheckInOutModal({ collect, type, onClose }: CheckInOutModalProps) {
         checkinLateral2Photo: lateral2Photo,
         checkinTraseiraPhoto: traseiraPhoto,
         checkinOdometerPhoto: odometerPhoto,
+        checkinFuelLevelPhoto: fuelLevelPhoto,
         checkinDamagePhotos: damagePhotos,
         checkinSelfiePhoto: selfiePhoto,
         checkinNotes: notes,
@@ -622,6 +626,7 @@ function CheckInOutModal({ collect, type, onClose }: CheckInOutModalProps) {
         checkoutLateral2Photo: lateral2Photo,
         checkoutTraseiraPhoto: traseiraPhoto,
         checkoutOdometerPhoto: odometerPhoto,
+        checkoutFuelLevelPhoto: fuelLevelPhoto,
         checkoutDamagePhotos: damagePhotos,
         checkoutSelfiePhoto: selfiePhoto,
         checkoutNotes: notes,
@@ -794,10 +799,10 @@ function CheckInOutModal({ collect, type, onClose }: CheckInOutModalProps) {
               </div>
             </div>
 
-            {/* Seção: Odômetro */}
+            {/* Seção: Fotos do Painel */}
             <div className="rounded-lg border p-4">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Odômetro</h3>
-              <div className="flex justify-center">
+              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Painel</h3>
+              <div className="grid grid-cols-2 gap-4 justify-items-center">
                 <SinglePhotoUpload
                   label="Foto do Odômetro"
                   photo={odometerPhoto}
@@ -806,6 +811,15 @@ function CheckInOutModal({ collect, type, onClose }: CheckInOutModalProps) {
                   isCompleted={isCompleted}
                   isUploading={isUploading}
                   onUpload={(e) => handleSingleUpload(e, setOdometerPhoto)}
+                />
+                <SinglePhotoUpload
+                  label="Nível de Combustível"
+                  photo={fuelLevelPhoto}
+                  setPhoto={setFuelLevelPhoto}
+                  onView={setViewingPhoto}
+                  isCompleted={isCompleted}
+                  isUploading={isUploading}
+                  onUpload={(e) => handleSingleUpload(e, setFuelLevelPhoto)}
                 />
               </div>
             </div>
@@ -962,6 +976,7 @@ function CollectDetailDialog({ collect, onClose }: CollectDetailDialogProps) {
     const lateral2Photo = type === "checkin" ? collect.checkinLateral2Photo : collect.checkoutLateral2Photo;
     const traseiraPhoto = type === "checkin" ? collect.checkinTraseiraPhoto : collect.checkoutTraseiraPhoto;
     const odometerPhoto = type === "checkin" ? collect.checkinOdometerPhoto : collect.checkoutOdometerPhoto;
+    const fuelLevelPhoto = type === "checkin" ? collect.checkinFuelLevelPhoto : collect.checkoutFuelLevelPhoto;
     const selfiePhoto = type === "checkin" ? collect.checkinSelfiePhoto : collect.checkoutSelfiePhoto;
     const damagePhotos = type === "checkin" ? collect.checkinDamagePhotos : collect.checkoutDamagePhotos;
 
@@ -977,7 +992,7 @@ function CollectDetailDialog({ collect, onClose }: CollectDetailDialogProps) {
     }
 
     const hasVehiclePhotos = frontalPhoto || lateral1Photo || lateral2Photo || traseiraPhoto;
-    const hasOtherPhotos = odometerPhoto || selfiePhoto;
+    const hasOtherPhotos = odometerPhoto || fuelLevelPhoto || selfiePhoto;
     const hasDamagePhotos = damagePhotos && damagePhotos.length > 0;
 
     return (
@@ -1018,6 +1033,7 @@ function CollectDetailDialog({ collect, onClose }: CollectDetailDialogProps) {
             <p className="text-xs font-medium text-muted-foreground mb-2">Registros Adicionais</p>
             <div className="grid grid-cols-5 gap-2">
               {odometerPhoto && <PhotoCard src={odometerPhoto} label="Odômetro" />}
+              {fuelLevelPhoto && <PhotoCard src={fuelLevelPhoto} label="Combustível" />}
               {selfiePhoto && <PhotoCard src={selfiePhoto} label="Selfie" />}
               {damagePhotos && damagePhotos.map((photo: string, i: number) => (
                 <PhotoCard key={i} src={photo} label={`Avaria ${i + 1}`} />
