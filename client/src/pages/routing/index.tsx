@@ -149,7 +149,23 @@ export default function RoutingPage() {
 
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const response = await apiRequest("GET", `/api/integrations/google-maps/places/search?query=${encodeURIComponent(query)}`);
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+          console.warn("[searchAddress] No token available");
+          return;
+        }
+        
+        const response = await fetch(`/api/integrations/google-maps/places/search?query=${encodeURIComponent(query)}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (!response.ok) {
+          console.error("[searchAddress] Response not ok:", response.status);
+          return;
+        }
+        
         const data = await response.json();
         
         if (data.predictions && data.predictions.length > 0) {
@@ -159,7 +175,8 @@ export default function RoutingPage() {
           setSuggestions([]);
           setShowSuggestions(false);
         }
-      } catch {
+      } catch (error: any) {
+        console.error("[searchAddress] Error:", error?.message || error);
         setSuggestions([]);
         setShowSuggestions(false);
       }

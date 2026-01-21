@@ -1047,17 +1047,22 @@ export async function registerRoutes(
   app.get("/api/integrations/google-maps/places/search", isAuthenticatedJWT, async (req: any, res) => {
     try {
       const { query } = req.query;
+      console.log("[places/search] Received query:", query);
+      
       if (!query || typeof query !== "string" || query.length < 3) {
         return res.json({ predictions: [] });
       }
 
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
       if (!apiKey) {
+        console.error("[places/search] No API key configured");
         return res.status(500).json({ message: "Google Maps API key not configured" });
       }
 
       // Using the new Places API (v1) with POST request - no IP biasing
       const url = `https://places.googleapis.com/v1/places:autocomplete`;
+      
+      console.log("[places/search] Calling Google Places API for:", query);
       
       const response = await fetch(url, {
         method: 'POST',
@@ -1072,6 +1077,7 @@ export async function registerRoutes(
       });
       
       const data = await response.json();
+      console.log("[places/search] Google API response status:", response.status, "suggestions count:", data.suggestions?.length || 0);
 
       if (data.suggestions && data.suggestions.length > 0) {
         const predictions = data.suggestions
@@ -1080,12 +1086,14 @@ export async function registerRoutes(
             placeId: s.placePrediction.placeId,
             description: s.placePrediction.text?.text || s.placePrediction.structuredFormat?.mainText?.text || '',
           }));
+        console.log("[places/search] Returning", predictions.length, "predictions");
         return res.json({ predictions });
       }
 
+      console.log("[places/search] No suggestions found");
       res.json({ predictions: [] });
     } catch (error) {
-      console.error("Error searching places:", error);
+      console.error("[places/search] Error:", error);
       res.status(500).json({ message: "Failed to search places" });
     }
   });
