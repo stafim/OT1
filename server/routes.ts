@@ -1029,7 +1029,8 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/integrations/google-maps/api-key", isAuthenticatedJWT, async (req: any, res) => {
+  // Public route for Google Maps API key (needed by AddressAutocomplete component)
+  app.get("/api/integrations/google-maps/api-key", async (req: any, res) => {
     try {
       const key = process.env.GOOGLE_MAPS_API_KEY;
       if (!key) {
