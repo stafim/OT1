@@ -179,14 +179,20 @@ export default function CollectsPage() {
 
       addSection("Check-in (Retirada)");
       addField("Data/Hora", collect.checkinDateTime ? format(new Date(collect.checkinDateTime), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "Não realizado");
-      addField("Latitude", collect.checkinLatitude || "-");
-      addField("Longitude", collect.checkinLongitude || "-");
+      if (collect.checkinLatitude && collect.checkinLongitude) {
+        addField("Localização", `${collect.checkinLatitude}, ${collect.checkinLongitude}`);
+      } else {
+        addField("Localização", "-");
+      }
       addField("Observações", collect.checkinNotes || "-");
 
       addSection("Check-out (Entrega)");
       addField("Data/Hora", collect.checkoutDateTime ? format(new Date(collect.checkoutDateTime), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "Não realizado");
-      addField("Latitude", collect.checkoutLatitude || "-");
-      addField("Longitude", collect.checkoutLongitude || "-");
+      if (collect.checkoutLatitude && collect.checkoutLongitude) {
+        addField("Localização", `${collect.checkoutLatitude}, ${collect.checkoutLongitude}`);
+      } else {
+        addField("Localização", "-");
+      }
       addField("Observações", collect.checkoutNotes || "-");
 
       // Footer page 1
@@ -277,6 +283,72 @@ export default function CollectsPage() {
         ...(collect.checkoutDamagePhotos || []).map((url, i) => ({ label: `Avaria ${i + 1}`, url })),
       ];
       await addPhotosPage("Fotos Check-out (Entrega)", checkoutPhotosList);
+
+      // Maps page - add Google Maps static images for check-in and check-out locations
+      const hasCheckinLocation = collect.checkinLatitude && collect.checkinLongitude;
+      const hasCheckoutLocation = collect.checkoutLatitude && collect.checkoutLongitude;
+      
+      if (hasCheckinLocation || hasCheckoutLocation) {
+        doc.addPage();
+        addPageHeader("Localização - Mapas");
+        
+        const mapWidth = 160;
+        const mapHeight = 100;
+        let mapY = 35;
+
+        if (hasCheckinLocation) {
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text("Check-in (Retirada)", 20, mapY);
+          mapY += 5;
+          
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.text(`Coordenadas: ${collect.checkinLatitude}, ${collect.checkinLongitude}`, 20, mapY);
+          mapY += 5;
+          
+          try {
+            const mapUrl = `/api/integrations/google-maps/static-image?lat=${collect.checkinLatitude}&lng=${collect.checkinLongitude}&zoom=15&size=640x400`;
+            const mapData = await loadImageWithDimensions(mapUrl);
+            if (mapData) {
+              doc.addImage(mapData.base64, "PNG", 20, mapY, mapWidth, mapHeight);
+            }
+          } catch {
+            doc.setFontSize(8);
+            doc.text("Erro ao carregar mapa", 20, mapY + 20);
+          }
+          mapY += mapHeight + 15;
+        }
+
+        if (hasCheckoutLocation) {
+          if (mapY + mapHeight + 30 > pageHeight - 20) {
+            doc.addPage();
+            addPageHeader("Localização - Mapas (cont.)");
+            mapY = 35;
+          }
+          
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text("Check-out (Entrega)", 20, mapY);
+          mapY += 5;
+          
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.text(`Coordenadas: ${collect.checkoutLatitude}, ${collect.checkoutLongitude}`, 20, mapY);
+          mapY += 5;
+          
+          try {
+            const mapUrl = `/api/integrations/google-maps/static-image?lat=${collect.checkoutLatitude}&lng=${collect.checkoutLongitude}&zoom=15&size=640x400`;
+            const mapData = await loadImageWithDimensions(mapUrl);
+            if (mapData) {
+              doc.addImage(mapData.base64, "PNG", 20, mapY, mapWidth, mapHeight);
+            }
+          } catch {
+            doc.setFontSize(8);
+            doc.text("Erro ao carregar mapa", 20, mapY + 20);
+          }
+        }
+      }
 
       doc.save(`coleta-${collect.vehicleChassi}.pdf`);
       toast({ title: "PDF gerado com sucesso" });

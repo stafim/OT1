@@ -1053,5 +1053,37 @@ export async function registerRoutes(
     }
   });
 
+  // Google Maps Static Image Proxy (to avoid exposing API key in frontend)
+  app.get("/api/integrations/google-maps/static-image", isAuthenticatedJWT, async (req: any, res) => {
+    try {
+      const { lat, lng, zoom = "15", size = "400x300" } = req.query;
+      
+      if (!lat || !lng) {
+        return res.status(400).json({ message: "Latitude and longitude are required" });
+      }
+
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ message: "Google Maps API key not configured" });
+      }
+
+      const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${size}&markers=color:red%7C${lat},${lng}&key=${apiKey}`;
+      
+      const response = await fetch(mapUrl);
+      if (!response.ok) {
+        console.error("Google Maps API error:", response.status, await response.text());
+        return res.status(500).json({ message: "Failed to fetch map image" });
+      }
+
+      const buffer = await response.arrayBuffer();
+      res.set("Content-Type", "image/png");
+      res.set("Cache-Control", "public, max-age=86400");
+      res.send(Buffer.from(buffer));
+    } catch (error) {
+      console.error("Error fetching static map:", error);
+      res.status(500).json({ message: "Failed to fetch map image" });
+    }
+  });
+
   return httpServer;
 }
