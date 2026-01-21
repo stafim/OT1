@@ -8,11 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { normalizeImageUrl } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import type { Transport } from "@shared/schema";
+import type { Transport, Client, Yard, Vehicle, DeliveryLocation, Driver } from "@shared/schema";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -254,11 +261,34 @@ export default function TransportsPage() {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [clearCheckinId, setClearCheckinId] = useState<string | null>(null);
   const [clearCheckoutId, setClearCheckoutId] = useState<string | null>(null);
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [newTransportData, setNewTransportData] = useState({
+    vehicleChassi: "",
+    clientId: "",
+    originYardId: "",
+    deliveryLocationId: "",
+    driverId: "",
+    deliveryDate: "",
+    notes: "",
+  });
   const { toast } = useToast();
 
   const { data: transports, isLoading } = useQuery<TransportWithRelations[]>({
     queryKey: ["/api/transports"],
   });
+
+  const { data: clients } = useQuery<Client[]>({ queryKey: ["/api/clients"] });
+  const { data: yards } = useQuery<Yard[]>({ queryKey: ["/api/yards"] });
+  const { data: vehicles } = useQuery<Vehicle[]>({ queryKey: ["/api/vehicles"] });
+  const { data: drivers } = useQuery<Driver[]>({ queryKey: ["/api/drivers"] });
+  const { data: deliveryLocations } = useQuery<DeliveryLocation[]>({ queryKey: ["/api/delivery-locations"] });
+
+  const availableVehicles = vehicles?.filter(v => v.status === "em_estoque") || [];
+  const activeDrivers = drivers?.filter(d => d.isActive === "true") || [];
+
+  const clientDeliveryLocations = deliveryLocations?.filter(
+    loc => loc.clientId === newTransportData.clientId
+  ) || [];
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -271,6 +301,33 @@ export default function TransportsPage() {
     },
     onError: () => {
       toast({ title: "Erro ao excluir transporte", variant: "destructive" });
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof newTransportData) => {
+      return apiRequest("POST", "/api/transports", {
+        ...data,
+        status: "pendente",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transports"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+      toast({ title: "Transporte criado com sucesso" });
+      setShowNewDialog(false);
+      setNewTransportData({
+        vehicleChassi: "",
+        clientId: "",
+        originYardId: "",
+        deliveryLocationId: "",
+        driverId: "",
+        deliveryDate: "",
+        notes: "",
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || "Erro ao criar transporte", variant: "destructive" });
     },
   });
 
@@ -526,7 +583,7 @@ export default function TransportsPage() {
               data-testid="input-search-transports"
             />
           </div>
-          <Button onClick={() => navigate("/transportes/novo")} data-testid="button-add-transport">
+          <Button onClick={() => setShowNewDialog(true)} data-testid="button-add-transport">
             <Plus className="mr-2 h-4 w-4" />
             Novo Transporte
           </Button>
@@ -1115,6 +1172,169 @@ export default function TransportsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de Novo Transporte */}
+      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo Transporte</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Veículo (Chassi) *</Label>
+                <Select
+                  value={newTransportData.vehicleChassi}
+                  onValueChange={(value) => setNewTransportData(prev => ({ ...prev, vehicleChassi: value }))}
+                >
+                  <SelectTrigger data-testid="select-vehicle">
+                    <SelectValue placeholder="Selecione o veículo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableVehicles.map((vehicle) => (
+                      <SelectItem key={vehicle.chassi} value={vehicle.chassi}>
+                        {vehicle.chassi}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {availableVehicles.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nenhum veículo em estoque disponível</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Pátio de Origem *</Label>
+                <Select
+                  value={newTransportData.originYardId}
+                  onValueChange={(value) => setNewTransportData(prev => ({ ...prev, originYardId: value }))}
+                >
+                  <SelectTrigger data-testid="select-origin-yard">
+                    <SelectValue placeholder="Selecione o pátio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yards?.map((yard) => (
+                      <SelectItem key={yard.id} value={yard.id}>
+                        {yard.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Cliente *</Label>
+                <Select
+                  value={newTransportData.clientId}
+                  onValueChange={(value) => setNewTransportData(prev => ({ 
+                    ...prev, 
+                    clientId: value, 
+                    deliveryLocationId: "" 
+                  }))}
+                >
+                  <SelectTrigger data-testid="select-client">
+                    <SelectValue placeholder="Selecione o cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients?.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Local de Entrega *</Label>
+                <Select
+                  value={newTransportData.deliveryLocationId}
+                  onValueChange={(value) => setNewTransportData(prev => ({ ...prev, deliveryLocationId: value }))}
+                  disabled={!newTransportData.clientId}
+                >
+                  <SelectTrigger data-testid="select-delivery-location">
+                    <SelectValue placeholder={newTransportData.clientId ? "Selecione o local" : "Selecione o cliente primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientDeliveryLocations.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.name} - {loc.city}/{loc.state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {newTransportData.clientId && clientDeliveryLocations.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nenhum local de entrega cadastrado para este cliente</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Motorista</Label>
+                <Select
+                  value={newTransportData.driverId}
+                  onValueChange={(value) => setNewTransportData(prev => ({ ...prev, driverId: value }))}
+                >
+                  <SelectTrigger data-testid="select-driver">
+                    <SelectValue placeholder="Selecione o motorista (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeDrivers.map((driver) => (
+                      <SelectItem key={driver.id} value={driver.id}>
+                        {driver.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Previsão de Entrega</Label>
+                <Input
+                  type="datetime-local"
+                  value={newTransportData.deliveryDate}
+                  onChange={(e) => setNewTransportData(prev => ({ ...prev, deliveryDate: e.target.value }))}
+                  data-testid="input-delivery-date"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Observações</Label>
+              <Textarea
+                value={newTransportData.notes}
+                onChange={(e) => setNewTransportData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Observações adicionais..."
+                data-testid="input-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => createMutation.mutate(newTransportData)}
+              disabled={
+                createMutation.isPending ||
+                !newTransportData.vehicleChassi ||
+                !newTransportData.clientId ||
+                !newTransportData.originYardId ||
+                !newTransportData.deliveryLocationId
+              }
+              data-testid="button-save-transport"
+            >
+              {createMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -221,7 +221,7 @@ const formSchema = z.object({
   originYardId: z.string().min(1, "Pátio de origem é obrigatório"),
   deliveryLocationId: z.string().min(1, "Local de entrega é obrigatório"),
   driverId: z.string().optional(),
-  status: z.enum(["pendente", "em_transito", "entregue", "cancelado"]),
+  status: z.enum(["pendente", "aguardando_saida", "em_transito", "entregue", "cancelado"]),
   deliveryDate: z.string().optional(),
   notes: z.string().optional(),
   // Check-in fields
