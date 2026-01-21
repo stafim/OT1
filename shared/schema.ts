@@ -611,6 +611,7 @@ export const featureKeys = [
   "localizar-motorista",
   "trafego-agora",
   "portaria",
+  "financeiro",
 ] as const;
 
 export type FeatureKey = typeof featureKeys[number];
@@ -629,3 +630,114 @@ export const insertRolePermissionSchema = createInsertSchema(rolePermissions).om
 
 export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
 export type RolePermission = typeof rolePermissions.$inferSelect;
+
+// ============== PRESTAÇÃO DE CONTAS (Expense Settlements) ==============
+export const expenseSettlementStatusEnum = pgEnum("expense_settlement_status", [
+  "pendente",        // Aguardando envio pelo motorista
+  "enviado",         // Enviado pelo motorista, aguardando análise
+  "devolvido",       // Devolvido para o motorista (foto ruim, etc)
+  "aprovado",        // Aprovado pelo financeiro
+  "assinado"         // Assinado pelo motorista no app
+]);
+
+export const expenseTypeEnum = pgEnum("expense_type", [
+  "pedagio",
+  "combustivel",
+  "alimentacao",
+  "hospedagem",
+  "manutencao",
+  "multa",
+  "estacionamento",
+  "lavagem",
+  "outros"
+]);
+
+export const expenseSettlements = pgTable("expense_settlements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transportId: varchar("transport_id").notNull().references(() => transports.id),
+  driverId: varchar("driver_id").notNull().references(() => drivers.id),
+  status: expenseSettlementStatusEnum("status").default("pendente"),
+  
+  // Resumo enviado pelo motorista
+  driverNotes: text("driver_notes"),
+  totalExpenses: text("total_expenses"),  // Valor total das despesas
+  
+  // Valores do transporte (copiados para referência)
+  routeDistance: text("route_distance"),
+  estimatedTolls: text("estimated_tolls"),
+  estimatedFuel: text("estimated_fuel"),
+  
+  // Datas importantes
+  submittedAt: timestamp("submitted_at"),        // Quando motorista enviou
+  reviewedAt: timestamp("reviewed_at"),          // Quando foi analisado
+  approvedAt: timestamp("approved_at"),          // Quando foi aprovado
+  signedAt: timestamp("signed_at"),              // Quando foi assinado
+  
+  // Usuário que analisou
+  reviewedByUserId: varchar("reviewed_by_user_id").references(() => systemUsers.id),
+  
+  // Motivo da devolução (se aplicável)
+  returnReason: text("return_reason"),
+  
+  // Documento gerado (URL do PDF)
+  settlementDocumentUrl: text("settlement_document_url"),
+  
+  // Assinatura do motorista (imagem base64 ou URL)
+  driverSignature: text("driver_signature"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const expenseSettlementsRelations = relations(expenseSettlements, ({ one, many }) => ({
+  transport: one(transports, {
+    fields: [expenseSettlements.transportId],
+    references: [transports.id],
+  }),
+  driver: one(drivers, {
+    fields: [expenseSettlements.driverId],
+    references: [drivers.id],
+  }),
+  reviewedByUser: one(systemUsers, {
+    fields: [expenseSettlements.reviewedByUserId],
+    references: [systemUsers.id],
+  }),
+  items: many(expenseSettlementItems),
+}));
+
+// Itens da prestação de contas (cada despesa com foto)
+export const expenseSettlementItems = pgTable("expense_settlement_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  settlementId: varchar("settlement_id").notNull().references(() => expenseSettlements.id),
+  type: expenseTypeEnum("type").notNull(),
+  description: text("description"),
+  amount: text("amount").notNull(),         // Valor em R$
+  photoUrl: text("photo_url").notNull(),    // Foto do comprovante
+  
+  // Status da foto (para devoluções)
+  photoStatus: text("photo_status").default("ok"),  // ok, borrada, ilegivel
+  photoRejectionReason: text("photo_rejection_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const expenseSettlementItemsRelations = relations(expenseSettlementItems, ({ one }) => ({
+  settlement: one(expenseSettlements, {
+    fields: [expenseSettlementItems.settlementId],
+    references: [expenseSettlements.id],
+  }),
+}));
+
+export const insertExpenseSettlementSchema = createInsertSchema(expenseSettlements).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertExpenseSettlementItemSchema = createInsertSchema(expenseSettlementItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertExpenseSettlement = z.infer<typeof insertExpenseSettlementSchema>;
+export type ExpenseSettlement = typeof expenseSettlements.$inferSelect;
+export type InsertExpenseSettlementItem = z.infer<typeof insertExpenseSettlementItemSchema>;
+export type ExpenseSettlementItem = typeof expenseSettlementItems.$inferSelect;

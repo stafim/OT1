@@ -11,6 +11,8 @@ import {
   requestCounter,
   systemUsers, type SystemUser, type InsertSystemUser,
   rolePermissions, type RolePermission, type InsertRolePermission, type FeatureKey,
+  expenseSettlements, type ExpenseSettlement, type InsertExpenseSettlement,
+  expenseSettlementItems, type ExpenseSettlementItem, type InsertExpenseSettlementItem,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -102,6 +104,20 @@ export interface IStorage {
     vehiclesInStock: number;
     activeDrivers: number;
   }>;
+
+  // Expense Settlements
+  getExpenseSettlements(): Promise<ExpenseSettlement[]>;
+  getExpenseSettlement(id: string): Promise<ExpenseSettlement | undefined>;
+  getExpenseSettlementByTransport(transportId: string): Promise<ExpenseSettlement | undefined>;
+  createExpenseSettlement(settlement: InsertExpenseSettlement): Promise<ExpenseSettlement>;
+  updateExpenseSettlement(id: string, settlement: Partial<InsertExpenseSettlement>): Promise<ExpenseSettlement | undefined>;
+  deleteExpenseSettlement(id: string): Promise<void>;
+
+  // Expense Settlement Items
+  getExpenseSettlementItems(settlementId: string): Promise<ExpenseSettlementItem[]>;
+  createExpenseSettlementItem(item: InsertExpenseSettlementItem): Promise<ExpenseSettlementItem>;
+  updateExpenseSettlementItem(id: string, item: Partial<InsertExpenseSettlementItem>): Promise<ExpenseSettlementItem | undefined>;
+  deleteExpenseSettlementItem(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -460,6 +476,57 @@ export class DatabaseStorage implements IStorage {
       vehiclesInStock: Number(vehicleCount?.count || 0),
       activeDrivers: Number(driverCount?.count || 0),
     };
+  }
+
+  // Expense Settlements
+  async getExpenseSettlements(): Promise<ExpenseSettlement[]> {
+    return db.select().from(expenseSettlements).orderBy(desc(expenseSettlements.createdAt));
+  }
+
+  async getExpenseSettlement(id: string): Promise<ExpenseSettlement | undefined> {
+    const [settlement] = await db.select().from(expenseSettlements).where(eq(expenseSettlements.id, id));
+    return settlement;
+  }
+
+  async getExpenseSettlementByTransport(transportId: string): Promise<ExpenseSettlement | undefined> {
+    const [settlement] = await db.select().from(expenseSettlements).where(eq(expenseSettlements.transportId, transportId));
+    return settlement;
+  }
+
+  async createExpenseSettlement(settlement: InsertExpenseSettlement): Promise<ExpenseSettlement> {
+    const [created] = await db.insert(expenseSettlements).values(settlement).returning();
+    return created;
+  }
+
+  async updateExpenseSettlement(id: string, settlement: Partial<InsertExpenseSettlement>): Promise<ExpenseSettlement | undefined> {
+    const [updated] = await db.update(expenseSettlements).set(settlement).where(eq(expenseSettlements.id, id)).returning();
+    return updated;
+  }
+
+  async deleteExpenseSettlement(id: string): Promise<void> {
+    // First delete items
+    await db.delete(expenseSettlementItems).where(eq(expenseSettlementItems.settlementId, id));
+    // Then delete settlement
+    await db.delete(expenseSettlements).where(eq(expenseSettlements.id, id));
+  }
+
+  // Expense Settlement Items
+  async getExpenseSettlementItems(settlementId: string): Promise<ExpenseSettlementItem[]> {
+    return db.select().from(expenseSettlementItems).where(eq(expenseSettlementItems.settlementId, settlementId)).orderBy(desc(expenseSettlementItems.createdAt));
+  }
+
+  async createExpenseSettlementItem(item: InsertExpenseSettlementItem): Promise<ExpenseSettlementItem> {
+    const [created] = await db.insert(expenseSettlementItems).values(item).returning();
+    return created;
+  }
+
+  async updateExpenseSettlementItem(id: string, item: Partial<InsertExpenseSettlementItem>): Promise<ExpenseSettlementItem | undefined> {
+    const [updated] = await db.update(expenseSettlementItems).set(item).where(eq(expenseSettlementItems.id, id)).returning();
+    return updated;
+  }
+
+  async deleteExpenseSettlementItem(id: string): Promise<void> {
+    await db.delete(expenseSettlementItems).where(eq(expenseSettlementItems.id, id));
   }
 }
 
