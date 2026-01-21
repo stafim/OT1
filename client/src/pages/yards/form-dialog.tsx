@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,20 +19,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import type { Yard } from "@shared/schema";
-import { fetchAddressFromCep } from "@/lib/cep";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, "");
@@ -42,14 +35,9 @@ function formatPhone(value: string): string {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
 }
 
-const brazilianStates = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-] as const;
-
 const formSchema = z.object({
   name: z.string().min(2, "Nome é obrigatório"),
+  fullAddress: z.string().optional(),
   cep: z.string().optional(),
   address: z.string().optional(),
   addressNumber: z.string().optional(),
@@ -73,17 +61,28 @@ interface YardFormDialogProps {
 export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogProps) {
   const { toast } = useToast();
   const isEditing = !!yardId;
-  const [isFetchingCep, setIsFetchingCep] = useState(false);
 
   const { data: yard, isLoading } = useQuery<Yard>({
     queryKey: ["/api/yards", yardId],
     enabled: isEditing && open,
   });
 
+  const buildFullAddress = (y: Yard) => {
+    const parts = [
+      y.address,
+      y.addressNumber,
+      y.neighborhood,
+      y.city,
+      y.state,
+    ].filter(Boolean);
+    return parts.join(", ");
+  };
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      fullAddress: "",
       cep: "",
       address: "",
       addressNumber: "",
@@ -101,6 +100,7 @@ export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogPro
     if (yard && isEditing) {
       form.reset({
         name: yard.name || "",
+        fullAddress: buildFullAddress(yard),
         cep: yard.cep || "",
         address: yard.address || "",
         addressNumber: yard.addressNumber || "",
@@ -115,6 +115,7 @@ export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogPro
     } else if (!isEditing && open) {
       form.reset({
         name: "",
+        fullAddress: "",
         cep: "",
         address: "",
         addressNumber: "",
@@ -146,27 +147,23 @@ export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogPro
     },
   });
 
-  const handleCepBlur = async (cepValue: string) => {
-    const cleanCep = cepValue.replace(/\D/g, "");
-    if (cleanCep.length !== 8) return;
-
-    setIsFetchingCep(true);
-    try {
-      const addressData = await fetchAddressFromCep(cleanCep);
-      if (addressData) {
-        form.setValue("address", addressData.address);
-        form.setValue("neighborhood", addressData.neighborhood);
-        form.setValue("city", addressData.city);
-        form.setValue("state", addressData.state);
-        toast({ title: "Endereço preenchido automaticamente" });
-      } else {
-        toast({ title: "CEP não encontrado", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao buscar CEP", variant: "destructive" });
-    } finally {
-      setIsFetchingCep(false);
-    }
+  const handleAddressSelect = (addressData: {
+    address: string;
+    addressNumber: string;
+    complement: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    cep: string;
+    formattedAddress: string;
+  }) => {
+    form.setValue("fullAddress", addressData.formattedAddress);
+    form.setValue("address", addressData.address);
+    form.setValue("addressNumber", addressData.addressNumber);
+    form.setValue("neighborhood", addressData.neighborhood);
+    form.setValue("city", addressData.city);
+    form.setValue("state", addressData.state);
+    form.setValue("cep", addressData.cep);
   };
 
   return (
@@ -245,141 +242,59 @@ export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogPro
 
                 <div className="space-y-4">
                   <h3 className="font-medium text-sm text-muted-foreground">Endereço</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="cep"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>CEP</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input 
-                                {...field}
-                                placeholder="00000-000"
-                                data-testid="input-yard-cep"
-                                onBlur={(e) => {
-                                  field.onBlur();
-                                  handleCepBlur(e.target.value);
-                                }}
-                              />
-                              {isFetchingCep && (
-                                <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                              )}
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Rua</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-yard-address" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="addressNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Número</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-yard-number" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="complement"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Complemento</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-yard-complement" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="neighborhood"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bairro</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-yard-neighborhood" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Cidade</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-yard-city" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>UF</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-yard-state">
-                                <SelectValue placeholder="Selecione" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {brazilianStates.map((state) => (
-                                <SelectItem key={state} value={state}>
-                                  {state}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="isActive"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Ativo</FormLabel>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value === "true"}
-                              onCheckedChange={(checked) => field.onChange(checked ? "true" : "false")}
-                              data-testid="switch-yard-active"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="fullAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Endereço</FormLabel>
+                        <FormControl>
+                          <AddressAutocomplete
+                            value={field.value || ""}
+                            onChange={handleAddressSelect}
+                            onInputChange={(value) => field.onChange(value)}
+                            placeholder="Digite o endereço do pátio..."
+                            testId="input-yard-address"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="complement"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Complemento</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Apto, Bloco, Galpão..." data-testid="input-yard-complement" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="isActive"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Ativo</FormLabel>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value === "true"}
+                            onCheckedChange={(checked) => field.onChange(checked ? "true" : "false")}
+                            data-testid="switch-yard-active"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
                 <div className="flex justify-end gap-4 pt-4 border-t">
