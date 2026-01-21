@@ -106,6 +106,8 @@ export const manufacturers = pgTable("manufacturers", {
   neighborhood: text("neighborhood"),
   city: text("city"),
   state: varchar("state", { length: 2 }),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
   phone: varchar("phone", { length: 20 }),
   email: varchar("email", { length: 255 }),
   contactName: text("contact_name"),

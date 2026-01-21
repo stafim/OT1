@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,29 +19,34 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import type { Manufacturer } from "@shared/schema";
-import { fetchAddressFromCep } from "@/lib/cep";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 
-const brazilianStates = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-] as const;
+function buildFullAddress(manufacturer: Manufacturer): string {
+  const parts = [];
+  if (manufacturer.address) {
+    let addressPart = manufacturer.address;
+    if (manufacturer.addressNumber) addressPart += `, ${manufacturer.addressNumber}`;
+    parts.push(addressPart);
+  }
+  if (manufacturer.neighborhood) parts.push(manufacturer.neighborhood);
+  if (manufacturer.city) {
+    let cityPart = manufacturer.city;
+    if (manufacturer.state) cityPart += ` - ${manufacturer.state}`;
+    parts.push(cityPart);
+  }
+  if (manufacturer.cep) parts.push(manufacturer.cep);
+  return parts.join(", ");
+}
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome é obrigatório"),
+  fullAddress: z.string().optional(),
   cep: z.string().optional(),
   address: z.string().optional(),
   addressNumber: z.string().optional(),
@@ -49,6 +54,8 @@ const formSchema = z.object({
   neighborhood: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   contactName: z.string().optional(),
@@ -66,7 +73,6 @@ interface ManufacturerFormDialogProps {
 export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: ManufacturerFormDialogProps) {
   const { toast } = useToast();
   const isEditing = !!manufacturerId;
-  const [isFetchingCep, setIsFetchingCep] = useState(false);
 
   const { data: manufacturer, isLoading } = useQuery<Manufacturer>({
     queryKey: ["/api/manufacturers", manufacturerId],
@@ -77,6 +83,7 @@ export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: M
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      fullAddress: "",
       cep: "",
       address: "",
       addressNumber: "",
@@ -84,6 +91,8 @@ export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: M
       neighborhood: "",
       city: "",
       state: "",
+      latitude: "",
+      longitude: "",
       phone: "",
       email: "",
       contactName: "",
@@ -95,6 +104,7 @@ export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: M
     if (manufacturer && isEditing) {
       form.reset({
         name: manufacturer.name || "",
+        fullAddress: buildFullAddress(manufacturer),
         cep: manufacturer.cep || "",
         address: manufacturer.address || "",
         addressNumber: manufacturer.addressNumber || "",
@@ -102,6 +112,8 @@ export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: M
         neighborhood: manufacturer.neighborhood || "",
         city: manufacturer.city || "",
         state: manufacturer.state || "",
+        latitude: manufacturer.latitude || "",
+        longitude: manufacturer.longitude || "",
         phone: manufacturer.phone || "",
         email: manufacturer.email || "",
         contactName: manufacturer.contactName || "",
@@ -110,6 +122,7 @@ export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: M
     } else if (!isEditing && open) {
       form.reset({
         name: "",
+        fullAddress: "",
         cep: "",
         address: "",
         addressNumber: "",
@@ -117,6 +130,8 @@ export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: M
         neighborhood: "",
         city: "",
         state: "",
+        latitude: "",
+        longitude: "",
         phone: "",
         email: "",
         contactName: "",
@@ -142,32 +157,44 @@ export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: M
     },
   });
 
-  const handleCepBlur = async (cepValue: string) => {
-    const cleanCep = cepValue.replace(/\D/g, "");
-    if (cleanCep.length !== 8) return;
-
-    setIsFetchingCep(true);
-    try {
-      const addressData = await fetchAddressFromCep(cleanCep);
-      if (addressData) {
-        form.setValue("address", addressData.address);
-        form.setValue("neighborhood", addressData.neighborhood);
-        form.setValue("city", addressData.city);
-        form.setValue("state", addressData.state as typeof brazilianStates[number]);
-        toast({ title: "Endereço preenchido automaticamente" });
-      } else {
-        toast({ title: "CEP não encontrado", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao buscar CEP", variant: "destructive" });
-    } finally {
-      setIsFetchingCep(false);
+  const handleAddressSelect = (addressData: {
+    address: string;
+    addressNumber: string;
+    complement: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    cep: string;
+    formattedAddress: string;
+    latitude?: number;
+    longitude?: number;
+  }) => {
+    form.setValue("fullAddress", addressData.formattedAddress);
+    form.setValue("address", addressData.address);
+    form.setValue("addressNumber", addressData.addressNumber);
+    form.setValue("neighborhood", addressData.neighborhood);
+    form.setValue("city", addressData.city);
+    form.setValue("state", addressData.state);
+    form.setValue("cep", addressData.cep);
+    if (addressData.latitude) {
+      form.setValue("latitude", String(addressData.latitude));
+    }
+    if (addressData.longitude) {
+      form.setValue("longitude", String(addressData.longitude));
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+      <DialogContent 
+        className="max-w-2xl max-h-[90vh] p-0"
+        onPointerDownOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-address-suggestion]')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>{isEditing ? "Editar Montadora" : "Nova Montadora"}</DialogTitle>
         </DialogHeader>
@@ -243,51 +270,18 @@ export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: M
                   <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
-                      name="cep"
+                      name="fullAddress"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>CEP</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input 
-                                {...field} 
-                                placeholder="00000-000"
-                                data-testid="input-manufacturer-cep"
-                                onBlur={(e) => {
-                                  field.onBlur();
-                                  handleCepBlur(e.target.value);
-                                }}
-                              />
-                              {isFetchingCep && (
-                                <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                              )}
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="md:col-span-2">
                           <FormLabel>Endereço</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-manufacturer-address" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="addressNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Número</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-manufacturer-number" />
+                            <AddressAutocomplete
+                              value={field.value || ""}
+                              onChange={handleAddressSelect}
+                              onInputChange={field.onChange}
+                              placeholder="Digite o endereço para buscar..."
+                              testId="input-manufacturer-address"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -297,61 +291,11 @@ export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: M
                       control={form.control}
                       name="complement"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="md:col-span-2">
                           <FormLabel>Complemento</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-manufacturer-complement" />
+                            <Input {...field} placeholder="Apto, Sala, Bloco..." data-testid="input-manufacturer-complement" />
                           </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="neighborhood"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bairro</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-manufacturer-neighborhood" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Município</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-manufacturer-city" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>UF</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-manufacturer-state">
-                                <SelectValue placeholder="Selecione" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {brazilianStates.map((state) => (
-                                <SelectItem key={state} value={state}>
-                                  {state}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -360,7 +304,7 @@ export function ManufacturerFormDialog({ open, onOpenChange, manufacturerId }: M
                       control={form.control}
                       name="isActive"
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 md:col-span-2">
                           <div className="space-y-0.5">
                             <FormLabel className="text-base">Ativo</FormLabel>
                           </div>
