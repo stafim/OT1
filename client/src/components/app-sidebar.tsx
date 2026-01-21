@@ -27,6 +27,7 @@ import {
   Radio,
   DoorOpen,
   Route,
+  Receipt,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -77,6 +78,11 @@ const operationItems: MenuItem[] = [
     title: "Roteirização",
     url: "/roteirizacao",
     icon: Route,
+  },
+  {
+    title: "Financeiro",
+    url: "/financeiro",
+    icon: Receipt,
   },
 ];
 
