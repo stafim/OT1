@@ -797,125 +797,146 @@ export default function TransportFormPage() {
                           Obter Localização
                         </Button>
 
-                        <p className="text-sm font-medium text-muted-foreground">Fotos do Veículo</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {/* Seção: Fotos do Veículo */}
+                        <div className="rounded-lg border p-4">
+                          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Veículo</h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="checkinFrontalPhoto"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Frontal"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkin-frontal"
+                                />
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="checkinLateral1Photo"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Lateral 1"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkin-lateral1"
+                                />
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="checkinLateral2Photo"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Lateral 2"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkin-lateral2"
+                                />
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="checkinTraseiraPhoto"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Traseira"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkin-traseira"
+                                />
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Seção: Fotos do Painel */}
+                        <div className="rounded-lg border p-4">
+                          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Painel</h3>
+                          <div className="grid grid-cols-2 gap-4 justify-items-center">
+                            <FormField
+                              control={form.control}
+                              name="checkinOdometerPhoto"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Foto do Odômetro"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkin-odometer"
+                                />
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="checkinFuelLevelPhoto"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Nível de Combustível"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkin-fuel"
+                                />
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Seção: Avarias */}
+                        <div className="rounded-lg border p-4">
                           <FormField
                             control={form.control}
-                            name="checkinFrontalPhoto"
+                            name="checkinDamagePhotos"
                             render={({ field }) => (
-                              <PhotoUpload
-                                label="Frontal"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                testId="upload-checkin-frontal"
-                              />
+                              <>
+                                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+                                  Avarias <span className="font-normal">({(field.value || []).length}/10)</span>
+                                </h3>
+                                <MultiPhotoUpload
+                                  label=""
+                                  values={field.value || []}
+                                  onChange={field.onChange}
+                                  testId="upload-checkin-damage"
+                                  maxPhotos={10}
+                                />
+                              </>
                             )}
                           />
+                        </div>
+
+                        {/* Seção: Selfie */}
+                        <div className="rounded-lg border p-4">
+                          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Selfie do Motorista</h3>
                           <FormField
                             control={form.control}
-                            name="checkinLateral1Photo"
+                            name="checkinSelfiePhoto"
                             render={({ field }) => (
                               <PhotoUpload
-                                label="Lateral 1"
+                                label=""
                                 value={field.value || ""}
                                 onChange={field.onChange}
-                                testId="upload-checkin-lateral1"
-                              />
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="checkinLateral2Photo"
-                            render={({ field }) => (
-                              <PhotoUpload
-                                label="Lateral 2"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                testId="upload-checkin-lateral2"
-                              />
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="checkinTraseiraPhoto"
-                            render={({ field }) => (
-                              <PhotoUpload
-                                label="Traseira"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                testId="upload-checkin-traseira"
+                                testId="upload-checkin-selfie"
                               />
                             )}
                           />
                         </div>
 
-                        <p className="text-sm font-medium text-muted-foreground">Painel</p>
-                        <div className="grid grid-cols-2 gap-4">
+                        {/* Seção: Observações */}
+                        <div className="rounded-lg border p-4">
+                          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Observações</h3>
                           <FormField
                             control={form.control}
-                            name="checkinOdometerPhoto"
+                            name="checkinNotes"
                             render={({ field }) => (
-                              <PhotoUpload
-                                label="Odômetro"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                testId="upload-checkin-odometer"
-                              />
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="checkinFuelLevelPhoto"
-                            render={({ field }) => (
-                              <PhotoUpload
-                                label="Nível de Combustível"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                testId="upload-checkin-fuel"
-                              />
+                              <FormItem>
+                                <FormControl>
+                                  <Textarea {...field} placeholder="Observações sobre o veículo..." data-testid="input-checkin-notes" />
+                                </FormControl>
+                              </FormItem>
                             )}
                           />
                         </div>
-
-                        <FormField
-                          control={form.control}
-                          name="checkinDamagePhotos"
-                          render={({ field }) => (
-                            <MultiPhotoUpload
-                              label="Fotos de Avarias (até 10)"
-                              values={field.value || []}
-                              onChange={field.onChange}
-                              testId="upload-checkin-damage"
-                              maxPhotos={10}
-                            />
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="checkinSelfiePhoto"
-                          render={({ field }) => (
-                            <PhotoUpload
-                              label="Selfie do Motorista"
-                              value={field.value || ""}
-                              onChange={field.onChange}
-                              testId="upload-checkin-selfie"
-                            />
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="checkinNotes"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Observações</FormLabel>
-                              <FormControl>
-                                <Textarea {...field} data-testid="input-checkin-notes" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
 
                         <Button
                           type="button"
@@ -1077,125 +1098,146 @@ export default function TransportFormPage() {
                           Obter Localização
                         </Button>
 
-                        <p className="text-sm font-medium text-muted-foreground">Fotos do Veículo</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {/* Seção: Fotos do Veículo */}
+                        <div className="rounded-lg border p-4">
+                          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Veículo</h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="checkoutFrontalPhoto"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Frontal"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkout-frontal"
+                                />
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="checkoutLateral1Photo"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Lateral 1"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkout-lateral1"
+                                />
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="checkoutLateral2Photo"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Lateral 2"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkout-lateral2"
+                                />
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="checkoutTraseiraPhoto"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Traseira"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkout-traseira"
+                                />
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Seção: Fotos do Painel */}
+                        <div className="rounded-lg border p-4">
+                          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Painel</h3>
+                          <div className="grid grid-cols-2 gap-4 justify-items-center">
+                            <FormField
+                              control={form.control}
+                              name="checkoutOdometerPhoto"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Foto do Odômetro"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkout-odometer"
+                                />
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="checkoutFuelLevelPhoto"
+                              render={({ field }) => (
+                                <PhotoUpload
+                                  label="Nível de Combustível"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  testId="upload-checkout-fuel"
+                                />
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Seção: Avarias */}
+                        <div className="rounded-lg border p-4">
                           <FormField
                             control={form.control}
-                            name="checkoutFrontalPhoto"
+                            name="checkoutDamagePhotos"
                             render={({ field }) => (
-                              <PhotoUpload
-                                label="Frontal"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                testId="upload-checkout-frontal"
-                              />
+                              <>
+                                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+                                  Avarias <span className="font-normal">({(field.value || []).length}/10)</span>
+                                </h3>
+                                <MultiPhotoUpload
+                                  label=""
+                                  values={field.value || []}
+                                  onChange={field.onChange}
+                                  testId="upload-checkout-damage"
+                                  maxPhotos={10}
+                                />
+                              </>
                             )}
                           />
+                        </div>
+
+                        {/* Seção: Selfie */}
+                        <div className="rounded-lg border p-4">
+                          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Selfie do Motorista</h3>
                           <FormField
                             control={form.control}
-                            name="checkoutLateral1Photo"
+                            name="checkoutSelfiePhoto"
                             render={({ field }) => (
                               <PhotoUpload
-                                label="Lateral 1"
+                                label=""
                                 value={field.value || ""}
                                 onChange={field.onChange}
-                                testId="upload-checkout-lateral1"
-                              />
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="checkoutLateral2Photo"
-                            render={({ field }) => (
-                              <PhotoUpload
-                                label="Lateral 2"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                testId="upload-checkout-lateral2"
-                              />
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="checkoutTraseiraPhoto"
-                            render={({ field }) => (
-                              <PhotoUpload
-                                label="Traseira"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                testId="upload-checkout-traseira"
+                                testId="upload-checkout-selfie"
                               />
                             )}
                           />
                         </div>
 
-                        <p className="text-sm font-medium text-muted-foreground">Painel</p>
-                        <div className="grid grid-cols-2 gap-4">
+                        {/* Seção: Observações */}
+                        <div className="rounded-lg border p-4">
+                          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Observações</h3>
                           <FormField
                             control={form.control}
-                            name="checkoutOdometerPhoto"
+                            name="checkoutNotes"
                             render={({ field }) => (
-                              <PhotoUpload
-                                label="Odômetro"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                testId="upload-checkout-odometer"
-                              />
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="checkoutFuelLevelPhoto"
-                            render={({ field }) => (
-                              <PhotoUpload
-                                label="Nível de Combustível"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                testId="upload-checkout-fuel"
-                              />
+                              <FormItem>
+                                <FormControl>
+                                  <Textarea {...field} placeholder="Observações sobre o veículo..." data-testid="input-checkout-notes" />
+                                </FormControl>
+                              </FormItem>
                             )}
                           />
                         </div>
-
-                        <FormField
-                          control={form.control}
-                          name="checkoutDamagePhotos"
-                          render={({ field }) => (
-                            <MultiPhotoUpload
-                              label="Fotos de Avarias (até 10)"
-                              values={field.value || []}
-                              onChange={field.onChange}
-                              testId="upload-checkout-damage"
-                              maxPhotos={10}
-                            />
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="checkoutSelfiePhoto"
-                          render={({ field }) => (
-                            <PhotoUpload
-                              label="Selfie do Motorista"
-                              value={field.value || ""}
-                              onChange={field.onChange}
-                              testId="upload-checkout-selfie"
-                            />
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="checkoutNotes"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Observações</FormLabel>
-                              <FormControl>
-                                <Textarea {...field} data-testid="input-checkout-notes" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
 
                         <Button
                           type="button"
