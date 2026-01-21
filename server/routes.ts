@@ -1100,5 +1100,81 @@ export async function registerRoutes(
     }
   });
 
+  // Routing calculation endpoint
+  app.post("/api/routing/calculate", isAuthenticatedJWT, async (req: any, res) => {
+    try {
+      const { origin, destination } = req.body;
+      
+      if (!origin?.lat || !origin?.lng || !destination?.lat || !destination?.lng) {
+        return res.status(400).json({ message: "Origin and destination coordinates are required" });
+      }
+
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ message: "Google Maps API key not configured" });
+      }
+
+      // Get distance and duration with traffic
+      const distanceMatrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin.lat},${origin.lng}&destinations=${destination.lat},${destination.lng}&departure_time=now&traffic_model=best_guess&key=${apiKey}`;
+      
+      const distanceResponse = await fetch(distanceMatrixUrl);
+      const distanceData = await distanceResponse.json();
+
+      if (distanceData.status !== "OK" || !distanceData.rows?.[0]?.elements?.[0]) {
+        return res.status(400).json({ message: "Could not calculate route" });
+      }
+
+      const element = distanceData.rows[0].elements[0];
+      if (element.status !== "OK") {
+        return res.status(400).json({ message: "No route found between the locations" });
+      }
+
+      // Get toll information using Routes API
+      let tollCost = null;
+      try {
+        const routesResponse = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.travelAdvisory.tollInfo,routes.legs.travelAdvisory.tollInfo",
+          },
+          body: JSON.stringify({
+            origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
+            destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
+            travelMode: "DRIVE",
+            extraComputations: ["TOLLS"],
+          }),
+        });
+
+        const routesData = await routesResponse.json();
+        if (routesData.routes?.[0]?.travelAdvisory?.tollInfo?.estimatedPrice?.[0]) {
+          const toll = routesData.routes[0].travelAdvisory.tollInfo.estimatedPrice[0];
+          const amount = parseFloat(toll.units || "0") + (parseFloat(toll.nanos || "0") / 1000000000);
+          tollCost = {
+            amount: amount.toFixed(2),
+            currency: toll.currencyCode || "BRL",
+          };
+        }
+      } catch (tollError) {
+        console.log("Could not fetch toll information:", tollError);
+      }
+
+      const result = {
+        distance: element.distance,
+        duration: element.duration,
+        durationInTraffic: element.duration_in_traffic || null,
+        tollCost,
+        originAddress: distanceData.origin_addresses[0],
+        destinationAddress: distanceData.destination_addresses[0],
+      };
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error calculating route:", error);
+      res.status(500).json({ message: "Failed to calculate route" });
+    }
+  });
+
   return httpServer;
 }

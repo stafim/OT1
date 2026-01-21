@@ -26,6 +26,7 @@ import {
   Link2,
   Radio,
   DoorOpen,
+  Route,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -71,6 +72,11 @@ const operationItems: MenuItem[] = [
     title: "Portaria",
     url: "/portaria",
     icon: DoorOpen,
+  },
+  {
+    title: "Roteirização",
+    url: "/roteirizacao",
+    icon: Route,
   },
 ];
 
