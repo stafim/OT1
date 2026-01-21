@@ -652,13 +652,19 @@ export async function registerRoutes(
             : [null];
           let createdByUser = null;
           if (transport.createdByUserId) {
-            const [user] = await db.select({ id: systemUsers.id, username: systemUsers.username, firstName: systemUsers.firstName, lastName: systemUsers.lastName }).from(systemUsers).where(eq(systemUsers.id, transport.createdByUserId));
-            createdByUser = user || null;
+            const users = await db.select().from(systemUsers).where(eq(systemUsers.id, transport.createdByUserId));
+            if (users.length > 0) {
+              const u = users[0];
+              createdByUser = { id: u.id, username: u.username, firstName: u.firstName, lastName: u.lastName };
+            }
           }
           let driverAssignedByUser = null;
           if (transport.driverAssignedByUserId) {
-            const [user] = await db.select({ id: systemUsers.id, username: systemUsers.username, firstName: systemUsers.firstName, lastName: systemUsers.lastName }).from(systemUsers).where(eq(systemUsers.id, transport.driverAssignedByUserId));
-            driverAssignedByUser = user || null;
+            const users = await db.select().from(systemUsers).where(eq(systemUsers.id, transport.driverAssignedByUserId));
+            if (users.length > 0) {
+              const u = users[0];
+              driverAssignedByUser = { id: u.id, username: u.username, firstName: u.firstName, lastName: u.lastName };
+            }
           }
           return { ...transport, client, deliveryLocation, driver, createdByUser, driverAssignedByUser };
         })
