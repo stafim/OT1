@@ -82,8 +82,7 @@ function PhotoUpload({ label, value, onChange, testId }: PhotoUploadProps) {
         body: file,
       });
 
-      const publicUrl = `/api/object-storage${objectPath}`;
-      onChange(publicUrl);
+      onChange(objectPath);
     } catch (error) {
       console.error("Upload failed:", error);
     } finally {
@@ -164,8 +163,7 @@ function MultiPhotoUpload({ label, values = [], onChange, testId, maxPhotos = 5 
         body: file,
       });
 
-      const publicUrl = `/api/object-storage${objectPath}`;
-      onChange([...values, publicUrl]);
+      onChange([...values, objectPath]);
     } catch (error) {
       console.error("Upload failed:", error);
     } finally {
