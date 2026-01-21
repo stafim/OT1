@@ -272,20 +272,58 @@ export function AddressAutocomplete({
       };
       
       // Parse the address from the formatted string
+      // Example: "R. Antônio Singer, 2682 - Campina do Taquaral, São José dos Pinhais - PR, 83091-002, Brazil"
       if (data.address) {
         const parts = data.address.split(",").map((p: string) => p.trim());
+        
+        // Extract street and number from first part (may contain " - neighborhood")
         if (parts.length > 0) {
-          const streetParts = parts[0].match(/^(.+?)\s*,?\s*(\d+)?$/);
-          if (streetParts) {
-            addressData.address = streetParts[1] || parts[0];
-            if (streetParts[2]) addressData.addressNumber = streetParts[2];
+          const firstPart = parts[0];
+          // Check if format is "Street, Number - Neighborhood"
+          const streetMatch = firstPart.match(/^(.+?)\s*,?\s*(\d+)?(?:\s*-\s*(.+))?$/);
+          if (streetMatch) {
+            addressData.address = streetMatch[1] || firstPart;
+            if (streetMatch[2]) addressData.addressNumber = streetMatch[2];
           } else {
-            addressData.address = parts[0];
+            addressData.address = firstPart;
           }
         }
-        if (parts.length > 1) addressData.neighborhood = parts[1];
-        if (parts.length > 2) addressData.city = parts[2];
-        if (parts.length > 3) addressData.state = parts[3];
+        
+        // Second part may be "Number - Neighborhood" or just "Neighborhood"
+        if (parts.length > 1) {
+          const secondPart = parts[1];
+          const numberNeighborhoodMatch = secondPart.match(/^(\d+)\s*-\s*(.+)$/);
+          if (numberNeighborhoodMatch) {
+            addressData.addressNumber = numberNeighborhoodMatch[1];
+            addressData.neighborhood = numberNeighborhoodMatch[2];
+          } else if (/^\d+$/.test(secondPart)) {
+            addressData.addressNumber = secondPart;
+          } else {
+            addressData.neighborhood = secondPart;
+          }
+        }
+        
+        // Third part is usually "City - State"
+        if (parts.length > 2) {
+          const cityStatePart = parts[2];
+          const cityStateMatch = cityStatePart.match(/^(.+?)\s*-\s*([A-Z]{2})$/);
+          if (cityStateMatch) {
+            addressData.city = cityStateMatch[1].trim();
+            addressData.state = cityStateMatch[2];
+          } else {
+            addressData.city = cityStatePart;
+          }
+        }
+        
+        // Fourth part is usually the CEP
+        if (parts.length > 3) {
+          const cepPart = parts[3];
+          // Check if it's a CEP (format: XXXXX-XXX or XXXXXXXX)
+          const cepMatch = cepPart.match(/^(\d{5}-?\d{3})$/);
+          if (cepMatch) {
+            addressData.cep = cepMatch[1].replace("-", "");
+          }
+        }
       }
 
       setInputValue(addressData.formattedAddress);
