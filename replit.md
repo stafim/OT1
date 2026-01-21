@@ -1,0 +1,91 @@
+# Vehicle Delivery Management System
+
+## Overview
+
+This is a vehicle delivery management system (Sistema de Gestão de Entregas de Veículos) built for logistics operations. The application manages the complete lifecycle of new vehicle deliveries - from collection at manufacturers, through storage at company yards, to final delivery to customers.
+
+The system handles:
+- **Collections (Coletas)**: Picking up new vehicles from manufacturers
+- **Transports**: Managing vehicle transportation and delivery to customers
+- **Inventory (Estoque)**: Tracking vehicles through various statuses (pre-stock, in-stock, dispatched, delivered, withdrawn)
+- **Driver Management**: Coordinating drivers and sending location-based notifications
+- **Entity Management**: Manufacturers, yards, clients, and delivery locations
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
+
+## System Architecture
+
+### Frontend Architecture
+- **Framework**: React with TypeScript
+- **Routing**: Wouter (lightweight React router)
+- **State Management**: TanStack Query (React Query) for server state
+- **UI Components**: Shadcn/ui component library built on Radix UI primitives
+- **Styling**: Tailwind CSS with CSS variables for theming (light/dark mode support)
+- **Form Handling**: React Hook Form with Zod validation via @hookform/resolvers
+- **Build Tool**: Vite with React plugin
+
+### Backend Architecture
+- **Runtime**: Node.js with TypeScript
+- **Framework**: Express.js for REST API
+- **Database ORM**: Drizzle ORM with PostgreSQL
+- **Validation**: Zod for input/output validation with drizzle-zod for schema integration
+- **Authentication**: Replit Auth (OpenID Connect/OAuth) with Passport.js
+- **Session Management**: express-session with connect-pg-simple for PostgreSQL session storage
+
+### Data Storage
+- **Database**: PostgreSQL
+- **Schema Location**: `shared/schema.ts` contains all table definitions
+- **Migrations**: Drizzle Kit with migrations output to `./migrations`
+
+### Key Design Patterns
+- **Shared Types**: The `shared/` directory contains schema definitions used by both frontend and backend
+- **Storage Interface**: `server/storage.ts` implements a storage interface pattern for all database operations
+- **Path Aliases**: TypeScript path aliases (`@/` for client, `@shared/` for shared code)
+- **API Structure**: RESTful endpoints under `/api/` prefix with authentication middleware
+
+### Database Schema
+Core entities include:
+- **drivers**: Company drivers with modality types (PJ, CLT, agregado)
+- **manufacturers**: Vehicle manufacturers (montadoras)
+- **yards**: Company storage locations (pátios)
+- **clients**: Customer information
+- **deliveryLocations**: Customer delivery addresses
+- **vehicles**: Vehicle inventory with chassis as primary key
+- **collects**: Collection records from manufacturers
+- **transports**: Transport/delivery records with auto-generated request numbers (OTD prefix)
+- **driverNotifications**: Push notification system for drivers
+
+Status enums for workflow tracking:
+- Vehicle status: pre_estoque, em_estoque, despachado, entregue, retirado
+- Transport status: pendente, em_transito, entregue, cancelado
+- Collect status: pendente, em_andamento, concluida, cancelada
+
+## External Dependencies
+
+### Database
+- **PostgreSQL**: Primary database (requires DATABASE_URL environment variable)
+- **Drizzle ORM**: Database toolkit for TypeScript
+
+### Authentication
+- **Replit Auth**: OAuth/OpenID Connect authentication
+- **Required Environment Variables**: 
+  - `DATABASE_URL`: PostgreSQL connection string
+  - `SESSION_SECRET`: Session encryption secret
+  - `ISSUER_URL`: OIDC issuer (defaults to Replit)
+  - `REPL_ID`: Replit application identifier
+
+### UI Dependencies
+- **Radix UI**: Headless UI primitives for accessible components
+- **Lucide React**: Icon library
+- **date-fns**: Date formatting and manipulation
+- **embla-carousel-react**: Carousel component
+- **recharts**: Charting library
+- **vaul**: Drawer component
+- **cmdk**: Command palette component
+
+### Development Tools
+- **Vite**: Build tool and dev server
+- **esbuild**: Production bundling for server
+- **TypeScript**: Type checking (no emit, bundlers handle transpilation)
