@@ -91,7 +91,16 @@ export default function CollectsPage() {
 
   const loadImageWithDimensions = async (url: string): Promise<{ base64: string; width: number; height: number } | null> => {
     try {
-      const response = await fetch(url);
+      const token = localStorage.getItem("access_token");
+      const headers: HeadersInit = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        console.error("Failed to load image:", url, response.status);
+        return null;
+      }
       const blob = await response.blob();
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
