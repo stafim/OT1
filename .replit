@@ -48,5 +48,8 @@ expertMode = true
 [userenv]
 
 [userenv.shared]
-PRIVATE_OBJECT_DIR = "/37b22775-245f-4b61-9e16-843f97d7b8ec-bucket/private"
-PUBLIC_OBJECT_SEARCH_PATHS = "/37b22775-245f-4b61-9e16-843f97d7b8ec-bucket/public"
+PRIVATE_OBJECT_DIR = "/otd1bucket/private"
+PUBLIC_OBJECT_SEARCH_PATHS = "/otd1bucket/public"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-6a84ff3c-f950-4d12-a319-16a60993a7f1"
