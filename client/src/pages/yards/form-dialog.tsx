@@ -168,7 +168,15 @@ export function YardFormDialog({ open, onOpenChange, yardId }: YardFormDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+      <DialogContent 
+        className="max-w-2xl max-h-[90vh] p-0"
+        onPointerDownOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('.pac-container')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>{isEditing ? "Editar Pátio" : "Novo Pátio"}</DialogTitle>
         </DialogHeader>
