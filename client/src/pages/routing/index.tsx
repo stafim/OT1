@@ -124,7 +124,10 @@ export default function RoutingPage() {
     try {
       const result = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
         geocoderRef.current!.geocode(
-          { address: newWaypointAddress, region: "br" },
+          { 
+            address: newWaypointAddress,
+            componentRestrictions: undefined,
+          },
           (results, status) => {
             if (status === "OK" && results) {
               resolve(results);
@@ -323,7 +326,7 @@ export default function RoutingPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Ex: "Curitiba, PR", "Rodovia Régis Bittencourt", "São Paulo - SP"
+                  Ex: "Curitiba, PR", "Buenos Aires, Argentina", "Assunção, Paraguai", "Lima, Peru"
                 </p>
               </div>
 
