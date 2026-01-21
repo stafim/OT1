@@ -9,6 +9,7 @@ import { Plus, Search, Pencil, Trash2, History, User, Clock, Truck, Building2, N
 import { VehicleFormDialog } from "./form-dialog";
 import * as XLSX from "xlsx";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { normalizeImageUrl } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import type { Vehicle, Manufacturer, Client, Collect, Driver, Yard, DeliveryLocation } from "@shared/schema";
 import { Label } from "@/components/ui/label";
@@ -596,7 +597,7 @@ export default function VehiclesPage() {
                               {collect.checkinSelfiePhoto && (
                                 <div className="space-y-1">
                                   <a href={collect.checkinSelfiePhoto} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkinSelfiePhoto} alt="Selfie" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkinSelfiePhoto)} alt="Selfie" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Camera className="h-2.5 w-2.5" /> Selfie</p>
                                 </div>
@@ -604,7 +605,7 @@ export default function VehiclesPage() {
                               {collect.checkinOdometerPhoto && (
                                 <div className="space-y-1">
                                   <a href={collect.checkinOdometerPhoto} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkinOdometerPhoto} alt="Odômetro" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkinOdometerPhoto)} alt="Odômetro" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Gauge className="h-2.5 w-2.5" /> Odômetro</p>
                                 </div>
@@ -612,7 +613,7 @@ export default function VehiclesPage() {
                               {collect.checkinFrontalPhoto && (
                                 <div className="space-y-1">
                                   <a href={collect.checkinFrontalPhoto} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkinFrontalPhoto} alt="Frontal" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkinFrontalPhoto)} alt="Frontal" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Car className="h-2.5 w-2.5" /> Frontal</p>
                                 </div>
@@ -620,7 +621,7 @@ export default function VehiclesPage() {
                               {collect.checkinLateral1Photo && (
                                 <div className="space-y-1">
                                   <a href={collect.checkinLateral1Photo} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkinLateral1Photo} alt="Lateral 1" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkinLateral1Photo)} alt="Lateral 1" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Car className="h-2.5 w-2.5" /> Lateral 1</p>
                                 </div>
@@ -628,7 +629,7 @@ export default function VehiclesPage() {
                               {collect.checkinLateral2Photo && (
                                 <div className="space-y-1">
                                   <a href={collect.checkinLateral2Photo} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkinLateral2Photo} alt="Lateral 2" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkinLateral2Photo)} alt="Lateral 2" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Car className="h-2.5 w-2.5" /> Lateral 2</p>
                                 </div>
@@ -636,7 +637,7 @@ export default function VehiclesPage() {
                               {collect.checkinTraseiraPhoto && (
                                 <div className="space-y-1">
                                   <a href={collect.checkinTraseiraPhoto} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkinTraseiraPhoto} alt="Traseira" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkinTraseiraPhoto)} alt="Traseira" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Car className="h-2.5 w-2.5" /> Traseira</p>
                                 </div>
@@ -695,7 +696,7 @@ export default function VehiclesPage() {
                               {collect.checkoutSelfiePhoto && (
                                 <div className="space-y-1">
                                   <a href={collect.checkoutSelfiePhoto} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkoutSelfiePhoto} alt="Selfie" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkoutSelfiePhoto)} alt="Selfie" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Camera className="h-2.5 w-2.5" /> Selfie</p>
                                 </div>
@@ -703,7 +704,7 @@ export default function VehiclesPage() {
                               {collect.checkoutOdometerPhoto && (
                                 <div className="space-y-1">
                                   <a href={collect.checkoutOdometerPhoto} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkoutOdometerPhoto} alt="Odômetro" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkoutOdometerPhoto)} alt="Odômetro" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Gauge className="h-2.5 w-2.5" /> Odômetro</p>
                                 </div>
@@ -711,7 +712,7 @@ export default function VehiclesPage() {
                               {collect.checkoutFrontalPhoto && (
                                 <div className="space-y-1">
                                   <a href={collect.checkoutFrontalPhoto} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkoutFrontalPhoto} alt="Frontal" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkoutFrontalPhoto)} alt="Frontal" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Car className="h-2.5 w-2.5" /> Frontal</p>
                                 </div>
@@ -719,7 +720,7 @@ export default function VehiclesPage() {
                               {collect.checkoutLateral1Photo && (
                                 <div className="space-y-1">
                                   <a href={collect.checkoutLateral1Photo} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkoutLateral1Photo} alt="Lateral 1" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkoutLateral1Photo)} alt="Lateral 1" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Car className="h-2.5 w-2.5" /> Lateral 1</p>
                                 </div>
@@ -727,7 +728,7 @@ export default function VehiclesPage() {
                               {collect.checkoutLateral2Photo && (
                                 <div className="space-y-1">
                                   <a href={collect.checkoutLateral2Photo} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkoutLateral2Photo} alt="Lateral 2" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkoutLateral2Photo)} alt="Lateral 2" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Car className="h-2.5 w-2.5" /> Lateral 2</p>
                                 </div>
@@ -735,7 +736,7 @@ export default function VehiclesPage() {
                               {collect.checkoutTraseiraPhoto && (
                                 <div className="space-y-1">
                                   <a href={collect.checkoutTraseiraPhoto} target="_blank" rel="noopener noreferrer">
-                                    <img src={collect.checkoutTraseiraPhoto} alt="Traseira" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
+                                    <img src={normalizeImageUrl(collect.checkoutTraseiraPhoto)} alt="Traseira" className="w-full h-16 object-cover rounded border hover:opacity-80 transition" />
                                   </a>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Car className="h-2.5 w-2.5" /> Traseira</p>
                                 </div>

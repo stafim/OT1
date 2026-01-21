@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { normalizeImageUrl } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Truck, CheckCircle, Clock, Building, MapPin, User, DoorOpen, Loader2, Search, LogOut, Package, Eye, Shield, History } from "lucide-react";
@@ -266,7 +267,7 @@ export default function PortariaPage() {
                               data-testid={`avatar-photo-${collect.id}`}
                             >
                               <AvatarImage 
-                                src={collect.checkinSelfiePhoto} 
+                                src={normalizeImageUrl(collect.checkinSelfiePhoto)} 
                                 alt="Foto check-in motorista" 
                                 className="object-cover"
                               />
@@ -622,7 +623,7 @@ export default function PortariaPage() {
         <DialogContent className="max-w-2xl p-2 bg-black/90 border-none">
           {lightboxPhoto && (
             <img
-              src={lightboxPhoto}
+              src={normalizeImageUrl(lightboxPhoto)}
               alt="Foto check-in motorista"
               className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
             />

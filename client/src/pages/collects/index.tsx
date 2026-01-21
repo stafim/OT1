@@ -20,6 +20,7 @@ import {
 import { Plus, Search, Trash2, LogIn, LogOut, Loader2, Truck, MapPin, Calendar, User, Building, Clock, Camera, ImageIcon, ExternalLink, FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { normalizeImageUrl } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -1077,10 +1078,10 @@ function CollectDetailDialog({ collect, onClose }: CollectDetailDialogProps) {
 
   const PhotoCard = ({ src, label }: { src: string; label: string }) => (
     <button
-      onClick={() => setViewingPhoto(src)}
+      onClick={() => setViewingPhoto(normalizeImageUrl(src))}
       className="group relative aspect-square overflow-hidden rounded-lg border bg-muted hover-elevate transition-all"
     >
-      <img src={src} alt={label} className="h-full w-full object-cover" />
+      <img src={normalizeImageUrl(src)} alt={label} className="h-full w-full object-cover" />
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1.5">
         <p className="text-[10px] text-white font-medium truncate">{label}</p>

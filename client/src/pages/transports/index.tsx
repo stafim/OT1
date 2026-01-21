@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { normalizeImageUrl } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import type { Transport } from "@shared/schema";
 import {
@@ -619,43 +620,43 @@ export default function TransportsPage() {
                         {viewTransport.checkinFrontalPhoto && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Frontal</p>
-                            <img src={viewTransport.checkinFrontalPhoto} alt="Frontal" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkinFrontalPhoto)} alt="Frontal" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkinLateral1Photo && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Lateral 1</p>
-                            <img src={viewTransport.checkinLateral1Photo} alt="Lateral 1" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkinLateral1Photo)} alt="Lateral 1" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkinLateral2Photo && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Lateral 2</p>
-                            <img src={viewTransport.checkinLateral2Photo} alt="Lateral 2" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkinLateral2Photo)} alt="Lateral 2" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkinTraseiraPhoto && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Traseira</p>
-                            <img src={viewTransport.checkinTraseiraPhoto} alt="Traseira" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkinTraseiraPhoto)} alt="Traseira" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkinOdometerPhoto && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Hodômetro</p>
-                            <img src={viewTransport.checkinOdometerPhoto} alt="Hodômetro" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkinOdometerPhoto)} alt="Hodômetro" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkinFuelLevelPhoto && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Combustível</p>
-                            <img src={viewTransport.checkinFuelLevelPhoto} alt="Combustível" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkinFuelLevelPhoto)} alt="Combustível" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkinSelfiePhoto && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Selfie</p>
-                            <img src={viewTransport.checkinSelfiePhoto} alt="Selfie" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkinSelfiePhoto)} alt="Selfie" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                       </div>
@@ -664,7 +665,7 @@ export default function TransportsPage() {
                           <p className="text-xs font-medium text-muted-foreground">Fotos de Avarias ({viewTransport.checkinDamagePhotos.length})</p>
                           <div className="flex flex-wrap gap-2">
                             {viewTransport.checkinDamagePhotos.map((photo, idx) => (
-                              <img key={idx} src={photo} alt={`Avaria ${idx + 1}`} className="h-16 w-16 rounded-md object-cover border" />
+                              <img key={idx} src={normalizeImageUrl(photo)} alt={`Avaria ${idx + 1}`} className="h-16 w-16 rounded-md object-cover border" />
                             ))}
                           </div>
                         </div>
@@ -698,43 +699,43 @@ export default function TransportsPage() {
                         {viewTransport.checkoutFrontalPhoto && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Frontal</p>
-                            <img src={viewTransport.checkoutFrontalPhoto} alt="Frontal" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkoutFrontalPhoto)} alt="Frontal" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkoutLateral1Photo && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Lateral 1</p>
-                            <img src={viewTransport.checkoutLateral1Photo} alt="Lateral 1" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkoutLateral1Photo)} alt="Lateral 1" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkoutLateral2Photo && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Lateral 2</p>
-                            <img src={viewTransport.checkoutLateral2Photo} alt="Lateral 2" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkoutLateral2Photo)} alt="Lateral 2" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkoutTraseiraPhoto && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Traseira</p>
-                            <img src={viewTransport.checkoutTraseiraPhoto} alt="Traseira" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkoutTraseiraPhoto)} alt="Traseira" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkoutOdometerPhoto && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Hodômetro</p>
-                            <img src={viewTransport.checkoutOdometerPhoto} alt="Hodômetro" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkoutOdometerPhoto)} alt="Hodômetro" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkoutFuelLevelPhoto && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Combustível</p>
-                            <img src={viewTransport.checkoutFuelLevelPhoto} alt="Combustível" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkoutFuelLevelPhoto)} alt="Combustível" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                         {viewTransport.checkoutSelfiePhoto && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Selfie</p>
-                            <img src={viewTransport.checkoutSelfiePhoto} alt="Selfie" className="h-16 w-16 rounded-md object-cover border" />
+                            <img src={normalizeImageUrl(viewTransport.checkoutSelfiePhoto)} alt="Selfie" className="h-16 w-16 rounded-md object-cover border" />
                           </div>
                         )}
                       </div>
@@ -743,7 +744,7 @@ export default function TransportsPage() {
                           <p className="text-xs font-medium text-muted-foreground">Fotos de Avarias ({viewTransport.checkoutDamagePhotos.length})</p>
                           <div className="flex flex-wrap gap-2">
                             {viewTransport.checkoutDamagePhotos.map((photo, idx) => (
-                              <img key={idx} src={photo} alt={`Avaria ${idx + 1}`} className="h-16 w-16 rounded-md object-cover border" />
+                              <img key={idx} src={normalizeImageUrl(photo)} alt={`Avaria ${idx + 1}`} className="h-16 w-16 rounded-md object-cover border" />
                             ))}
                           </div>
                         </div>
