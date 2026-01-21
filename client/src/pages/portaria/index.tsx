@@ -144,7 +144,7 @@ export default function PortariaPage() {
   };
 
   const pendingTransports = transports?.filter((t) => {
-    if (t.status !== "pendente") return false;
+    if (t.status !== "aguardando_saida") return false;
     
     if (!transportSearchTerm.trim()) return true;
     
