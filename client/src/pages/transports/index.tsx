@@ -245,6 +245,7 @@ export default function TransportsPage() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [viewTransport, setViewTransport] = useState<TransportWithRelations | null>(null);
   const [checkinTransport, setCheckinTransport] = useState<TransportWithRelations | null>(null);
   const [checkoutTransport, setCheckoutTransport] = useState<TransportWithRelations | null>(null);
   const [checkinData, setCheckinData] = useState<CheckFormData>(initialCheckFormData);
@@ -535,7 +536,7 @@ export default function TransportsPage() {
           data={filteredData ?? []}
           isLoading={isLoading}
           keyField="id"
-          onRowClick={(t) => navigate(`/transportes/${t.id}`)}
+          onRowClick={(t) => setViewTransport(t)}
           emptyMessage="Nenhum transporte encontrado"
         />
       </div>
@@ -556,6 +557,207 @@ export default function TransportsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!viewTransport} onOpenChange={() => setViewTransport(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              Detalhes do Transporte
+              {viewTransport && <StatusBadge status={viewTransport.status} />}
+            </DialogTitle>
+          </DialogHeader>
+          {viewTransport && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Informações Gerais</h3>
+                  <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
+                    <p><span className="font-medium">Nº Solicitação:</span> {viewTransport.requestNumber}</p>
+                    <p><span className="font-medium">Chassi:</span> {viewTransport.vehicleChassi}</p>
+                    <p><span className="font-medium">Cliente:</span> {viewTransport.client?.name || "-"}</p>
+                    <p><span className="font-medium">Local de Entrega:</span> {viewTransport.deliveryLocation ? `${viewTransport.deliveryLocation.name} - ${viewTransport.deliveryLocation.city}/${viewTransport.deliveryLocation.state}` : "-"}</p>
+                    <p><span className="font-medium">Motorista:</span> {viewTransport.driver?.name || "-"}</p>
+                    <p><span className="font-medium">Data de Entrega:</span> {viewTransport.deliveryDate ? format(new Date(viewTransport.deliveryDate), "dd/MM/yyyy", { locale: ptBR }) : "-"}</p>
+                    <p><span className="font-medium">Criado em:</span> {viewTransport.createdAt ? format(new Date(viewTransport.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</p>
+                    {viewTransport.notes && <p><span className="font-medium">Observações:</span> {viewTransport.notes}</p>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                    <LogIn className="h-4 w-4" />
+                    Check-in (Retirada do Pátio)
+                  </h3>
+                  {viewTransport.checkinDateTime ? (
+                    <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-medium">Realizado em {format(new Date(viewTransport.checkinDateTime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
+                      </div>
+                      <div className="text-sm space-y-1">
+                        {(viewTransport.checkinLatitude && viewTransport.checkinLongitude) && (
+                          <p><span className="font-medium">Localização:</span> {viewTransport.checkinLatitude}, {viewTransport.checkinLongitude}</p>
+                        )}
+                        {viewTransport.checkinNotes && <p><span className="font-medium">Observações:</span> {viewTransport.checkinNotes}</p>}
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {viewTransport.checkinFrontalPhoto && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Frontal</p>
+                            <img src={viewTransport.checkinFrontalPhoto} alt="Frontal" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkinLateral1Photo && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Lateral 1</p>
+                            <img src={viewTransport.checkinLateral1Photo} alt="Lateral 1" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkinLateral2Photo && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Lateral 2</p>
+                            <img src={viewTransport.checkinLateral2Photo} alt="Lateral 2" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkinTraseiraPhoto && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Traseira</p>
+                            <img src={viewTransport.checkinTraseiraPhoto} alt="Traseira" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkinOdometerPhoto && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Hodômetro</p>
+                            <img src={viewTransport.checkinOdometerPhoto} alt="Hodômetro" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkinFuelLevelPhoto && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Combustível</p>
+                            <img src={viewTransport.checkinFuelLevelPhoto} alt="Combustível" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkinSelfiePhoto && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Selfie</p>
+                            <img src={viewTransport.checkinSelfiePhoto} alt="Selfie" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                      </div>
+                      {viewTransport.checkinDamagePhotos && viewTransport.checkinDamagePhotos.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">Fotos de Avarias ({viewTransport.checkinDamagePhotos.length})</p>
+                          <div className="flex flex-wrap gap-2">
+                            {viewTransport.checkinDamagePhotos.map((photo, idx) => (
+                              <img key={idx} src={photo} alt={`Avaria ${idx + 1}`} className="h-16 w-16 rounded-md object-cover border" />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+                      Check-in não realizado
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                    <LogOut className="h-4 w-4" />
+                    Check-out (Entrega ao Cliente)
+                  </h3>
+                  {viewTransport.checkoutDateTime ? (
+                    <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-medium">Realizado em {format(new Date(viewTransport.checkoutDateTime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
+                      </div>
+                      <div className="text-sm space-y-1">
+                        {(viewTransport.checkoutLatitude && viewTransport.checkoutLongitude) && (
+                          <p><span className="font-medium">Localização:</span> {viewTransport.checkoutLatitude}, {viewTransport.checkoutLongitude}</p>
+                        )}
+                        {viewTransport.checkoutNotes && <p><span className="font-medium">Observações:</span> {viewTransport.checkoutNotes}</p>}
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {viewTransport.checkoutFrontalPhoto && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Frontal</p>
+                            <img src={viewTransport.checkoutFrontalPhoto} alt="Frontal" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkoutLateral1Photo && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Lateral 1</p>
+                            <img src={viewTransport.checkoutLateral1Photo} alt="Lateral 1" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkoutLateral2Photo && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Lateral 2</p>
+                            <img src={viewTransport.checkoutLateral2Photo} alt="Lateral 2" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkoutTraseiraPhoto && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Traseira</p>
+                            <img src={viewTransport.checkoutTraseiraPhoto} alt="Traseira" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkoutOdometerPhoto && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Hodômetro</p>
+                            <img src={viewTransport.checkoutOdometerPhoto} alt="Hodômetro" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkoutFuelLevelPhoto && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Combustível</p>
+                            <img src={viewTransport.checkoutFuelLevelPhoto} alt="Combustível" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                        {viewTransport.checkoutSelfiePhoto && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Selfie</p>
+                            <img src={viewTransport.checkoutSelfiePhoto} alt="Selfie" className="h-16 w-16 rounded-md object-cover border" />
+                          </div>
+                        )}
+                      </div>
+                      {viewTransport.checkoutDamagePhotos && viewTransport.checkoutDamagePhotos.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">Fotos de Avarias ({viewTransport.checkoutDamagePhotos.length})</p>
+                          <div className="flex flex-wrap gap-2">
+                            {viewTransport.checkoutDamagePhotos.map((photo, idx) => (
+                              <img key={idx} src={photo} alt={`Avaria ${idx + 1}`} className="h-16 w-16 rounded-md object-cover border" />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+                      Check-out não realizado
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewTransport(null)}>
+              Fechar
+            </Button>
+            <Button onClick={() => {
+              if (viewTransport) navigate(`/transportes/${viewTransport.id}`);
+            }}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!checkinTransport} onOpenChange={() => setCheckinTransport(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
