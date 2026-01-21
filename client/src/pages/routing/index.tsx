@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Route, Clock, MapPin, DollarSign, Navigation, ArrowRight } from "lucide-react";
 import type { Yard, Client, DeliveryLocation } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 interface RouteResult {
   distance: { text: string; value: number };
@@ -115,18 +116,10 @@ export default function RoutingPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/routing/calculate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          origin: { lat: parseFloat(yard.latitude), lng: parseFloat(yard.longitude) },
-          destination: { lat: parseFloat(location.latitude), lng: parseFloat(location.longitude) },
-        }),
+      const response = await apiRequest("POST", "/api/routing/calculate", {
+        origin: { lat: parseFloat(yard.latitude), lng: parseFloat(yard.longitude) },
+        destination: { lat: parseFloat(location.latitude), lng: parseFloat(location.longitude) },
       });
-
-      if (!response.ok) {
-        throw new Error("Erro ao calcular rota");
-      }
 
       const result = await response.json();
       setRouteResult(result);
