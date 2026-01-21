@@ -217,7 +217,7 @@ export default function CollectsPage() {
       addSection("Informações da Coleta");
       addField("Chassi", collect.vehicleChassi);
       addField("Status", collect.status === "em_transito" ? "Em Trânsito" : collect.status === "aguardando_checkout" ? "Aguardando Checkout" : collect.status === "finalizada" ? "Finalizada" : collect.status);
-      addField("Data Coleta", collect.collectDate ? format(new Date(collect.collectDate), "dd/MM/yyyy", { locale: ptBR }) : "-");
+      addField("Data Coleta", collect.collectDate ? format(new Date(collect.collectDate), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-");
       addField("Criada em", collect.createdAt ? format(new Date(collect.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-");
 
       addSection("Origem e Destino");
@@ -457,13 +457,13 @@ export default function CollectsPage() {
       key: "collectDate",
       label: "Data Coleta",
       render: (c: CollectWithRelations) =>
-        c.collectDate ? format(new Date(c.collectDate), "dd/MM/yyyy", { locale: ptBR }) : "-",
+        c.collectDate ? format(new Date(c.collectDate), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-",
     },
     {
       key: "createdAt",
       label: "Criada em",
       render: (c: CollectWithRelations) =>
-        c.createdAt ? format(new Date(c.createdAt), "dd/MM/yyyy", { locale: ptBR }) : "-",
+        c.createdAt ? format(new Date(c.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-",
     },
     {
       key: "actions",
@@ -1219,7 +1219,7 @@ function CollectDetailDialog({ collect, onClose }: CollectDetailDialogProps) {
                   <StatusBadge status={collect.status} />
                   {collect.collectDate && (
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(collect.collectDate), "dd/MM/yyyy", { locale: ptBR })}
+                      {format(new Date(collect.collectDate), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                     </span>
                   )}
                 </div>
@@ -1233,7 +1233,7 @@ function CollectDetailDialog({ collect, onClose }: CollectDetailDialogProps) {
                 <InfoItem icon={Building} label="Origem" value={collect.manufacturer?.name || "-"} />
                 <InfoItem icon={MapPin} label="Destino" value={collect.yard?.name || "-"} />
                 <InfoItem icon={User} label="Motorista" value={collect.driver?.name || "-"} />
-                <InfoItem icon={Calendar} label="Criada em" value={collect.createdAt ? format(new Date(collect.createdAt), "dd/MM/yyyy", { locale: ptBR }) : "-"} />
+                <InfoItem icon={Calendar} label="Criada em" value={collect.createdAt ? format(new Date(collect.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"} />
               </div>
 
               {collect.notes && (
