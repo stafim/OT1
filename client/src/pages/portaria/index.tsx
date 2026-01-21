@@ -598,6 +598,28 @@ export default function PortariaPage() {
                       )}
                     </div>
 
+                    {transport.checkinSelfiePhoto && (
+                      <div className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                        <button
+                          type="button"
+                          className="cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => setLightboxPhoto(transport.checkinSelfiePhoto || null)}
+                        >
+                          <img
+                            src={transport.checkinSelfiePhoto}
+                            alt="Selfie do motorista"
+                            className="h-16 w-16 rounded-full object-cover border-2 border-primary"
+                          />
+                        </button>
+                        <div className="text-sm">
+                          <p className="font-medium">{driver?.name || "Motorista"}</p>
+                          <p className="text-muted-foreground text-xs">
+                            Check-in: {transport.checkinDateTime ? new Date(transport.checkinDateTime).toLocaleString('pt-BR') : "-"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <Button
                       className="w-full"
                       onClick={() => authorizeExitMutation.mutate(transport.id)}
