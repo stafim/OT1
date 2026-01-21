@@ -220,6 +220,8 @@ export const deliveryLocations = pgTable("delivery_locations", {
   neighborhood: text("neighborhood"),
   city: text("city").notNull(),
   state: varchar("state", { length: 2 }).notNull(),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
   responsibleName: text("responsible_name"),
   responsiblePhone: varchar("responsible_phone", { length: 20 }),
   emails: text("emails").array(),

@@ -27,8 +27,9 @@ import { Switch } from "@/components/ui/switch";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Trash2, Pencil, Eye, Search } from "lucide-react";
-import { fetchAddressFromCep } from "@/lib/cep";
 import type { Client, DeliveryLocation } from "@shared/schema";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
+import { fetchAddressFromCep } from "@/lib/cep";
 import {
   Dialog,
   DialogContent,
@@ -73,18 +74,36 @@ function formatCep(value: string): string {
   return `${digits.slice(0, 5)}-${digits.slice(5, 8)}`;
 }
 
+function buildLocationFullAddress(loc: DeliveryLocation): string {
+  const parts = [];
+  if (loc.address) {
+    let addressPart = loc.address;
+    if (loc.addressNumber) addressPart += `, ${loc.addressNumber}`;
+    parts.push(addressPart);
+  }
+  if (loc.neighborhood) parts.push(loc.neighborhood);
+  if (loc.city) {
+    let cityPart = loc.city;
+    if (loc.state) cityPart += ` - ${loc.state}`;
+    parts.push(cityPart);
+  }
+  if (loc.cep) parts.push(loc.cep);
+  return parts.join(", ");
+}
+
 const locationFormSchema = z.object({
   name: z.string().min(2, "Nome do local é obrigatório"),
   cnpj: z.string().optional(),
-  cep: z.string()
-    .transform(val => val.replace(/\D/g, ""))
-    .pipe(z.string().length(8, "CEP deve ter 8 dígitos")),
-  address: z.string().min(5, "Endereço é obrigatório"),
-  addressNumber: z.string().min(1, "Número é obrigatório"),
+  fullAddress: z.string().optional(),
+  cep: z.string().optional().transform(val => val ? val.replace(/\D/g, "") : ""),
+  address: z.string().optional(),
+  addressNumber: z.string().optional(),
   complement: z.string().optional(),
-  neighborhood: z.string().min(2, "Bairro é obrigatório"),
-  city: z.string().min(2, "Município é obrigatório"),
-  state: z.enum(brazilianStates, { required_error: "UF é obrigatória" }),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
   responsibleName: z.string().min(2, "Nome do responsável é obrigatório"),
   responsiblePhone: z.string().optional(),
   emails: z.array(z.string()).transform((arr) => arr.filter(e => e.trim() !== "")).pipe(
@@ -153,13 +172,16 @@ export default function ClientFormPage() {
     defaultValues: {
       name: "",
       cnpj: "",
+      fullAddress: "",
       cep: "",
       address: "",
       addressNumber: "",
       complement: "",
       neighborhood: "",
       city: "",
-      state: undefined,
+      state: "",
+      latitude: "",
+      longitude: "",
       responsibleName: "",
       responsiblePhone: "",
       emails: [""],
@@ -280,13 +302,16 @@ export default function ClientFormPage() {
     locationForm.reset({
       name: loc.name || "",
       cnpj: loc.cnpj || "",
+      fullAddress: buildLocationFullAddress(loc),
       cep: loc.cep || "",
       address: loc.address || "",
       addressNumber: loc.addressNumber || "",
       complement: loc.complement || "",
       neighborhood: loc.neighborhood || "",
       city: loc.city || "",
-      state: loc.state as typeof brazilianStates[number] || undefined,
+      state: loc.state || "",
+      latitude: loc.latitude || "",
+      longitude: loc.longitude || "",
       responsibleName: loc.responsibleName || "",
       responsiblePhone: loc.responsiblePhone || "",
       emails: loc.emails?.length ? loc.emails : [""],
@@ -300,26 +325,30 @@ export default function ClientFormPage() {
     setViewLocationDialogOpen(true);
   };
 
-  const handleLocationCepBlur = async (cepValue: string) => {
-    const cleanCep = cepValue.replace(/\D/g, "");
-    if (cleanCep.length !== 8) return;
-
-    setIsFetchingCep(true);
-    try {
-      const addressData = await fetchAddressFromCep(cleanCep);
-      if (addressData) {
-        locationForm.setValue("address", addressData.address);
-        locationForm.setValue("neighborhood", addressData.neighborhood);
-        locationForm.setValue("city", addressData.city);
-        locationForm.setValue("state", addressData.state as typeof brazilianStates[number]);
-        toast({ title: "Endereço preenchido automaticamente" });
-      } else {
-        toast({ title: "CEP não encontrado", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao buscar CEP", variant: "destructive" });
-    } finally {
-      setIsFetchingCep(false);
+  const handleLocationAddressSelect = (addressData: {
+    address: string;
+    addressNumber: string;
+    complement: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    cep: string;
+    formattedAddress: string;
+    latitude?: number;
+    longitude?: number;
+  }) => {
+    locationForm.setValue("fullAddress", addressData.formattedAddress);
+    locationForm.setValue("address", addressData.address);
+    locationForm.setValue("addressNumber", addressData.addressNumber);
+    locationForm.setValue("neighborhood", addressData.neighborhood);
+    locationForm.setValue("city", addressData.city);
+    locationForm.setValue("state", addressData.state);
+    locationForm.setValue("cep", addressData.cep);
+    if (addressData.latitude) {
+      locationForm.setValue("latitude", String(addressData.latitude));
+    }
+    if (addressData.longitude) {
+      locationForm.setValue("longitude", String(addressData.longitude));
     }
   };
 
@@ -791,127 +820,38 @@ export default function ClientFormPage() {
                     )}
                   />
                 </div>
-                <div className="grid gap-4 md:grid-cols-4">
-                  <FormField
-                    control={locationForm.control}
-                    name="cep"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CEP *</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input 
-                              {...field}
-                              placeholder="00000-000"
-                              onChange={(e) => field.onChange(formatCep(e.target.value))}
-                              onBlur={(e) => {
-                                field.onBlur();
-                                handleLocationCepBlur(e.target.value);
-                              }}
-                              maxLength={9}
-                              data-testid="input-location-cep" 
-                            />
-                            {isFetchingCep && (
-                              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                            )}
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Endereço *</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-location-address" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="addressNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Número *</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-location-number" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid gap-4 md:grid-cols-4">
-                  <FormField
-                    control={locationForm.control}
-                    name="complement"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Complemento</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-location-complement" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="neighborhood"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bairro *</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-location-neighborhood" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Município *</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-location-city" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="state"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>UF *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-location-state">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {brazilianStates.map((state) => (
-                              <SelectItem key={state} value={state}>
-                                {state}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={locationForm.control}
+                  name="fullAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Endereço *</FormLabel>
+                      <FormControl>
+                        <AddressAutocomplete
+                          value={field.value || ""}
+                          onChange={handleLocationAddressSelect}
+                          onInputChange={field.onChange}
+                          placeholder="Digite o endereço para buscar..."
+                          testId="input-location-address"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={locationForm.control}
+                  name="complement"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Complemento</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Apto, Sala, Bloco..." data-testid="input-location-complement" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField
                     control={locationForm.control}
@@ -1067,127 +1007,38 @@ export default function ClientFormPage() {
                     )}
                   />
                 </div>
-                <div className="grid gap-4 md:grid-cols-4">
-                  <FormField
-                    control={locationForm.control}
-                    name="cep"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CEP *</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input 
-                              {...field}
-                              placeholder="00000-000"
-                              onChange={(e) => field.onChange(formatCep(e.target.value))}
-                              onBlur={(e) => {
-                                field.onBlur();
-                                handleLocationCepBlur(e.target.value);
-                              }}
-                              maxLength={9}
-                              data-testid="input-edit-location-cep" 
-                            />
-                            {isFetchingCep && (
-                              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                            )}
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Endereço *</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-edit-location-address" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="addressNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Número *</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-edit-location-number" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid gap-4 md:grid-cols-4">
-                  <FormField
-                    control={locationForm.control}
-                    name="complement"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Complemento</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-edit-location-complement" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="neighborhood"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bairro *</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-edit-location-neighborhood" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Município *</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-edit-location-city" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="state"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>UF *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-edit-location-state">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {brazilianStates.map((state) => (
-                              <SelectItem key={state} value={state}>
-                                {state}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={locationForm.control}
+                  name="fullAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Endereço *</FormLabel>
+                      <FormControl>
+                        <AddressAutocomplete
+                          value={field.value || ""}
+                          onChange={handleLocationAddressSelect}
+                          onInputChange={field.onChange}
+                          placeholder="Digite o endereço para buscar..."
+                          testId="input-edit-location-address"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={locationForm.control}
+                  name="complement"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Complemento</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Apto, Sala, Bloco..." data-testid="input-edit-location-complement" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField
                     control={locationForm.control}
