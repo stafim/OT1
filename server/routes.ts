@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { registerJWTAuthRoutes, isAuthenticatedJWT, type AuthenticatedRequest } from "./auth-jwt";
+import { registerJWTAuthRoutes, isAuthenticatedJWT, hashPassword, type AuthenticatedRequest } from "./auth-jwt";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { setupSwagger } from "./swagger";
 import {
@@ -28,10 +28,35 @@ import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 import { users } from "@shared/models/auth";
 
+async function createDefaultAdmin() {
+  try {
+    const existingAdmin = await db.select().from(users)
+      .where(eq(users.username, "admin"))
+      .limit(1);
+
+    if (existingAdmin.length === 0) {
+      const passwordHash = await hashPassword("admin123");
+      await db.insert(users).values({
+        username: "admin",
+        passwordHash,
+        email: "admin@otdentregas.com",
+        firstName: "Administrador",
+        lastName: "Sistema",
+        role: "admin",
+        isActive: "true",
+      });
+      console.log("Default admin user created: admin / admin123");
+    }
+  } catch (error) {
+    console.error("Error creating default admin:", error);
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  await createDefaultAdmin();
   registerJWTAuthRoutes(app);
   registerObjectStorageRoutes(app);
   setupSwagger(app);
