@@ -50,6 +50,7 @@ expertMode = true
 [userenv.shared]
 PRIVATE_OBJECT_DIR = "/replit-objstore-6a84ff3c-f950-4d12-a319-16a60993a7f1/private"
 PUBLIC_OBJECT_SEARCH_PATHS = "/replit-objstore-6a84ff3c-f950-4d12-a319-16a60993a7f1/public"
+GOOGLE_MAPS_API_KEY = "AIzaSyCQTx6S1yTTvlBMvLsoy4AzytRFi7ZlMI4"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-6a84ff3c-f950-4d12-a319-16a60993a7f1"
