@@ -35,8 +35,10 @@ import {
   Wrench,
   Car,
   Building,
-  ImageOff
+  ImageOff,
+  Plus
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { 
   ExpenseSettlement, 
   ExpenseSettlementItem, 
@@ -83,12 +85,37 @@ export default function FinanceiroPage() {
   const [selectedSettlement, setSelectedSettlement] = useState<ExpenseSettlementWithRelations | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showReturnDialog, setShowReturnDialog] = useState(false);
+  const [showNewDialog, setShowNewDialog] = useState(false);
   const [returnReason, setReturnReason] = useState("");
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"pending" | "all">("pending");
+  const [newSettlement, setNewSettlement] = useState({ transportId: "", driverId: "", driverNotes: "" });
 
   const { data: settlements, isLoading } = useQuery<ExpenseSettlementWithRelations[]>({
     queryKey: ["/api/expense-settlements"],
+  });
+
+  const { data: transports } = useQuery<Transport[]>({
+    queryKey: ["/api/transports"],
+  });
+
+  const { data: drivers } = useQuery<Driver[]>({
+    queryKey: ["/api/drivers"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { transportId: string; driverId: string; driverNotes?: string }) => {
+      return apiRequest("POST", "/api/expense-settlements", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/expense-settlements"] });
+      toast({ title: "Prestação de contas criada com sucesso!" });
+      setShowNewDialog(false);
+      setNewSettlement({ transportId: "", driverId: "", driverNotes: "" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao criar prestação de contas", variant: "destructive" });
+    },
   });
 
   const approveMutation = useMutation({
@@ -192,11 +219,15 @@ export default function FinanceiroPage() {
             />
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Badge variant="secondary" className="gap-1">
               <Clock className="h-3 w-3" />
               {pendingSettlements.length} aguardando
             </Badge>
+            <Button onClick={() => setShowNewDialog(true)} data-testid="button-new-settlement">
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Prestação
+            </Button>
           </div>
         </div>
 
@@ -613,6 +644,82 @@ export default function FinanceiroPage() {
               className="w-full h-auto max-h-[90vh] object-contain"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova Prestação de Contas</DialogTitle>
+            <DialogDescription>
+              Crie uma nova prestação de contas associada a um transporte e motorista.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-transport">Transporte (OTD)</Label>
+              <Select 
+                value={newSettlement.transportId} 
+                onValueChange={(value) => setNewSettlement({ ...newSettlement, transportId: value })}
+              >
+                <SelectTrigger data-testid="select-transport">
+                  <SelectValue placeholder="Selecione um transporte" />
+                </SelectTrigger>
+                <SelectContent>
+                  {transports?.filter(t => t.status === "entregue").map((transport) => (
+                    <SelectItem key={transport.id} value={transport.id}>
+                      {transport.requestNumber} - {transport.vehicleChassi}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="new-driver">Motorista</Label>
+              <Select 
+                value={newSettlement.driverId} 
+                onValueChange={(value) => setNewSettlement({ ...newSettlement, driverId: value })}
+              >
+                <SelectTrigger data-testid="select-driver">
+                  <SelectValue placeholder="Selecione um motorista" />
+                </SelectTrigger>
+                <SelectContent>
+                  {drivers?.filter(d => d.isActive === "true").map((driver) => (
+                    <SelectItem key={driver.id} value={driver.id}>
+                      {driver.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="new-notes">Observações (opcional)</Label>
+              <Textarea
+                id="new-notes"
+                placeholder="Adicione observações sobre a prestação de contas..."
+                value={newSettlement.driverNotes}
+                onChange={(e) => setNewSettlement({ ...newSettlement, driverNotes: e.target.value })}
+                rows={3}
+                data-testid="textarea-notes"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={() => createMutation.mutate(newSettlement)}
+              disabled={createMutation.isPending || !newSettlement.transportId || !newSettlement.driverId}
+              data-testid="button-create-settlement"
+            >
+              {createMutation.isPending ? "Criando..." : "Criar Prestação"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
