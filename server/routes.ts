@@ -1103,7 +1103,7 @@ export async function registerRoutes(
   // Routing calculation endpoint
   app.post("/api/routing/calculate", isAuthenticatedJWT, async (req: any, res) => {
     try {
-      const { origin, destination } = req.body;
+      const { origin, destination, waypoints = [], avoidTolls = false, avoidHighways = false } = req.body;
       
       if (!origin?.lat || !origin?.lng || !destination?.lat || !destination?.lng) {
         return res.status(400).json({ message: "Origin and destination coordinates are required" });
@@ -1114,59 +1114,124 @@ export async function registerRoutes(
         return res.status(500).json({ message: "Google Maps API key not configured" });
       }
 
-      // Get distance and duration with traffic
-      const distanceMatrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin.lat},${origin.lng}&destinations=${destination.lat},${destination.lng}&departure_time=now&traffic_model=best_guess&key=${apiKey}`;
-      
-      const distanceResponse = await fetch(distanceMatrixUrl);
-      const distanceData = await distanceResponse.json();
+      // Build waypoints string for Distance Matrix API
+      let waypointsStr = "";
+      if (waypoints.length > 0) {
+        waypointsStr = "&waypoints=" + waypoints.map((wp: any) => `${wp.lat},${wp.lng}`).join("|");
+      }
 
-      if (distanceData.status !== "OK" || !distanceData.rows?.[0]?.elements?.[0]) {
+      // Build avoid string
+      let avoidStr = "";
+      const avoidList = [];
+      if (avoidTolls) avoidList.push("tolls");
+      if (avoidHighways) avoidList.push("highways");
+      if (avoidList.length > 0) {
+        avoidStr = "&avoid=" + avoidList.join("|");
+      }
+
+      // Use Directions API for routes with waypoints
+      const directionsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}${waypointsStr}${avoidStr}&departure_time=now&traffic_model=best_guess&key=${apiKey}`;
+      
+      const directionsResponse = await fetch(directionsUrl);
+      const directionsData = await directionsResponse.json();
+
+      if (directionsData.status !== "OK" || !directionsData.routes?.[0]) {
         return res.status(400).json({ message: "Could not calculate route" });
       }
 
-      const element = distanceData.rows[0].elements[0];
-      if (element.status !== "OK") {
-        return res.status(400).json({ message: "No route found between the locations" });
+      const route = directionsData.routes[0];
+      const legs = route.legs;
+
+      // Calculate total distance and duration
+      let totalDistance = 0;
+      let totalDuration = 0;
+      let totalDurationInTraffic = 0;
+      let hasTrafficData = false;
+
+      for (const leg of legs) {
+        totalDistance += leg.distance.value;
+        totalDuration += leg.duration.value;
+        if (leg.duration_in_traffic) {
+          totalDurationInTraffic += leg.duration_in_traffic.value;
+          hasTrafficData = true;
+        } else {
+          totalDurationInTraffic += leg.duration.value;
+        }
       }
 
       // Get toll information using Routes API
       let tollCost = null;
-      try {
-        const routesResponse = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": apiKey,
-            "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.travelAdvisory.tollInfo,routes.legs.travelAdvisory.tollInfo",
-          },
-          body: JSON.stringify({
+      if (!avoidTolls) {
+        try {
+          const intermediates = waypoints.map((wp: any) => ({
+            location: { latLng: { latitude: wp.lat, longitude: wp.lng } }
+          }));
+
+          const routesBody: any = {
             origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
             destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
             travelMode: "DRIVE",
             extraComputations: ["TOLLS"],
-          }),
-        });
-
-        const routesData = await routesResponse.json();
-        if (routesData.routes?.[0]?.travelAdvisory?.tollInfo?.estimatedPrice?.[0]) {
-          const toll = routesData.routes[0].travelAdvisory.tollInfo.estimatedPrice[0];
-          const amount = parseFloat(toll.units || "0") + (parseFloat(toll.nanos || "0") / 1000000000);
-          tollCost = {
-            amount: amount.toFixed(2),
-            currency: toll.currencyCode || "BRL",
           };
+
+          if (intermediates.length > 0) {
+            routesBody.intermediates = intermediates;
+          }
+
+          const routesResponse = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Goog-Api-Key": apiKey,
+              "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.travelAdvisory.tollInfo,routes.legs.travelAdvisory.tollInfo",
+            },
+            body: JSON.stringify(routesBody),
+          });
+
+          const routesData = await routesResponse.json();
+          if (routesData.routes?.[0]?.travelAdvisory?.tollInfo?.estimatedPrice?.[0]) {
+            const toll = routesData.routes[0].travelAdvisory.tollInfo.estimatedPrice[0];
+            const amount = parseFloat(toll.units || "0") + (parseFloat(toll.nanos || "0") / 1000000000);
+            tollCost = {
+              amount: amount.toFixed(2),
+              currency: toll.currencyCode || "BRL",
+            };
+          }
+        } catch (tollError) {
+          console.log("Could not fetch toll information:", tollError);
         }
-      } catch (tollError) {
-        console.log("Could not fetch toll information:", tollError);
       }
 
+      // Format distance and duration
+      const formatDistance = (meters: number) => {
+        if (meters >= 1000) {
+          return `${(meters / 1000).toFixed(1)} km`;
+        }
+        return `${meters} m`;
+      };
+
+      const formatDuration = (seconds: number) => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        if (hours > 0) {
+          return `${hours} h ${minutes} min`;
+        }
+        return `${minutes} mins`;
+      };
+
+      // Extract waypoint addresses
+      const waypointAddresses = waypoints.map((wp: any) => wp.address);
+
       const result = {
-        distance: element.distance,
-        duration: element.duration,
-        durationInTraffic: element.duration_in_traffic || null,
+        distance: { text: formatDistance(totalDistance), value: totalDistance },
+        duration: { text: formatDuration(totalDuration), value: totalDuration },
+        durationInTraffic: hasTrafficData 
+          ? { text: formatDuration(totalDurationInTraffic), value: totalDurationInTraffic }
+          : null,
         tollCost,
-        originAddress: distanceData.origin_addresses[0],
-        destinationAddress: distanceData.destination_addresses[0],
+        originAddress: legs[0].start_address,
+        destinationAddress: legs[legs.length - 1].end_address,
+        waypointAddresses: waypointAddresses.length > 0 ? waypointAddresses : undefined,
       };
 
       res.json(result);

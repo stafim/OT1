@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -10,9 +11,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Route, Clock, MapPin, DollarSign, Navigation, ArrowRight } from "lucide-react";
+import { Loader2, Route, Clock, MapPin, DollarSign, Navigation, ArrowRight, Plus, X, GripVertical } from "lucide-react";
 import type { Yard, Client, DeliveryLocation } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+
+interface Waypoint {
+  id: string;
+  address: string;
+  lat?: number;
+  lng?: number;
+}
 
 interface RouteResult {
   distance: { text: string; value: number };
@@ -21,6 +29,7 @@ interface RouteResult {
   tollCost?: { amount: string; currency: string };
   originAddress: string;
   destinationAddress: string;
+  waypointAddresses?: string[];
   polyline?: string;
 }
 
@@ -28,12 +37,19 @@ export default function RoutingPage() {
   const [selectedYard, setSelectedYard] = useState<string>("");
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [selectedLocation, setSelectedLocation] = useState<string>("");
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
+  const [newWaypointAddress, setNewWaypointAddress] = useState("");
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isSearchingWaypoint, setIsSearchingWaypoint] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [avoidTolls, setAvoidTolls] = useState(false);
+  const [avoidHighways, setAvoidHighways] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
   const { data: yards } = useQuery<Yard[]>({
     queryKey: ["/api/yards"],
@@ -91,6 +107,54 @@ export default function RoutingPage() {
         strokeWeight: 5,
       },
     });
+
+    geocoderRef.current = new google.maps.Geocoder();
+    setIsMapReady(true);
+  };
+
+  const addWaypoint = async () => {
+    if (!newWaypointAddress.trim()) return;
+    
+    if (!geocoderRef.current || !isMapReady) {
+      setError("Aguarde o mapa carregar antes de adicionar pontos intermediários");
+      return;
+    }
+
+    setIsSearchingWaypoint(true);
+    try {
+      const result = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
+        geocoderRef.current!.geocode(
+          { address: newWaypointAddress, region: "br" },
+          (results, status) => {
+            if (status === "OK" && results) {
+              resolve(results);
+            } else {
+              reject(new Error("Endereço não encontrado"));
+            }
+          }
+        );
+      });
+
+      if (result.length > 0) {
+        const location = result[0].geometry.location;
+        const newWaypoint: Waypoint = {
+          id: Date.now().toString(),
+          address: result[0].formatted_address,
+          lat: location.lat(),
+          lng: location.lng(),
+        };
+        setWaypoints([...waypoints, newWaypoint]);
+        setNewWaypointAddress("");
+      }
+    } catch {
+      setError("Não foi possível encontrar o endereço. Tente ser mais específico.");
+    } finally {
+      setIsSearchingWaypoint(false);
+    }
+  };
+
+  const removeWaypoint = (id: string) => {
+    setWaypoints(waypoints.filter(wp => wp.id !== id));
   };
 
   const calculateRoute = async () => {
@@ -116,9 +180,16 @@ export default function RoutingPage() {
     setError(null);
 
     try {
+      const waypointsData = waypoints
+        .filter(wp => wp.lat && wp.lng)
+        .map(wp => ({ lat: wp.lat!, lng: wp.lng!, address: wp.address }));
+
       const response = await apiRequest("POST", "/api/routing/calculate", {
         origin: { lat: parseFloat(yard.latitude), lng: parseFloat(yard.longitude) },
         destination: { lat: parseFloat(location.latitude), lng: parseFloat(location.longitude) },
+        waypoints: waypointsData,
+        avoidTolls,
+        avoidHighways,
       });
 
       const result = await response.json();
@@ -126,11 +197,22 @@ export default function RoutingPage() {
 
       if (mapInstanceRef.current && directionsRendererRef.current) {
         const directionsService = new google.maps.DirectionsService();
+        
+        const waypointsForMaps = waypoints
+          .filter(wp => wp.lat && wp.lng)
+          .map(wp => ({
+            location: { lat: wp.lat!, lng: wp.lng! },
+            stopover: true,
+          }));
+
         directionsService.route(
           {
             origin: { lat: parseFloat(yard.latitude), lng: parseFloat(yard.longitude) },
             destination: { lat: parseFloat(location.latitude), lng: parseFloat(location.longitude) },
+            waypoints: waypointsForMaps,
             travelMode: google.maps.TravelMode.DRIVING,
+            avoidTolls,
+            avoidHighways,
           },
           (result: google.maps.DirectionsResult | null, status: google.maps.DirectionsStatus) => {
             if (status === google.maps.DirectionsStatus.OK && result) {
@@ -139,7 +221,7 @@ export default function RoutingPage() {
           }
         );
       }
-    } catch (err) {
+    } catch {
       setError("Erro ao calcular rota. Verifique se os endereços estão corretos.");
     } finally {
       setIsCalculating(false);
@@ -158,7 +240,7 @@ export default function RoutingPage() {
         <div>
           <h1 className="text-2xl font-bold">Roteirização</h1>
           <p className="text-sm text-muted-foreground">
-            Calcule rotas entre pátios e locais de entrega
+            Calcule rotas entre pátios e locais de entrega com pontos intermediários
           </p>
         </div>
       </div>
@@ -187,6 +269,62 @@ export default function RoutingPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Pontos Intermediários (Desvios)</Label>
+                </div>
+                
+                {waypoints.length > 0 && (
+                  <div className="space-y-2 p-3 bg-muted/50 rounded-md">
+                    {waypoints.map((wp, index) => (
+                      <div key={wp.id} className="flex items-center gap-2 text-sm">
+                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                        <span className="flex-1 truncate" title={wp.address}>
+                          {index + 1}. {wp.address}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => removeWaypoint(wp.id)}
+                          data-testid={`button-remove-waypoint-${index}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={isMapReady ? "Digite cidade, rodovia ou endereço..." : "Aguarde o mapa carregar..."}
+                    value={newWaypointAddress}
+                    onChange={(e) => setNewWaypointAddress(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addWaypoint()}
+                    disabled={isSearchingWaypoint || !isMapReady}
+                    data-testid="input-waypoint"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={addWaypoint}
+                    disabled={isSearchingWaypoint || !newWaypointAddress.trim() || !isMapReady}
+                    data-testid="button-add-waypoint"
+                  >
+                    {isSearchingWaypoint ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Ex: "Curitiba, PR", "Rodovia Régis Bittencourt", "São Paulo - SP"
+                </p>
               </div>
 
               <div className="flex justify-center py-2">
@@ -227,6 +365,30 @@ export default function RoutingPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-sm text-muted-foreground">Opções de Rota</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={avoidTolls ? "default" : "outline"}
+                    onClick={() => setAvoidTolls(!avoidTolls)}
+                    data-testid="button-avoid-tolls"
+                  >
+                    {avoidTolls ? "Evitando Pedágios" : "Evitar Pedágios"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={avoidHighways ? "default" : "outline"}
+                    onClick={() => setAvoidHighways(!avoidHighways)}
+                    data-testid="button-avoid-highways"
+                  >
+                    {avoidHighways ? "Evitando Rodovias" : "Evitar Rodovias"}
+                  </Button>
+                </div>
               </div>
 
               {error && (
@@ -288,6 +450,16 @@ export default function RoutingPage() {
 
                   <div className="text-xs text-muted-foreground pt-2 border-t space-y-1">
                     <p><strong>Origem:</strong> {routeResult.originAddress}</p>
+                    {routeResult.waypointAddresses && routeResult.waypointAddresses.length > 0 && (
+                      <div>
+                        <strong>Passando por:</strong>
+                        <ul className="list-disc list-inside ml-2">
+                          {routeResult.waypointAddresses.map((addr, i) => (
+                            <li key={i}>{addr}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                     <p><strong>Destino:</strong> {routeResult.destinationAddress}</p>
                   </div>
                 </div>
