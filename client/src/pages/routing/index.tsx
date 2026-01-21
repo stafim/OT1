@@ -49,7 +49,7 @@ export default function RoutingPage() {
   });
 
   const { data: apiKeyData } = useQuery<{ configured: boolean; apiKey: string }>({
-    queryKey: ["/api/integrations/google-maps/key"],
+    queryKey: ["/api/integrations/google-maps/api-key"],
   });
 
   const activeYards = yards?.filter(y => y.isActive === "true") || [];
