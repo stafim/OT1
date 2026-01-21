@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Route, Clock, MapPin, DollarSign, Navigation, ArrowRight, Plus, X, GripVertical } from "lucide-react";
+import { Loader2, Route, Clock, MapPin, DollarSign, Navigation, ArrowRight, Plus, X, GripVertical, Search } from "lucide-react";
 import type { Yard, Client, DeliveryLocation } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -20,6 +20,11 @@ interface Waypoint {
   address: string;
   lat?: number;
   lng?: number;
+}
+
+interface AddressSuggestion {
+  placeId: string;
+  description: string;
 }
 
 interface RouteResult {
@@ -39,6 +44,8 @@ export default function RoutingPage() {
   const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [newWaypointAddress, setNewWaypointAddress] = useState("");
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSearchingWaypoint, setIsSearchingWaypoint] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
@@ -49,7 +56,9 @@ export default function RoutingPage() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
-  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
   const { data: yards } = useQuery<Yard[]>({
     queryKey: ["/api/yards"],
@@ -89,6 +98,16 @@ export default function RoutingPage() {
     document.head.appendChild(script);
   }, [apiKeyData?.apiKey]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const initMap = () => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
@@ -108,52 +127,71 @@ export default function RoutingPage() {
       },
     });
 
-    geocoderRef.current = new google.maps.Geocoder();
+    autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+    placesServiceRef.current = new google.maps.places.PlacesService(mapInstanceRef.current);
     setIsMapReady(true);
   };
 
-  const addWaypoint = async () => {
-    if (!newWaypointAddress.trim()) return;
+  const searchAddress = (query: string) => {
+    setNewWaypointAddress(query);
     
-    if (!geocoderRef.current || !isMapReady) {
-      setError("Aguarde o mapa carregar antes de adicionar pontos intermediários");
+    if (!query.trim() || query.length < 3 || !autocompleteServiceRef.current) {
+      setSuggestions([]);
+      setShowSuggestions(false);
       return;
     }
 
-    setIsSearchingWaypoint(true);
-    try {
-      const result = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
-        geocoderRef.current!.geocode(
-          { 
-            address: newWaypointAddress,
-            componentRestrictions: undefined,
-          },
-          (results, status) => {
-            if (status === "OK" && results) {
-              resolve(results);
-            } else {
-              reject(new Error("Endereço não encontrado"));
-            }
-          }
-        );
-      });
-
-      if (result.length > 0) {
-        const location = result[0].geometry.location;
-        const newWaypoint: Waypoint = {
-          id: Date.now().toString(),
-          address: result[0].formatted_address,
-          lat: location.lat(),
-          lng: location.lng(),
-        };
-        setWaypoints([...waypoints, newWaypoint]);
-        setNewWaypointAddress("");
+    autocompleteServiceRef.current.getPlacePredictions(
+      {
+        input: query,
+        types: ["geocode", "establishment"],
+      },
+      (predictions, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+          setSuggestions(
+            predictions.map((p) => ({
+              placeId: p.place_id,
+              description: p.description,
+            }))
+          );
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
       }
-    } catch {
-      setError("Não foi possível encontrar o endereço. Tente ser mais específico.");
-    } finally {
-      setIsSearchingWaypoint(false);
-    }
+    );
+  };
+
+  const selectSuggestion = (suggestion: AddressSuggestion) => {
+    if (!placesServiceRef.current) return;
+
+    setIsSearchingWaypoint(true);
+    setShowSuggestions(false);
+
+    placesServiceRef.current.getDetails(
+      {
+        placeId: suggestion.placeId,
+        fields: ["geometry", "formatted_address"],
+      },
+      (place, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+          const newWaypoint: Waypoint = {
+            id: Date.now().toString(),
+            address: place.formatted_address || suggestion.description,
+            lat: place.geometry.location.lat(),
+            lng: place.geometry.location.lng(),
+          };
+          setWaypoints([...waypoints, newWaypoint]);
+          setNewWaypointAddress("");
+          setSuggestions([]);
+          setError(null);
+        } else {
+          setError("Não foi possível obter detalhes do endereço");
+        }
+        setIsSearchingWaypoint(false);
+      }
+    );
   };
 
   const removeWaypoint = (id: string) => {
@@ -301,32 +339,42 @@ export default function RoutingPage() {
                   </div>
                 )}
 
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={isMapReady ? "Digite cidade, rodovia ou endereço..." : "Aguarde o mapa carregar..."}
-                    value={newWaypointAddress}
-                    onChange={(e) => setNewWaypointAddress(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addWaypoint()}
-                    disabled={isSearchingWaypoint || !isMapReady}
-                    data-testid="input-waypoint"
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    onClick={addWaypoint}
-                    disabled={isSearchingWaypoint || !newWaypointAddress.trim() || !isMapReady}
-                    data-testid="button-add-waypoint"
-                  >
-                    {isSearchingWaypoint ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
+                <div className="relative" ref={suggestionsRef}>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={isMapReady ? "Buscar cidade, endereço ou local..." : "Aguarde o mapa carregar..."}
+                      value={newWaypointAddress}
+                      onChange={(e) => searchAddress(e.target.value)}
+                      onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                      disabled={!isMapReady || isSearchingWaypoint}
+                      className="pl-9"
+                      data-testid="input-waypoint"
+                    />
+                    {isSearchingWaypoint && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin" />
                     )}
-                  </Button>
+                  </div>
+                  
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
+                      {suggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.placeId}
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer flex items-center gap-2"
+                          onClick={() => selectSuggestion(suggestion)}
+                          data-testid={`suggestion-${suggestion.placeId}`}
+                        >
+                          <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate">{suggestion.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Ex: "Curitiba, PR", "Buenos Aires, Argentina", "Assunção, Paraguai", "Lima, Peru"
+                  Digite e selecione da lista: "Lima, Peru", "Buenos Aires", "Assunção, Paraguai"
                 </p>
               </div>
 
