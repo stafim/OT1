@@ -74,9 +74,9 @@ function PhotoUpload({ label, value, onChange, testId }: PhotoUploadProps) {
       });
       if (!response.ok) throw new Error("Failed to get upload URL");
 
-      const { signedUrl, objectPath } = await response.json();
+      const { uploadURL, objectPath } = await response.json();
 
-      await fetch(signedUrl, {
+      await fetch(uploadURL, {
         method: "PUT",
         headers: { "Content-Type": file.type },
         body: file,
@@ -156,9 +156,9 @@ function MultiPhotoUpload({ label, values = [], onChange, testId, maxPhotos = 5 
       });
       if (!response.ok) throw new Error("Failed to get upload URL");
 
-      const { signedUrl, objectPath } = await response.json();
+      const { uploadURL, objectPath } = await response.json();
 
-      await fetch(signedUrl, {
+      await fetch(uploadURL, {
         method: "PUT",
         headers: { "Content-Type": file.type },
         body: file,
