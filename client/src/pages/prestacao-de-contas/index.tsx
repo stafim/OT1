@@ -650,6 +650,202 @@ export default function FinanceiroPage() {
 
               <Card>
                 <CardHeader className="py-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Comparativo: Previsto x Real
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const estimatedTolls = parseFloat(selectedSettlement.estimatedTolls || "0");
+                    const estimatedFuel = parseFloat(selectedSettlement.estimatedFuel || "0");
+                    const estimatedTotal = estimatedTolls + estimatedFuel;
+                    
+                    const realTolls = selectedSettlement.items
+                      ?.filter(i => i.type === "pedagio")
+                      .reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0) || 0;
+                    const realFuel = selectedSettlement.items
+                      ?.filter(i => i.type === "combustivel")
+                      .reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0) || 0;
+                    const realOthers = selectedSettlement.items
+                      ?.filter(i => !["pedagio", "combustivel"].includes(i.type || ""))
+                      .reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0) || 0;
+                    const realTotal = realTolls + realFuel + realOthers;
+                    
+                    const diffTolls = realTolls - estimatedTolls;
+                    const diffFuel = realFuel - estimatedFuel;
+                    const diffTotal = realTotal - estimatedTotal;
+                    
+                    const pctTolls = estimatedTolls > 0 ? ((diffTolls / estimatedTolls) * 100) : (realTolls > 0 ? 100 : 0);
+                    const pctFuel = estimatedFuel > 0 ? ((diffFuel / estimatedFuel) * 100) : (realFuel > 0 ? 100 : 0);
+                    const pctTotal = estimatedTotal > 0 ? ((diffTotal / estimatedTotal) * 100) : (realTotal > 0 ? 100 : 0);
+                    
+                    const isDiscrepant = (pct: number) => Math.abs(pct) > 20;
+                    const getColor = (diff: number, pct: number) => {
+                      if (Math.abs(pct) <= 10) return "text-green-600";
+                      if (diff > 0) return Math.abs(pct) > 20 ? "text-red-600" : "text-orange-500";
+                      return "text-green-600";
+                    };
+                    const getBgColor = (diff: number, pct: number) => {
+                      if (Math.abs(pct) <= 10) return "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800";
+                      if (diff > 0) return Math.abs(pct) > 20 ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" : "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800";
+                      return "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800";
+                    };
+                    
+                    return (
+                      <div className="space-y-4">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-2 font-medium">Categoria</th>
+                                <th className="text-right py-2 font-medium">Previsto</th>
+                                <th className="text-right py-2 font-medium">Real</th>
+                                <th className="text-right py-2 font-medium">Diferença</th>
+                                <th className="text-right py-2 font-medium">%</th>
+                                <th className="text-center py-2 font-medium">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-b">
+                                <td className="py-3 flex items-center gap-2">
+                                  <Receipt className="h-4 w-4 text-muted-foreground" />
+                                  Pedágios
+                                </td>
+                                <td className="text-right py-3">{formatCurrency(estimatedTolls.toString())}</td>
+                                <td className="text-right py-3 font-medium">{formatCurrency(realTolls.toString())}</td>
+                                <td className={`text-right py-3 font-medium ${getColor(diffTolls, pctTolls)}`}>
+                                  {diffTolls >= 0 ? "+" : ""}{formatCurrency(diffTolls.toString())}
+                                </td>
+                                <td className={`text-right py-3 font-medium ${getColor(diffTolls, pctTolls)}`}>
+                                  {diffTolls >= 0 ? "+" : ""}{pctTolls.toFixed(1)}%
+                                </td>
+                                <td className="text-center py-3">
+                                  {isDiscrepant(pctTolls) ? (
+                                    <Badge variant="destructive" className="gap-1">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      Discrepante
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="gap-1 text-green-600 border-green-300">
+                                      <CheckCircle className="h-3 w-3" />
+                                      OK
+                                    </Badge>
+                                  )}
+                                </td>
+                              </tr>
+                              <tr className="border-b">
+                                <td className="py-3 flex items-center gap-2">
+                                  <Fuel className="h-4 w-4 text-muted-foreground" />
+                                  Combustível
+                                </td>
+                                <td className="text-right py-3">{formatCurrency(estimatedFuel.toString())}</td>
+                                <td className="text-right py-3 font-medium">{formatCurrency(realFuel.toString())}</td>
+                                <td className={`text-right py-3 font-medium ${getColor(diffFuel, pctFuel)}`}>
+                                  {diffFuel >= 0 ? "+" : ""}{formatCurrency(diffFuel.toString())}
+                                </td>
+                                <td className={`text-right py-3 font-medium ${getColor(diffFuel, pctFuel)}`}>
+                                  {diffFuel >= 0 ? "+" : ""}{pctFuel.toFixed(1)}%
+                                </td>
+                                <td className="text-center py-3">
+                                  {isDiscrepant(pctFuel) ? (
+                                    <Badge variant="destructive" className="gap-1">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      Discrepante
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="gap-1 text-green-600 border-green-300">
+                                      <CheckCircle className="h-3 w-3" />
+                                      OK
+                                    </Badge>
+                                  )}
+                                </td>
+                              </tr>
+                              {realOthers > 0 && (
+                                <tr className="border-b">
+                                  <td className="py-3 flex items-center gap-2">
+                                    <Receipt className="h-4 w-4 text-muted-foreground" />
+                                    Outras Despesas
+                                  </td>
+                                  <td className="text-right py-3">-</td>
+                                  <td className="text-right py-3 font-medium">{formatCurrency(realOthers.toString())}</td>
+                                  <td className="text-right py-3 font-medium text-orange-500">
+                                    +{formatCurrency(realOthers.toString())}
+                                  </td>
+                                  <td className="text-right py-3">-</td>
+                                  <td className="text-center py-3">
+                                    <Badge variant="secondary" className="gap-1">
+                                      Extra
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                            <tfoot>
+                              <tr className={`border-t-2 ${getBgColor(diffTotal, pctTotal)}`}>
+                                <td className="py-3 font-bold">TOTAL</td>
+                                <td className="text-right py-3 font-bold">{formatCurrency(estimatedTotal.toString())}</td>
+                                <td className="text-right py-3 font-bold">{formatCurrency(realTotal.toString())}</td>
+                                <td className={`text-right py-3 font-bold ${getColor(diffTotal, pctTotal)}`}>
+                                  {diffTotal >= 0 ? "+" : ""}{formatCurrency(diffTotal.toString())}
+                                </td>
+                                <td className={`text-right py-3 font-bold ${getColor(diffTotal, pctTotal)}`}>
+                                  {diffTotal >= 0 ? "+" : ""}{pctTotal.toFixed(1)}%
+                                </td>
+                                <td className="text-center py-3">
+                                  {isDiscrepant(pctTotal) ? (
+                                    <Badge variant="destructive" className="gap-1">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      Atenção
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="gap-1 text-green-600 border-green-300">
+                                      <CheckCircle className="h-3 w-3" />
+                                      Dentro do Esperado
+                                    </Badge>
+                                  )}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                        
+                        {isDiscrepant(pctTotal) && (
+                          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <p className="font-medium text-red-800 dark:text-red-200">Valores Discrepantes Detectados</p>
+                                <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+                                  O total das despesas reais está {pctTotal > 0 ? "acima" : "abaixo"} do previsto em {Math.abs(pctTotal).toFixed(1)}%. 
+                                  Considere revisar os comprovantes antes de aprovar.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {!isDiscrepant(pctTotal) && Math.abs(pctTotal) <= 10 && (
+                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                            <div className="flex items-start gap-2">
+                              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <p className="font-medium text-green-800 dark:text-green-200">Valores Dentro do Esperado</p>
+                                <p className="text-sm text-green-600 dark:text-green-300 mt-1">
+                                  As despesas reais estão dentro da margem de 10% do previsto.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="py-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Camera className="h-4 w-4" />
