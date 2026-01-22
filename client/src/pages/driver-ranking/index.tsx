@@ -118,7 +118,7 @@ export default function DriverRankingPage() {
   ) || [];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 h-full overflow-y-auto">
       <PageHeader
         title="Ranking de Motoristas"
         description="Visao geral do desempenho dos motoristas"
