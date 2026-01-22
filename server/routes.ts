@@ -2092,6 +2092,159 @@ export async function registerRoutes(
     return map[rating] || 3;
   };
 
+  // Financial Dashboard
+  app.get("/api/financial-dashboard", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const allSettlements = await db.select().from(expenseSettlements);
+      const allItems = await db.select().from(expenseSettlementItems);
+      const allDrivers = await db.select().from(drivers);
+      const allTransports = await db.select().from(transports);
+
+      let totalEstimated = 0;
+      let totalActual = 0;
+      let approvedCount = 0;
+      let pendingCount = 0;
+      let rejectedCount = 0;
+
+      const monthlyMap: Record<string, { estimated: number; actual: number }> = {};
+      const driverMap: Record<string, { name: string; totalDiff: number; count: number }> = {};
+      const offenders: { driverName: string; driverId: string; transportRequestNumber: string; estimated: number; actual: number; difference: number; differencePercent: number }[] = [];
+      const expenseTypeMap: Record<string, { total: number; count: number }> = {};
+
+      for (const settlement of allSettlements) {
+        const transport = allTransports.find(t => t.id === settlement.transportId);
+        const driver = allDrivers.find(d => d.id === settlement.driverId);
+        
+        const estimated = parseFloat(settlement.estimatedTolls || "0") + parseFloat(settlement.estimatedFuel || "0");
+        const actual = parseFloat(settlement.totalExpenses || "0");
+        const difference = actual - estimated;
+
+        totalEstimated += estimated;
+        totalActual += actual;
+
+        if (settlement.status === "aprovado" || settlement.status === "assinado") approvedCount++;
+        else if (settlement.status === "pendente" || settlement.status === "em_analise") pendingCount++;
+        else if (settlement.status === "devolvido") rejectedCount++;
+
+        // Monthly aggregation
+        if (settlement.submittedAt) {
+          const date = new Date(settlement.submittedAt);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+          if (!monthlyMap[monthKey]) monthlyMap[monthKey] = { estimated: 0, actual: 0 };
+          monthlyMap[monthKey].estimated += estimated;
+          monthlyMap[monthKey].actual += actual;
+        }
+
+        // Driver aggregation
+        if (driver) {
+          if (!driverMap[driver.id]) driverMap[driver.id] = { name: driver.name, totalDiff: 0, count: 0 };
+          driverMap[driver.id].totalDiff += difference;
+          driverMap[driver.id].count += 1;
+        }
+
+        // Offenders list
+        if (estimated > 0) {
+          offenders.push({
+            driverName: driver?.name || "Desconhecido",
+            driverId: settlement.driverId,
+            transportRequestNumber: transport?.requestNumber || "-",
+            estimated,
+            actual,
+            difference,
+            differencePercent: (difference / estimated) * 100,
+          });
+        }
+
+        // Expense type breakdown from items
+        const items = allItems.filter(i => i.settlementId === settlement.id);
+        for (const item of items) {
+          const type = item.type || "outros";
+          if (!expenseTypeMap[type]) expenseTypeMap[type] = { total: 0, count: 0 };
+          expenseTypeMap[type].total += parseFloat(item.amount || "0");
+          expenseTypeMap[type].count += 1;
+        }
+      }
+
+      const totalDifference = totalActual - totalEstimated;
+      const differencePercent = totalEstimated > 0 ? (totalDifference / totalEstimated) * 100 : 0;
+      const avgDifference = allSettlements.length > 0 ? totalDifference / allSettlements.length : 0;
+      const avgDifferencePercent = totalEstimated > 0 ? Math.abs(avgDifference / (totalEstimated / allSettlements.length)) * 100 : 0;
+      const approvalRate = allSettlements.length > 0 ? (approvedCount / allSettlements.length) * 100 : 0;
+
+      // Monthly data sorted
+      const monthlyData = Object.entries(monthlyMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-12)
+        .map(([month, data]) => ({
+          month: new Date(month + "-01").toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
+          estimated: data.estimated,
+          actual: data.actual,
+          difference: data.actual - data.estimated,
+        }));
+
+      // Top offenders
+      const topOverspenders = offenders
+        .filter(o => o.difference > 0)
+        .sort((a, b) => b.difference - a.difference)
+        .slice(0, 10);
+
+      const topUnderspenders = offenders
+        .filter(o => o.difference < 0)
+        .sort((a, b) => a.difference - b.difference)
+        .slice(0, 10);
+
+      // Expense breakdown
+      const typeLabels: Record<string, string> = {
+        pedagio: "Pedagio",
+        combustivel: "Combustivel",
+        alimentacao: "Alimentacao",
+        hospedagem: "Hospedagem",
+        manutencao: "Manutencao",
+        outros: "Outros",
+      };
+      const expenseBreakdown = Object.entries(expenseTypeMap).map(([type, data]) => ({
+        type,
+        label: typeLabels[type] || type,
+        total: data.total,
+        count: data.count,
+      }));
+
+      // Driver ranking
+      const driverRanking = Object.entries(driverMap)
+        .map(([id, data]) => ({
+          driverName: data.name,
+          totalSettlements: data.count,
+          avgDifference: data.count > 0 ? data.totalDiff / data.count : 0,
+          totalDifference: data.totalDiff,
+        }))
+        .sort((a, b) => b.totalDifference - a.totalDifference);
+
+      res.json({
+        stats: {
+          totalEstimated,
+          totalActual,
+          totalDifference,
+          differencePercent,
+          avgDifference,
+          avgDifferencePercent,
+          totalSettlements: allSettlements.length,
+          approvedCount,
+          pendingCount,
+          rejectedCount,
+          approvalRate,
+        },
+        monthlyData,
+        topOverspenders,
+        topUnderspenders,
+        expenseBreakdown,
+        driverRanking,
+      });
+    } catch (error) {
+      console.error("Error fetching financial dashboard:", error);
+      res.status(500).json({ message: "Erro ao buscar dashboard financeiro" });
+    }
+  });
+
   // Driver Ranking
   app.get("/api/driver-ranking", isAuthenticatedJWT, async (req, res) => {
     try {

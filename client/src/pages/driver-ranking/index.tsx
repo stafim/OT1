@@ -119,11 +119,7 @@ export default function DriverRankingPage() {
 
   return (
     <div className="p-6 space-y-6 h-full overflow-y-auto">
-      <PageHeader
-        title="Ranking de Motoristas"
-        description="Visao geral do desempenho dos motoristas"
-        icon={Trophy}
-      />
+      <PageHeader title="Ranking de Motoristas" />
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-4">

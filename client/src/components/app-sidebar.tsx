@@ -33,6 +33,7 @@ import {
   FileBarChart,
   AlertTriangle,
   Trophy,
+  DollarSign,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -106,6 +107,11 @@ const financeiroItems: MenuItem[] = [
     title: "Prestação de Contas",
     url: "/prestacao-de-contas",
     icon: Receipt,
+  },
+  {
+    title: "Dashboard Financeiro",
+    url: "/dashboard-financeiro",
+    icon: DollarSign,
   },
   {
     title: "Relatório de Pátio",

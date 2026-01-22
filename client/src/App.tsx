@@ -49,6 +49,7 @@ import FinesControlPage from "@/pages/fines-control/index";
 import CheckpointsPage from "@/pages/checkpoints/index";
 import TimelineCheckpointsPage from "@/pages/timeline-checkpoints/index";
 import DriverRankingPage from "@/pages/driver-ranking/index";
+import FinancialDashboardPage from "@/pages/financial-dashboard/index";
 
 function AuthenticatedRouter() {
   return (
@@ -79,6 +80,7 @@ function AuthenticatedRouter() {
       <Route path="/checkpoints" component={CheckpointsPage} />
       <Route path="/timeline-checkpoints" component={TimelineCheckpointsPage} />
       <Route path="/ranking-motoristas" component={DriverRankingPage} />
+      <Route path="/dashboard-financeiro" component={FinancialDashboardPage} />
       <Route path="/usuarios" component={UsersPage} />
       <Route path="/usuarios/:id" component={UserFormPage} />
       <Route path="/integracoes" component={IntegrationsPage} />
