@@ -288,33 +288,33 @@ export function AddressAutocomplete({
       };
       
       // Parse the address from the formatted string
-      // Example: "R. Antônio Singer, 2682 - Campina do Taquaral, São José dos Pinhais - PR, 83091-002, Brazil"
+      // Examples: 
+      // "R. Antônio Singer, 2682 - Campina do Taquaral, São José dos Pinhais - PR, 83091-002, Brazil"
+      // "BR-153, s/n - Retiro do Bosque, Aparecida de Goiânia - GO, 74990-728, Brazil"
       if (data.address) {
         const parts = data.address.split(",").map((p: string) => p.trim());
         
-        // Extract street and number from first part (may contain " - neighborhood")
+        // First part is the street name (keep it complete, including highway numbers like BR-153)
         if (parts.length > 0) {
-          const firstPart = parts[0];
-          // Check if format is "Street, Number - Neighborhood"
-          const streetMatch = firstPart.match(/^(.+?)\s*,?\s*(\d+)?(?:\s*-\s*(.+))?$/);
-          if (streetMatch) {
-            addressData.address = streetMatch[1] || firstPart;
-            if (streetMatch[2]) addressData.addressNumber = streetMatch[2];
-          } else {
-            addressData.address = firstPart;
-          }
+          addressData.address = parts[0];
         }
         
-        // Second part may be "Number - Neighborhood" or just "Neighborhood"
+        // Second part may be "Number - Neighborhood", "s/n - Neighborhood", just "Number", or just "Neighborhood"
         if (parts.length > 1) {
           const secondPart = parts[1];
-          const numberNeighborhoodMatch = secondPart.match(/^(\d+)\s*-\s*(.+)$/);
+          // Match patterns like "2682 - Campina do Taquaral" or "s/n - Retiro do Bosque"
+          const numberNeighborhoodMatch = secondPart.match(/^(\d+|s\/n)\s*-\s*(.+)$/i);
           if (numberNeighborhoodMatch) {
             addressData.addressNumber = numberNeighborhoodMatch[1];
             addressData.neighborhood = numberNeighborhoodMatch[2];
           } else if (/^\d+$/.test(secondPart)) {
+            // Just a number
             addressData.addressNumber = secondPart;
+          } else if (/^s\/n$/i.test(secondPart)) {
+            // Just "s/n" (sem número)
+            addressData.addressNumber = "s/n";
           } else {
+            // It's the neighborhood
             addressData.neighborhood = secondPart;
           }
         }
