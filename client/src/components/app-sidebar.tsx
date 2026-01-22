@@ -88,7 +88,7 @@ const operationItems: MenuItem[] = [
     icon: ClipboardCheck,
   },
   {
-    title: "Controle de Multas",
+    title: "Controle de Multas (Em dev)",
     url: "/controle-multas",
     icon: AlertTriangle,
   },
