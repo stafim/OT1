@@ -1438,8 +1438,31 @@ export async function registerRoutes(
           if (routesData.error) {
             console.log("Routes API error:", routesData.error);
           }
+          
+          // If no toll data from API, estimate based on distance
+          // Average toll cost in Brazil: ~R$ 0.15 per km for commercial vehicles
+          if (!tollCost && totalDistance > 100000) { // Only estimate for distances > 100km
+            const distanceKm = totalDistance / 1000;
+            const estimatedToll = distanceKm * 0.12; // R$ 0.12 per km average estimate
+            tollCost = {
+              amount: estimatedToll.toFixed(2),
+              currency: "BRL",
+              isEstimate: true,
+            };
+            console.log(`Toll estimated based on distance: R$ ${estimatedToll.toFixed(2)} for ${distanceKm.toFixed(0)} km`);
+          }
         } catch (tollError) {
           console.log("Could not fetch toll information:", tollError);
+          // Fallback estimation on error
+          if (totalDistance > 100000) {
+            const distanceKm = totalDistance / 1000;
+            const estimatedToll = distanceKm * 0.12;
+            tollCost = {
+              amount: estimatedToll.toFixed(2),
+              currency: "BRL",
+              isEstimate: true,
+            };
+          }
         }
       }
 

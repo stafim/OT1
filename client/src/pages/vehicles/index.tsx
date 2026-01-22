@@ -84,7 +84,7 @@ export default function VehiclesPage() {
     durationInTraffic?: { value: number; text: string };
     originAddress: string;
     destinationAddress: string;
-    tollCost?: { amount: string };
+    tollCost?: { amount: string; isEstimate?: boolean };
     fuelCost: number;
   } | null>(null);
 
@@ -923,7 +923,9 @@ export default function VehiclesPage() {
                           <p className="font-semibold text-primary">{routeSummary.duration.text}</p>
                         </div>
                         <div className="text-center p-2 bg-background rounded">
-                          <p className="text-xs text-muted-foreground">Pedágios</p>
+                          <p className="text-xs text-muted-foreground">
+                            Pedágios{routeSummary.tollCost?.isEstimate ? " (est.)" : ""}
+                          </p>
                           <p className="font-semibold text-orange-600">
                             {routeSummary.tollCost 
                               ? `R$ ${parseFloat(routeSummary.tollCost.amount).toFixed(2)}`

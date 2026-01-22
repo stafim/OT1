@@ -331,7 +331,7 @@ export default function TransportsPage() {
     distance: { text: string; value: number };
     duration: { text: string; value: number };
     durationInTraffic: { text: string; value: number } | null;
-    tollCost: { amount: string; currency: string } | null;
+    tollCost: { amount: string; currency: string; isEstimate?: boolean } | null;
     originAddress: string;
     destinationAddress: string;
     fuelCost: number;
@@ -1435,7 +1435,9 @@ export default function TransportsPage() {
                           <p className="font-semibold text-primary">{routeSummary.duration.text}</p>
                         </div>
                         <div className="text-center p-2 bg-background rounded">
-                          <p className="text-xs text-muted-foreground">Pedágios</p>
+                          <p className="text-xs text-muted-foreground">
+                            Pedágios{routeSummary.tollCost?.isEstimate ? " (est.)" : ""}
+                          </p>
                           <p className="font-semibold text-orange-600">
                             {routeSummary.tollCost 
                               ? `R$ ${parseFloat(routeSummary.tollCost.amount).toFixed(2)}`
@@ -1641,7 +1643,9 @@ export default function TransportsPage() {
                   <div className="flex justify-between items-center p-2 bg-muted rounded">
                     <div className="flex items-center gap-2">
                       <Receipt className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm">Pedágios</span>
+                      <span className="text-sm">
+                        Pedágios{routeSummary.tollCost?.isEstimate ? " (est.)" : ""}
+                      </span>
                     </div>
                     <span className="font-medium">
                       {routeSummary.tollCost 
