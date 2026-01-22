@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   Sidebar,
   SidebarContent,
@@ -181,6 +182,13 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout, isLoggingOut } = useAuth();
 
+  const { data: pendingEvaluations } = useQuery<any[]>({
+    queryKey: ["/api/driver-evaluations/pending-transports"],
+    refetchInterval: 30000,
+  });
+
+  const pendingCount = pendingEvaluations?.length || 0;
+
   const userRole: UserRole = (user?.role as UserRole) || "visualizador";
 
   const getInitials = () => {
@@ -225,7 +233,12 @@ export function AppSidebar() {
                       ) : (
                         <item.icon className="h-4 w-4" />
                       )}
-                      <span>{item.title}</span>
+                      <span className="flex-1">{item.title}</span>
+                      {item.url === "/avaliacao" && pendingCount > 0 && (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 min-w-[18px] h-4 flex items-center justify-center">
+                          {pendingCount}
+                        </Badge>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
