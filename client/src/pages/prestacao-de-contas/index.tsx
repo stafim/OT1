@@ -1030,9 +1030,14 @@ export default function FinanceiroPage() {
               <Button
                 variant="outline"
                 data-testid="button-generate-document"
+                onClick={() => {
+                  if (selectedSettlement) {
+                    window.open(`/api/expense-settlements/${selectedSettlement.id}/pdf`, "_blank");
+                  }
+                }}
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Gerar Documento
+                Baixar PDF
               </Button>
             )}
             <Button variant="outline" onClick={() => setShowDetails(false)}>

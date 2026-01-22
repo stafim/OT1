@@ -6,6 +6,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { setupSwagger } from "./swagger";
 import * as fs from "fs";
 import * as path from "path";
+import PDFDocument from "pdfkit";
 import { randomUUID } from "crypto";
 import {
   insertDriverSchema,
@@ -1914,6 +1915,180 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error approving expense settlement:", error);
       res.status(500).json({ message: "Failed to approve expense settlement" });
+    }
+  });
+
+  // Gerar PDF da prestação de contas
+  app.get("/api/expense-settlements/:id/pdf", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const settlement = await storage.getExpenseSettlement(req.params.id);
+      if (!settlement) {
+        return res.status(404).json({ message: "Prestação de contas não encontrada" });
+      }
+
+      // Buscar relações
+      const driver = await storage.getDriver(settlement.driverId);
+      const transport = await storage.getTransport(settlement.transportId);
+      let originYard = null;
+      let deliveryLocation = null;
+      let client = null;
+      
+      if (transport) {
+        if (transport.originYardId) {
+          originYard = await storage.getYard(transport.originYardId);
+        }
+        if (transport.deliveryLocationId) {
+          deliveryLocation = await storage.getDeliveryLocation(transport.deliveryLocationId);
+        }
+        if (transport.clientId) {
+          client = await storage.getClient(transport.clientId);
+        }
+      }
+
+      const items = await storage.getExpenseSettlementItems(req.params.id);
+
+      const doc = new PDFDocument({ size: "A4", margin: 50 });
+      
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename=prestacao-${settlement.id.substring(0, 8)}.pdf`);
+      
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(20).font("Helvetica-Bold").text("PRESTAÇÃO DE CONTAS", { align: "center" });
+      doc.moveDown(0.5);
+      doc.fontSize(12).font("Helvetica").text("OTD Entregas - Sistema de Gestão de Entregas de Veículos", { align: "center" });
+      doc.moveDown(1);
+
+      // Linha separadora
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+      doc.moveDown(1);
+
+      // Informações do Motorista
+      doc.fontSize(14).font("Helvetica-Bold").text("DADOS DO MOTORISTA");
+      doc.moveDown(0.5);
+      doc.fontSize(11).font("Helvetica");
+      doc.text(`Nome: ${driver?.name || "N/A"}`);
+      doc.text(`CPF: ${driver?.cpf || "N/A"}`);
+      doc.text(`Telefone: ${driver?.phone || "N/A"}`);
+      doc.moveDown(1);
+
+      // Informações do Transporte
+      doc.fontSize(14).font("Helvetica-Bold").text("DADOS DO TRANSPORTE");
+      doc.moveDown(0.5);
+      doc.fontSize(11).font("Helvetica");
+      doc.text(`Número da Solicitação: ${transport?.requestNumber || "N/A"}`);
+      doc.text(`Veículo (Chassi): ${transport?.vehicleChassi || "N/A"}`);
+      doc.text(`Origem: ${originYard?.name || "N/A"}`);
+      doc.text(`Destino: ${deliveryLocation?.name || "N/A"}`);
+      doc.text(`Cliente: ${client?.name || "N/A"}`);
+      if (transport?.checkinDateTime) {
+        doc.text(`Data de Saída: ${new Date(transport.checkinDateTime).toLocaleDateString("pt-BR")}`);
+      }
+      if (transport?.checkoutDateTime) {
+        doc.text(`Data de Entrega: ${new Date(transport.checkoutDateTime).toLocaleDateString("pt-BR")}`);
+      }
+      doc.moveDown(1);
+
+      // Valores Estimados
+      doc.fontSize(14).font("Helvetica-Bold").text("VALORES ESTIMADOS");
+      doc.moveDown(0.5);
+      doc.fontSize(11).font("Helvetica");
+      doc.text(`Distância: ${settlement.routeDistance || transport?.routeDistanceKm || "N/A"} km`);
+      doc.text(`Pedágios Estimados: R$ ${settlement.estimatedTolls || transport?.estimatedTolls || "0,00"}`);
+      doc.text(`Combustível Estimado: R$ ${settlement.estimatedFuel || transport?.estimatedFuel || "0,00"}`);
+      doc.moveDown(1);
+
+      // Despesas Realizadas
+      doc.fontSize(14).font("Helvetica-Bold").text("DESPESAS REALIZADAS");
+      doc.moveDown(0.5);
+
+      const expenseTypeLabels: Record<string, string> = {
+        combustivel: "Combustível",
+        pedagio: "Pedágio",
+        hospedagem: "Hotel",
+        alimentacao: "Alimentação",
+        outros: "Outros",
+      };
+
+      if (items && items.length > 0) {
+        // Cabeçalho da tabela
+        const tableTop = doc.y;
+        const col1 = 50;
+        const col2 = 200;
+        const col3 = 400;
+
+        doc.fontSize(10).font("Helvetica-Bold");
+        doc.text("Tipo", col1, tableTop);
+        doc.text("Descrição", col2, tableTop);
+        doc.text("Valor", col3, tableTop);
+        
+        doc.moveTo(50, tableTop + 15).lineTo(545, tableTop + 15).stroke();
+        
+        let yPos = tableTop + 25;
+        doc.font("Helvetica");
+        
+        let totalDespesas = 0;
+        
+        for (const item of items) {
+          const valor = parseFloat(item.amount || "0");
+          totalDespesas += valor;
+          
+          doc.text(expenseTypeLabels[item.type] || item.type, col1, yPos);
+          doc.text(item.description || "-", col2, yPos, { width: 180 });
+          doc.text(`R$ ${valor.toFixed(2).replace(".", ",")}`, col3, yPos);
+          
+          yPos += 20;
+        }
+        
+        doc.moveTo(50, yPos).lineTo(545, yPos).stroke();
+        yPos += 10;
+        
+        doc.font("Helvetica-Bold");
+        doc.text("TOTAL DAS DESPESAS:", col1, yPos);
+        doc.text(`R$ ${totalDespesas.toFixed(2).replace(".", ",")}`, col3, yPos);
+        
+        doc.y = yPos + 30;
+      } else {
+        doc.fontSize(11).font("Helvetica").text("Nenhuma despesa registrada.");
+        doc.moveDown(1);
+      }
+
+      // Observações
+      if (settlement.driverNotes) {
+        doc.fontSize(14).font("Helvetica-Bold").text("OBSERVAÇÕES DO MOTORISTA");
+        doc.moveDown(0.5);
+        doc.fontSize(11).font("Helvetica").text(settlement.driverNotes);
+        doc.moveDown(1);
+      }
+
+      // Status e Data de Aprovação
+      doc.moveDown(1);
+      doc.fontSize(12).font("Helvetica-Bold").text("STATUS: APROVADO", { align: "center" });
+      if (settlement.approvedAt) {
+        doc.fontSize(10).font("Helvetica").text(`Data de Aprovação: ${new Date(settlement.approvedAt).toLocaleDateString("pt-BR")}`, { align: "center" });
+      }
+      doc.moveDown(3);
+
+      // Assinatura do Motorista
+      doc.fontSize(12).font("Helvetica-Bold").text("ASSINATURA DO MOTORISTA", { align: "center" });
+      doc.moveDown(3);
+      
+      // Linha para assinatura
+      const signatureLineY = doc.y;
+      doc.moveTo(150, signatureLineY).lineTo(450, signatureLineY).stroke();
+      doc.moveDown(0.5);
+      doc.fontSize(10).font("Helvetica").text(`${driver?.name || "Motorista"}`, { align: "center" });
+      doc.fontSize(9).text(`CPF: ${driver?.cpf || ""}`, { align: "center" });
+      
+      doc.moveDown(2);
+      doc.fontSize(8).fillColor("gray").text(`Documento gerado em: ${new Date().toLocaleString("pt-BR")}`, { align: "center" });
+      doc.text("OTD Entregas - Sistema de Gestão de Entregas de Veículos", { align: "center" });
+
+      doc.end();
+    } catch (error) {
+      console.error("Error generating expense settlement PDF:", error);
+      res.status(500).json({ message: "Falha ao gerar PDF da prestação de contas" });
     }
   });
 
