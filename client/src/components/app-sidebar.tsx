@@ -28,6 +28,7 @@ import {
   DoorOpen,
   Route,
   Receipt,
+  ClipboardCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -78,6 +79,11 @@ const operationItems: MenuItem[] = [
     title: "Portaria",
     url: "/portaria",
     icon: DoorOpen,
+  },
+  {
+    title: "Avaliação",
+    url: "/avaliacao",
+    icon: ClipboardCheck,
   },
 ];
 
