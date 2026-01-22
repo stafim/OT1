@@ -17,6 +17,7 @@ import {
   insertCollectSchema,
   insertTransportSchema,
   insertSystemUserSchema,
+  insertCheckpointSchema,
   drivers,
   manufacturers,
   yards,
@@ -1821,6 +1822,67 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting expense settlement item:", error);
       res.status(500).json({ message: "Failed to delete expense settlement item" });
+    }
+  });
+
+  // Checkpoints
+  app.get("/api/checkpoints", async (req, res) => {
+    try {
+      const checkpoints = await storage.getCheckpoints();
+      res.json(checkpoints);
+    } catch (error) {
+      console.error("Error fetching checkpoints:", error);
+      res.status(500).json({ message: "Failed to fetch checkpoints" });
+    }
+  });
+
+  app.get("/api/checkpoints/:id", async (req, res) => {
+    try {
+      const checkpoint = await storage.getCheckpoint(req.params.id);
+      if (!checkpoint) {
+        return res.status(404).json({ message: "Checkpoint not found" });
+      }
+      res.json(checkpoint);
+    } catch (error) {
+      console.error("Error fetching checkpoint:", error);
+      res.status(500).json({ message: "Failed to fetch checkpoint" });
+    }
+  });
+
+  app.post("/api/checkpoints", async (req, res) => {
+    try {
+      const parsed = insertCheckpointSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid checkpoint data", errors: parsed.error.errors });
+      }
+      const checkpoint = await storage.createCheckpoint(parsed.data);
+      res.status(201).json(checkpoint);
+    } catch (error) {
+      console.error("Error creating checkpoint:", error);
+      res.status(500).json({ message: "Failed to create checkpoint" });
+    }
+  });
+
+  app.patch("/api/checkpoints/:id", async (req, res) => {
+    try {
+      const checkpoint = await storage.updateCheckpoint(req.params.id, req.body);
+      if (!checkpoint) {
+        return res.status(404).json({ message: "Checkpoint not found" });
+      }
+      res.json(checkpoint);
+    } catch (error) {
+      console.error("Error updating checkpoint:", error);
+      res.status(500).json({ message: "Failed to update checkpoint" });
+    }
+  });
+
+  app.delete("/api/checkpoints/:id", async (req, res) => {
+    try {
+      await storage.deleteCheckpoint(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting checkpoint:", error);
+      res.status(500).json({ message: "Failed to delete checkpoint" });
     }
   });
 
