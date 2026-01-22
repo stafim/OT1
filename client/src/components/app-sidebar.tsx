@@ -50,6 +50,11 @@ const operationItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
+    title: "Tráfego Agora",
+    url: "/trafego-agora",
+    icon: Radio,
+  },
+  {
     title: "Transportes",
     url: "/transportes",
     icon: Truck,
@@ -63,11 +68,6 @@ const operationItems: MenuItem[] = [
     title: "Localizar Motorista",
     url: "/localizar-motorista",
     icon: MapPin,
-  },
-  {
-    title: "Tráfego Agora",
-    url: "/trafego-agora",
-    icon: Radio,
   },
   {
     title: "Portaria",
