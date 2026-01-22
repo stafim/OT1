@@ -426,6 +426,9 @@ export default function TransportsPage() {
     mutationFn: async (data: typeof newTransportData) => {
       return apiRequest("POST", "/api/transports", {
         ...data,
+        driverId: data.driverId || null,
+        deliveryDate: data.deliveryDate || null,
+        notes: data.notes || null,
         status: "pendente",
       });
     },
