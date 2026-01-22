@@ -31,6 +31,7 @@ import {
   ClipboardCheck,
   FileBarChart,
   AlertTriangle,
+  Trophy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -109,6 +110,11 @@ const financeiroItems: MenuItem[] = [
     title: "Relatório de Pátio",
     url: "/relatorio-patio",
     icon: FileBarChart,
+  },
+  {
+    title: "Ranking de Motoristas",
+    url: "/ranking-motoristas",
+    icon: Trophy,
   },
 ];
 

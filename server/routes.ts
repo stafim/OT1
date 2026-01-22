@@ -2092,6 +2092,88 @@ export async function registerRoutes(
     return map[rating] || 3;
   };
 
+  // Driver Ranking
+  app.get("/api/driver-ranking", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const allDrivers = await db.select().from(drivers);
+      const allTransports = await db.select().from(transports).where(eq(transports.status, "entregue"));
+      const allEvaluations = await db.select().from(driverEvaluations);
+
+      const now = new Date();
+      const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+
+      const driverData = allDrivers.map(driver => {
+        const driverTrips = allTransports.filter(t => t.driverId === driver.id);
+        const driverEvals = allEvaluations.filter(e => e.driverId === driver.id);
+        const tripsLastMonth = driverTrips.filter(t => {
+          const checkoutDate = t.checkoutDateTime ? new Date(t.checkoutDateTime) : null;
+          return checkoutDate && checkoutDate >= oneMonthAgo;
+        }).length;
+
+        const incidentCount = driverEvals.filter(e => e.hadIncident === "true").length;
+
+        let averageScore: number | null = null;
+        if (driverEvals.length > 0) {
+          const totalScore = driverEvals.reduce((sum, e) => sum + parseFloat(e.averageScore || "0"), 0);
+          averageScore = totalScore / driverEvals.length;
+        }
+
+        return {
+          id: driver.id,
+          name: driver.name,
+          cpf: driver.cpf,
+          city: driver.city,
+          state: driver.state,
+          birthDate: driver.birthDate,
+          modality: driver.modality,
+          totalTrips: driverTrips.length,
+          tripsLastMonth,
+          averageScore,
+          totalEvaluations: driverEvals.length,
+          incidentCount,
+        };
+      });
+
+      const driversWithScore = driverData.filter(d => d.averageScore !== null);
+      const topDrivers = [...driversWithScore]
+        .sort((a, b) => (b.averageScore || 0) - (a.averageScore || 0))
+        .slice(0, 10);
+      const bottomDrivers = [...driversWithScore]
+        .sort((a, b) => (a.averageScore || 0) - (b.averageScore || 0))
+        .slice(0, 10);
+
+      const driversWithTrips = driverData.filter(d => d.totalTrips > 0);
+      const mostIncidents = [...driversWithTrips]
+        .sort((a, b) => b.incidentCount - a.incidentCount)
+        .slice(0, 10);
+      const leastIncidents = [...driversWithTrips]
+        .sort((a, b) => a.incidentCount - b.incidentCount)
+        .slice(0, 10);
+
+      const avgScore = driversWithScore.length > 0
+        ? driversWithScore.reduce((sum, d) => sum + (d.averageScore || 0), 0) / driversWithScore.length
+        : 0;
+
+      res.json({
+        stats: {
+          totalDrivers: allDrivers.length,
+          activeDrivers: driversWithTrips.length,
+          totalTrips: allTransports.length,
+          averageScore: avgScore,
+          driversWithEvaluations: driversWithScore.length,
+        },
+        drivers: driverData.sort((a, b) => a.name.localeCompare(b.name)),
+        topDrivers,
+        bottomDrivers,
+        mostIncidents,
+        leastIncidents,
+      });
+    } catch (error) {
+      console.error("Error fetching driver ranking:", error);
+      res.status(500).json({ message: "Erro ao buscar ranking de motoristas" });
+    }
+  });
+
   app.get("/api/driver-evaluations/pending-transports", isAuthenticatedJWT, async (req, res) => {
     try {
       const allTransports = await db.select().from(transports)
