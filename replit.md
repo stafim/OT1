@@ -132,3 +132,16 @@ Status enums for workflow tracking:
     - Smart state management with `lastCalculatedKey` to prevent duplicate API calls
     - Loading indicators in distance and toll field labels during API calls
     - All fields remain editable for manual adjustments after auto-calculation
+- **Traffic Page (Tráfego Agora)**: Real-time traffic monitoring with Google Maps
+  - 6 summary cards: active transports, active collects, delayed vehicles, pending, delivered today, vehicles on map
+  - Interactive Google Maps with color-coded markers (orange=transport, blue=collect, red=delayed)
+  - Delayed vehicles highlighted (>24 hours in transit) with pulse animation
+  - Tabs for filtering delayed and active vehicles
+  - Auto-refresh every 30 seconds with manual refresh button
+  - useMemo-based markersKey ensures map updates when vehicle positions change
+- **Expense Settlement PDF Generation**: PDF document on approval
+  - Backend route `/api/expense-settlements/:id/pdf` with authentication
+  - PDF includes: driver info, transport details, estimated values, expenses table
+  - Signature line with driver name and CPF for manual signing
+  - "Baixar PDF" button appears when settlement is approved
+  - Uses pdfkit library for PDF generation
