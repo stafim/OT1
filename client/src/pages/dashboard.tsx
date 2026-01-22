@@ -90,24 +90,24 @@ function KPICard({
 
   return (
     <Card data-testid={testId} className="hover-elevate transition-all">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">{title}</span>
-          <div className="p-1.5 rounded-lg bg-primary/10">
-            <Icon className="h-4 w-4 text-primary" />
+      <CardContent className="p-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-medium text-muted-foreground block truncate">{title}</span>
+            <span className="text-lg font-bold tracking-tight">{value}</span>
+            {subtitle && (
+              <p className="text-[10px] text-muted-foreground truncate">{subtitle}</p>
+            )}
+            {trend && (
+              <div className={`flex items-center gap-0.5 text-[10px] ${trend.value >= 0 ? "text-green-600" : "text-red-600"}`}>
+                <TrendingUp className={`h-2.5 w-2.5 ${trend.value < 0 ? "rotate-180" : ""}`} />
+                <span>{trend.value >= 0 ? "+" : ""}{trend.value}%</span>
+              </div>
+            )}
           </div>
-        </div>
-        <div className="mt-2">
-          <span className="text-xl font-bold tracking-tight">{value}</span>
-          {subtitle && (
-            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
-          )}
-          {trend && (
-            <div className={`flex items-center gap-1 mt-1 text-xs ${trend.value >= 0 ? "text-green-600" : "text-red-600"}`}>
-              <TrendingUp className={`h-3 w-3 ${trend.value < 0 ? "rotate-180" : ""}`} />
-              <span>{trend.value >= 0 ? "+" : ""}{trend.value}% {trend.label}</span>
-            </div>
-          )}
+          <div className="p-1.5 rounded-md bg-primary/10 shrink-0">
+            <Icon className="h-3.5 w-3.5 text-primary" />
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -143,8 +143,8 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader title="Dashboard de Gestão" />
-      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-4">
+        <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
           <KPICard
             title="Total de Transportes"
             value={analytics?.metrics.totalTransports ?? 0}
@@ -176,7 +176,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
           <KPICard
             title="Taxa de Entrega"
             value={`${analytics?.metrics.deliveryRate ?? 0}%`}
