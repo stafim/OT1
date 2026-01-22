@@ -9,21 +9,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
 import {
   Truck,
   MapPin,
   CheckCircle2,
-  Circle,
   Clock,
-  ChevronRight,
   Search,
   Flag,
   Warehouse,
   Navigation,
   Plus,
   Save,
+  LayoutList,
+  LayoutGrid,
 } from "lucide-react";
 import type { Transport, Checkpoint, TransportCheckpoint } from "@shared/schema";
 
@@ -41,13 +41,12 @@ function formatDate(date: string | Date | null | undefined) {
   return new Date(date).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
-    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-function TransportTimeline({ transport }: { transport: TransportWithDetails }) {
+function TransportTimelineVertical({ transport }: { transport: TransportWithDetails }) {
   const checkpoints = transport.checkpoints || [];
   const sortedCheckpoints = [...checkpoints].sort((a, b) => a.orderIndex - b.orderIndex);
   
@@ -67,16 +66,6 @@ function TransportTimeline({ transport }: { transport: TransportWithDetails }) {
       case "alcancado": return "bg-blue-500";
       default: return "bg-gray-300 dark:bg-gray-600";
     }
-  };
-
-  const getStatusIcon = (status: string, isCompleted: boolean) => {
-    if (isCompleted || status === "concluido") {
-      return <CheckCircle2 className="h-5 w-5 text-green-500" />;
-    }
-    if (status === "alcancado") {
-      return <Navigation className="h-5 w-5 text-blue-500 animate-pulse" />;
-    }
-    return <Circle className="h-5 w-5 text-gray-400" />;
   };
 
   return (
@@ -205,9 +194,135 @@ function TransportTimeline({ transport }: { transport: TransportWithDetails }) {
   );
 }
 
+function TransportTimelineHorizontal({ transport }: { transport: TransportWithDetails }) {
+  const checkpoints = transport.checkpoints || [];
+  const sortedCheckpoints = [...checkpoints].sort((a, b) => a.orderIndex - b.orderIndex);
+  
+  const completedCount = sortedCheckpoints.filter(cp => cp.status === "concluido").length;
+  const totalSteps = sortedCheckpoints.length + 2;
+  
+  let currentStep = 0;
+  if (transport.checkinDateTime) currentStep = 1;
+  currentStep += completedCount;
+  if (transport.checkoutDateTime) currentStep = totalSteps;
+  
+  const progressPercent = Math.round((currentStep / totalSteps) * 100);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "concluido": return "bg-green-500";
+      case "alcancado": return "bg-blue-500 animate-pulse";
+      default: return "bg-gray-300 dark:bg-gray-600";
+    }
+  };
+
+  const getLineColor = (isCompleted: boolean) => {
+    return isCompleted ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600";
+  };
+
+  return (
+    <Card className="hover-elevate">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Truck className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{transport.requestNumber}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {transport.vehicle?.model || "Veículo"} - {transport.driver?.name || "Sem motorista"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={transport.status === "entregue" ? "default" : transport.status === "em_transito" ? "secondary" : "outline"}>
+              {transport.status === "pendente" && "Pendente"}
+              {transport.status === "aguardando_saida" && "Aguard. Saída"}
+              {transport.status === "em_transito" && "Em Trânsito"}
+              {transport.status === "entregue" && "Entregue"}
+              {transport.status === "cancelado" && "Cancelado"}
+            </Badge>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-primary">{progressPercent}%</p>
+              <p className="text-xs text-muted-foreground">concluído</p>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto pb-2">
+          <div className="flex items-center min-w-max px-2">
+            <div className="flex flex-col items-center">
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${transport.checkinDateTime ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"} shadow-lg`}>
+                <Warehouse className="h-5 w-5 text-white" />
+              </div>
+              <div className="mt-2 text-center max-w-[80px]">
+                <p className="text-xs font-medium truncate">Saída</p>
+                <p className="text-[10px] text-muted-foreground truncate">{transport.originYard?.city}</p>
+                {transport.checkinDateTime && (
+                  <p className="text-[10px] text-green-600">{formatDate(transport.checkinDateTime)}</p>
+                )}
+              </div>
+            </div>
+
+            <div className={`h-1 w-12 ${getLineColor(!!transport.checkinDateTime)}`} />
+
+            {sortedCheckpoints.map((cp, index) => (
+              <div key={cp.id} className="flex items-center">
+                <div className="flex flex-col items-center">
+                  <div className={`relative flex items-center justify-center w-10 h-10 rounded-full ${getStatusColor(cp.status)} shadow-lg`}>
+                    <MapPin className="h-5 w-5 text-white" />
+                    {cp.status === "alcancado" && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                        <Navigation className="h-2.5 w-2.5 text-white" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2 text-center max-w-[80px]">
+                    <p className="text-xs font-medium truncate">{cp.checkpoint?.city || `CP${index + 1}`}</p>
+                    <p className="text-[10px] text-muted-foreground">{cp.checkpoint?.state}</p>
+                    {cp.reachedAt && (
+                      <p className="text-[10px] text-green-600">{formatDate(cp.reachedAt)}</p>
+                    )}
+                  </div>
+                </div>
+                <div className={`h-1 w-12 ${getLineColor(cp.status === "concluido")}`} />
+              </div>
+            ))}
+
+            <div className="flex flex-col items-center">
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${transport.checkoutDateTime ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"} shadow-lg`}>
+                <Flag className="h-5 w-5 text-white" />
+              </div>
+              <div className="mt-2 text-center max-w-[80px]">
+                <p className="text-xs font-medium truncate">Entrega</p>
+                <p className="text-[10px] text-muted-foreground truncate">{transport.deliveryLocation?.city}</p>
+                {transport.checkoutDateTime && (
+                  <p className="text-[10px] text-green-600">{formatDate(transport.checkoutDateTime)}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-primary to-green-500 transition-all duration-500"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function TimelineCheckpointsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"vertical" | "horizontal">("horizontal");
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [selectedTransportId, setSelectedTransportId] = useState<string | null>(null);
   const [selectedCheckpoints, setSelectedCheckpoints] = useState<string[]>([]);
@@ -314,6 +429,26 @@ export default function TimelineCheckpointsPage() {
               <SelectItem value="entregue">Entregue</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex gap-1 border rounded-lg p-1">
+            <Button
+              size="sm"
+              variant={viewMode === "horizontal" ? "default" : "ghost"}
+              onClick={() => setViewMode("horizontal")}
+              data-testid="button-view-horizontal"
+            >
+              <LayoutGrid className="h-4 w-4 mr-1" />
+              Horizontal
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "vertical" ? "default" : "ghost"}
+              onClick={() => setViewMode("vertical")}
+              data-testid="button-view-vertical"
+            >
+              <LayoutList className="h-4 w-4 mr-1" />
+              Vertical
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -347,10 +482,14 @@ export default function TimelineCheckpointsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className={viewMode === "vertical" ? "grid gap-4 md:grid-cols-2" : "space-y-4"}>
             {filteredTransports.map((transport) => (
               <div key={transport.id} className="relative">
-                <TransportTimeline transport={transport} />
+                {viewMode === "vertical" ? (
+                  <TransportTimelineVertical transport={transport} />
+                ) : (
+                  <TransportTimelineHorizontal transport={transport} />
+                )}
                 <Button
                   size="sm"
                   variant="outline"
