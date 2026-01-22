@@ -312,14 +312,13 @@ export default function DriverEvaluationsPage() {
 
           <TabsContent value="pending">
             {loadingPending ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
-                  <Card key={i}>
-                    <CardContent className="p-4">
-                      <Skeleton className="h-6 w-32 mb-2" />
-                      <Skeleton className="h-4 w-48" />
-                    </CardContent>
-                  </Card>
+                  <div key={i} className="flex items-center gap-4 p-3 border rounded-md">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-5 w-20" />
+                  </div>
                 ))}
               </div>
             ) : filteredPending.length === 0 ? (
@@ -332,43 +331,41 @@ export default function DriverEvaluationsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="border rounded-md divide-y">
                 {filteredPending.map((transport) => (
-                  <Card key={transport.id} className="hover-elevate" data-testid={`card-transport-${transport.id}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <p className="font-semibold">{transport.requestNumber}</p>
-                          <Badge variant="outline" className="mt-1">Entregue</Badge>
-                        </div>
-                        <Truck className="h-5 w-5 text-muted-foreground" />
+                  <div 
+                    key={transport.id} 
+                    className="flex items-center justify-between p-3 hover-elevate"
+                    data-testid={`row-transport-${transport.id}`}
+                  >
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 min-w-[100px]">
+                        <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="font-medium text-sm">{transport.requestNumber}</span>
                       </div>
-                      
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span>{transport.driver?.name || "Sem motorista"}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span className="truncate">{transport.deliveryLocation?.city || "-"}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span>{formatDate(transport.checkoutDateTime)}</span>
-                        </div>
+                      <div className="flex items-center gap-2 min-w-[150px]">
+                        <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-sm truncate">{transport.driver?.name || "Sem motorista"}</span>
                       </div>
-
-                      <Button
-                        className="w-full mt-4"
-                        onClick={() => handleOpenEvaluation(transport)}
-                        data-testid={`button-evaluate-${transport.id}`}
-                      >
-                        <Star className="h-4 w-4 mr-2" />
-                        Avaliar Motorista
-                      </Button>
-                    </CardContent>
-                  </Card>
+                      <div className="flex items-center gap-2 hidden md:flex">
+                        <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-sm text-muted-foreground truncate">{transport.deliveryLocation?.city || "-"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 hidden lg:flex">
+                        <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-sm text-muted-foreground">{formatDate(transport.checkoutDateTime)}</span>
+                      </div>
+                      <Badge variant="outline" className="hidden sm:inline-flex">Entregue</Badge>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleOpenEvaluation(transport)}
+                      data-testid={`button-evaluate-${transport.id}`}
+                    >
+                      <Star className="h-4 w-4 mr-1" />
+                      Avaliar
+                    </Button>
+                  </div>
                 ))}
               </div>
             )}
@@ -376,14 +373,13 @@ export default function DriverEvaluationsPage() {
 
           <TabsContent value="completed">
             {loadingEvaluations ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
-                  <Card key={i}>
-                    <CardContent className="p-4">
-                      <Skeleton className="h-6 w-32 mb-2" />
-                      <Skeleton className="h-4 w-48" />
-                    </CardContent>
-                  </Card>
+                  <div key={i} className="flex items-center gap-4 p-3 border rounded-md">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-5 w-20" />
+                  </div>
                 ))}
               </div>
             ) : filteredEvaluations.length === 0 ? (
@@ -396,52 +392,40 @@ export default function DriverEvaluationsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="border rounded-md divide-y">
                 {filteredEvaluations.map((evaluation) => (
-                  <Card key={evaluation.id} className="hover-elevate" data-testid={`card-evaluation-${evaluation.id}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <p className="font-semibold">{evaluation.transport?.requestNumber}</p>
-                          <p className="text-sm text-muted-foreground">{evaluation.driver?.name}</p>
+                  <div 
+                    key={evaluation.id} 
+                    className="p-3 hover-elevate"
+                    data-testid={`row-evaluation-${evaluation.id}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 min-w-[100px]">
+                          <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="font-medium text-sm">{evaluation.transport?.requestNumber}</span>
                         </div>
-                        <StarRating score={parseFloat(evaluation.averageScore || "0")} />
+                        <div className="flex items-center gap-2 min-w-[150px]">
+                          <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm truncate">{evaluation.driver?.name}</span>
+                        </div>
+                        <div className="hidden md:flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm text-muted-foreground">{formatDate(evaluation.createdAt)}</span>
+                        </div>
+                        {evaluation.hadIncident === "true" && (
+                          <Badge variant="destructive" className="hidden sm:inline-flex text-xs">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            Imprevisto
+                          </Badge>
+                        )}
                       </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-xs mt-4">
-                        <div className="flex items-center justify-between p-2 rounded bg-muted/50">
-                          <span>Postura</span>
-                          <Badge variant="outline" className="text-xs">{evaluation.posturaProfissional}</Badge>
-                        </div>
-                        <div className="flex items-center justify-between p-2 rounded bg-muted/50">
-                          <span>Pontualidade</span>
-                          <Badge variant="outline" className="text-xs">{evaluation.pontualidade}</Badge>
-                        </div>
-                        <div className="flex items-center justify-between p-2 rounded bg-muted/50">
-                          <span>Apresentacao</span>
-                          <Badge variant="outline" className="text-xs">{evaluation.apresentacaoPessoal}</Badge>
-                        </div>
-                        <div className="flex items-center justify-between p-2 rounded bg-muted/50">
-                          <span>Cordialidade</span>
-                          <Badge variant="outline" className="text-xs">{evaluation.cordialidade}</Badge>
-                        </div>
-                      </div>
-
-                      {evaluation.hadIncident === "true" && (
-                        <div className="mt-3 p-2 rounded bg-red-500/10 border border-red-500/20">
-                          <div className="flex items-center gap-1 text-red-600 text-xs font-medium">
-                            <AlertTriangle className="h-3 w-3" />
-                            Houve imprevisto
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">{evaluation.incidentDescription}</p>
-                        </div>
-                      )}
-
-                      <p className="text-xs text-muted-foreground mt-3">
-                        Avaliado em {formatDate(evaluation.createdAt)}
-                      </p>
-                    </CardContent>
-                  </Card>
+                      <StarRating score={parseFloat(evaluation.averageScore || "0")} />
+                    </div>
+                    {evaluation.hadIncident === "true" && evaluation.incidentDescription && (
+                      <p className="text-xs text-muted-foreground mt-2 pl-6">{evaluation.incidentDescription}</p>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
