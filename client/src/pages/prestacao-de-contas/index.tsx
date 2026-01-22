@@ -234,26 +234,13 @@ export default function FinanceiroPage() {
   });
 
   const uploadPhoto = async (file: File): Promise<string | null> => {
-    const token = localStorage.getItem("access_token");
-    const authHeaders: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (token) {
-      authHeaders["Authorization"] = `Bearer ${token}`;
-    }
-
     try {
       // Try Object Storage first
-      const response = await fetch("/api/uploads/request-url", {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({
-          contentType: file.type,
-          name: file.name,
-          isPublic: false,
-        }),
+      const response = await apiRequest("POST", "/api/uploads/request-url", {
+        contentType: file.type,
+        name: file.name,
+        isPublic: false,
       });
-      if (!response.ok) throw new Error("Object Storage unavailable");
 
       const { uploadURL, objectPath } = await response.json();
 
@@ -274,21 +261,17 @@ export default function FinanceiroPage() {
           reader.readAsDataURL(file);
         });
 
-        const localResponse = await fetch("/api/uploads/local", {
-          method: "POST",
-          headers: authHeaders,
-          body: JSON.stringify({
-            filename: file.name,
-            contentType: file.type,
-            data: base64,
-          }),
+        const localResponse = await apiRequest("POST", "/api/uploads/local", {
+          filename: file.name,
+          contentType: file.type,
+          data: base64,
         });
 
-        if (!localResponse.ok) throw new Error("Upload failed");
         const { objectPath } = await localResponse.json();
         return objectPath;
-      } catch (err) {
-        toast({ title: "Erro ao fazer upload da foto", variant: "destructive" });
+      } catch (err: any) {
+        console.error("Upload error:", err);
+        toast({ title: err.message || "Erro ao fazer upload da foto", variant: "destructive" });
         return null;
       }
     }
