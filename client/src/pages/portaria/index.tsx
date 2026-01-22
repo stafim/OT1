@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -46,6 +48,7 @@ export default function PortariaPage() {
   const [selectedCollectId, setSelectedCollectId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [confirmExitWithoutCheckin, setConfirmExitWithoutCheckin] = useState<string | null>(null);
+  const [exitAuthorizationReason, setExitAuthorizationReason] = useState("");
 
   const { data: collects, isLoading: collectsLoading } = useQuery<CollectWithRelations[]>({
     queryKey: ["/api/collects"],
@@ -835,20 +838,40 @@ export default function PortariaPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!confirmExitWithoutCheckin} onOpenChange={() => setConfirmExitWithoutCheckin(null)}>
+      <AlertDialog open={!!confirmExitWithoutCheckin} onOpenChange={(open) => {
+        if (!open) {
+          setConfirmExitWithoutCheckin(null);
+          setExitAuthorizationReason("");
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-orange-600">
               <AlertCircle className="h-5 w-5" />
               Autorização Sem Check-in
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-base">
-              <span className="block mb-4">
-                O motorista ainda não realizou o check-in para este transporte.
-              </span>
-              <span className="block p-4 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md text-orange-800 dark:text-orange-300 font-medium">
-                Ao confirmar, você assume total responsabilidade pela autorização desta saída sem a verificação do check-in do motorista.
-              </span>
+            <AlertDialogDescription asChild>
+              <div className="text-base space-y-4">
+                <p className="text-muted-foreground">
+                  O motorista ainda não realizou o check-in para este transporte.
+                </p>
+                <div className="p-4 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md text-orange-800 dark:text-orange-300 font-medium">
+                  Ao confirmar, você assume total responsabilidade pela autorização desta saída sem a verificação do check-in do motorista.
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="authorization-reason" className="text-foreground font-medium">
+                    Motivo da autorização / Quem autorizou *
+                  </Label>
+                  <Textarea
+                    id="authorization-reason"
+                    placeholder="Informe o motivo da autorização ou quem autorizou esta saída..."
+                    value={exitAuthorizationReason}
+                    onChange={(e) => setExitAuthorizationReason(e.target.value)}
+                    className="min-h-[80px]"
+                    data-testid="input-authorization-reason"
+                  />
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -857,10 +880,12 @@ export default function PortariaPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-orange-600 hover:bg-orange-700"
+              disabled={!exitAuthorizationReason.trim()}
               onClick={() => {
-                if (confirmExitWithoutCheckin) {
+                if (confirmExitWithoutCheckin && exitAuthorizationReason.trim()) {
                   authorizeExitMutation.mutate(confirmExitWithoutCheckin);
                   setConfirmExitWithoutCheckin(null);
+                  setExitAuthorizationReason("");
                 }
               }}
               data-testid="button-confirm-exit-no-checkin"
