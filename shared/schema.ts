@@ -767,3 +767,36 @@ export const insertCheckpointSchema = createInsertSchema(checkpoints).omit({
 
 export type InsertCheckpoint = z.infer<typeof insertCheckpointSchema>;
 export type Checkpoint = typeof checkpoints.$inferSelect;
+
+// Transport Checkpoints - associação de checkpoints a transportes
+export const transportCheckpoints = pgTable("transport_checkpoints", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transportId: varchar("transport_id").notNull().references(() => transports.id),
+  checkpointId: varchar("checkpoint_id").notNull().references(() => checkpoints.id),
+  orderIndex: integer("order_index").notNull(), // ordem do checkpoint na rota
+  status: varchar("status", { length: 20 }).default("pendente").notNull(), // pendente, alcancado, concluido
+  reachedAt: timestamp("reached_at"), // quando o motorista alcançou o checkpoint
+  latitude: text("latitude"), // localização real quando alcançou
+  longitude: text("longitude"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const transportCheckpointsRelations = relations(transportCheckpoints, ({ one }) => ({
+  transport: one(transports, {
+    fields: [transportCheckpoints.transportId],
+    references: [transports.id],
+  }),
+  checkpoint: one(checkpoints, {
+    fields: [transportCheckpoints.checkpointId],
+    references: [checkpoints.id],
+  }),
+}));
+
+export const insertTransportCheckpointSchema = createInsertSchema(transportCheckpoints).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTransportCheckpoint = z.infer<typeof insertTransportCheckpointSchema>;
+export type TransportCheckpoint = typeof transportCheckpoints.$inferSelect;

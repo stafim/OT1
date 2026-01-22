@@ -108,3 +108,13 @@ Status enums for workflow tracking:
   - Created Check Points page (`/checkpoints`) with Google Maps integration
   - Features include: map click to select location, address autocomplete, reverse geocoding
   - Google Maps API key stored in environment variable (`VITE_GOOGLE_MAPS_API_KEY`)
+- **Financial Comparison in Expense Settlements**: Added comparison between estimated and actual costs
+  - Shows "Despesas Previstas" (estimated) and "Despesas Realizadas" (actual) side by side
+  - Compact layout with toll, fuel, and other expenses breakdown
+- **Timeline Check Points Page**: New page `/timeline-checkpoints` for tracking transport progress
+  - Visual timeline showing transport journey from origin yard to delivery location
+  - Intermediate checkpoints between origin and destination
+  - Status indicators: pending, reached, completed
+  - Progress percentage calculation
+  - Ability to assign checkpoints to transports
+  - Created `transportCheckpoints` table to associate checkpoints with transports

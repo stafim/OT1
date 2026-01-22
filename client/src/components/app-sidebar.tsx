@@ -53,6 +53,11 @@ const operationItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
+    title: "Check Points",
+    url: "/timeline-checkpoints",
+    icon: Route,
+  },
+  {
     title: "Tráfego Agora",
     url: "/trafego-agora",
     icon: Radio,

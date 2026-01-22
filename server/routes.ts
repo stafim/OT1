@@ -26,6 +26,10 @@ import {
   collects,
   featureKeys,
   systemUsers,
+  transports,
+  vehicles,
+  checkpoints,
+  transportCheckpoints,
   type FeatureKey,
 } from "@shared/schema";
 import { db } from "./db";
@@ -1981,6 +1985,95 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting checkpoint:", error);
       res.status(500).json({ message: "Failed to delete checkpoint" });
+    }
+  });
+
+  // Transport Checkpoints - Timeline
+  app.get("/api/transports/with-checkpoints", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const transportsList = await db.select().from(transports);
+      const transportsWithDetails = await Promise.all(
+        transportsList.map(async (transport) => {
+          const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.chassi, transport.vehicleChassi));
+          const [client] = await db.select().from(clients).where(eq(clients.id, transport.clientId));
+          const [originYard] = await db.select().from(yards).where(eq(yards.id, transport.originYardId));
+          const [deliveryLocation] = await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, transport.deliveryLocationId));
+          const [driver] = transport.driverId
+            ? await db.select().from(drivers).where(eq(drivers.id, transport.driverId))
+            : [null];
+          
+          const transportCps = await db.select().from(transportCheckpoints)
+            .where(eq(transportCheckpoints.transportId, transport.id));
+          
+          const cpsWithDetails = await Promise.all(
+            transportCps.map(async (tcp) => {
+              const [checkpoint] = await db.select().from(checkpoints).where(eq(checkpoints.id, tcp.checkpointId));
+              return { ...tcp, checkpoint };
+            })
+          );
+
+          return {
+            ...transport,
+            vehicle,
+            client,
+            originYard,
+            deliveryLocation,
+            driver,
+            checkpoints: cpsWithDetails,
+          };
+        })
+      );
+      res.json(transportsWithDetails);
+    } catch (error) {
+      console.error("Error fetching transports with checkpoints:", error);
+      res.status(500).json({ message: "Failed to fetch transports with checkpoints" });
+    }
+  });
+
+  app.post("/api/transports/:id/checkpoints", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const transportId = req.params.id;
+      const { checkpointIds } = req.body as { checkpointIds: string[] };
+
+      await db.delete(transportCheckpoints).where(eq(transportCheckpoints.transportId, transportId));
+
+      if (checkpointIds && checkpointIds.length > 0) {
+        const newCheckpoints = checkpointIds.map((checkpointId, index) => ({
+          transportId,
+          checkpointId,
+          orderIndex: index + 1,
+          status: "pendente",
+        }));
+        await db.insert(transportCheckpoints).values(newCheckpoints);
+      }
+
+      res.json({ message: "Checkpoints assigned successfully" });
+    } catch (error) {
+      console.error("Error assigning checkpoints:", error);
+      res.status(500).json({ message: "Failed to assign checkpoints" });
+    }
+  });
+
+  app.patch("/api/transport-checkpoints/:id/status", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { status, latitude, longitude } = req.body;
+      const updated = await db.update(transportCheckpoints)
+        .set({
+          status,
+          latitude,
+          longitude,
+          reachedAt: status === "alcancado" || status === "concluido" ? new Date() : null,
+        })
+        .where(eq(transportCheckpoints.id, req.params.id))
+        .returning();
+      
+      if (updated.length === 0) {
+        return res.status(404).json({ message: "Transport checkpoint not found" });
+      }
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Error updating transport checkpoint:", error);
+      res.status(500).json({ message: "Failed to update transport checkpoint" });
     }
   });
 
