@@ -53,7 +53,7 @@ const operationItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
-    title: "Rotograma",
+    title: "Rotograma (Em dev)",
     url: "/rotograma",
     icon: Route,
   },
