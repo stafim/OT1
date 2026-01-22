@@ -746,3 +746,24 @@ export type InsertExpenseSettlement = z.infer<typeof insertExpenseSettlementSche
 export type ExpenseSettlement = typeof expenseSettlements.$inferSelect;
 export type InsertExpenseSettlementItem = z.infer<typeof insertExpenseSettlementItemSchema>;
 export type ExpenseSettlementItem = typeof expenseSettlementItems.$inferSelect;
+
+// ============== CHECK POINTS ==============
+export const checkpoints = pgTable("checkpoints", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  address: text("address"),
+  city: text("city"),
+  state: varchar("state", { length: 2 }),
+  latitude: text("latitude").notNull(),
+  longitude: text("longitude").notNull(),
+  isActive: text("is_active").default("true"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCheckpointSchema = createInsertSchema(checkpoints).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCheckpoint = z.infer<typeof insertCheckpointSchema>;
+export type Checkpoint = typeof checkpoints.$inferSelect;
