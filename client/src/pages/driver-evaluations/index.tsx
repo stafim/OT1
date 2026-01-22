@@ -132,7 +132,9 @@ export default function DriverEvaluationsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
   const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedTransport, setSelectedTransport] = useState<TransportWithDetails | null>(null);
+  const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationWithDetails | null>(null);
   const [hadIncident, setHadIncident] = useState(false);
   const [incidentDescription, setIncidentDescription] = useState("");
   const [manualScore, setManualScore] = useState<string>("4.0");
@@ -396,8 +398,12 @@ export default function DriverEvaluationsPage() {
                 {filteredEvaluations.map((evaluation) => (
                   <div 
                     key={evaluation.id} 
-                    className="p-3 hover-elevate"
+                    className="p-3 hover-elevate cursor-pointer"
                     data-testid={`row-evaluation-${evaluation.id}`}
+                    onClick={() => {
+                      setSelectedEvaluation(evaluation);
+                      setShowDetailsDialog(true);
+                    }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -588,6 +594,187 @@ export default function DriverEvaluationsPage() {
             >
               <Send className="h-4 w-4 mr-2" />
               Enviar Avaliacao
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Detalhes da Avaliacao
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedEvaluation && (
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                {(selectedEvaluation.driver as any)?.photo ? (
+                  <img 
+                    src={(selectedEvaluation.driver as any).photo} 
+                    alt={selectedEvaluation.driver?.name}
+                    className="w-20 h-20 rounded-full object-cover border-2 border-primary/20"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
+                    <User className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold">{selectedEvaluation.driver?.name}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedEvaluation.driver?.cpf}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Badge variant="outline">{selectedEvaluation.driver?.modality}</Badge>
+                    <StarRating score={parseFloat(selectedEvaluation.averageScore || "0")} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="p-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Truck className="h-4 w-4" />
+                      Transporte
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Requisicao:</span>
+                      <span className="font-medium">{selectedEvaluation.transport?.requestNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Veiculo:</span>
+                      <span>{selectedEvaluation.transport?.vehicleChassi}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge variant="secondary">{selectedEvaluation.transport?.status}</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="p-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Destino
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Cidade:</span>
+                      <span>{(selectedEvaluation as any).deliveryLocation?.city || "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Estado:</span>
+                      <span>{(selectedEvaluation as any).deliveryLocation?.state || "-"}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="p-3">
+                    <CardTitle className="text-sm flex items-center gap-2 text-green-600">
+                      <Clock className="h-4 w-4" />
+                      Check-in
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0 text-sm">
+                    <p className="font-medium">{formatDate(selectedEvaluation.transport?.checkinDateTime)}</p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      KM: {(selectedEvaluation.transport as any)?.checkinOdometer || "-"}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="p-3">
+                    <CardTitle className="text-sm flex items-center gap-2 text-blue-600">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Check-out
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0 text-sm">
+                    <p className="font-medium">{formatDate(selectedEvaluation.transport?.checkoutDateTime)}</p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      KM: {(selectedEvaluation.transport as any)?.checkoutOdometer || "-"}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {selectedEvaluation.transport?.checkoutSelfiePhoto && (
+                <Card>
+                  <CardHeader className="p-3">
+                    <CardTitle className="text-sm">Foto do Check-out</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <img 
+                      src={selectedEvaluation.transport.checkoutSelfiePhoto} 
+                      alt="Selfie do Check-out"
+                      className="w-full max-w-xs rounded-lg border"
+                    />
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader className="p-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Star className="h-4 w-4 text-yellow-500" />
+                    Avaliacao
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    <div className="flex items-center justify-between p-2 rounded bg-muted/50">
+                      <span>Postura</span>
+                      <Badge variant="outline" className="text-xs">{selectedEvaluation.posturaProfissional}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-muted/50">
+                      <span>Pontualidade</span>
+                      <Badge variant="outline" className="text-xs">{selectedEvaluation.pontualidade}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-muted/50">
+                      <span>Apresentacao</span>
+                      <Badge variant="outline" className="text-xs">{selectedEvaluation.apresentacaoPessoal}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-muted/50">
+                      <span>Cordialidade</span>
+                      <Badge variant="outline" className="text-xs">{selectedEvaluation.cordialidade}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-muted/50">
+                      <span>Processo</span>
+                      <Badge variant="outline" className="text-xs">{selectedEvaluation.cumpriuProcesso}</Badge>
+                    </div>
+                  </div>
+
+                  {selectedEvaluation.hadIncident === "true" && (
+                    <div className="mt-3 p-3 rounded bg-red-500/10 border border-red-500/20">
+                      <div className="flex items-center gap-2 text-red-600 font-medium text-sm">
+                        <AlertTriangle className="h-4 w-4" />
+                        Houve imprevisto
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">{selectedEvaluation.incidentDescription}</p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Avaliado em {formatDate(selectedEvaluation.createdAt)}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
