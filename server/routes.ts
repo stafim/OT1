@@ -133,13 +133,36 @@ export async function registerRoutes(
 
   app.get("/api/dashboard/analytics", isAuthenticatedJWT, async (req, res) => {
     try {
-      const [transports, collects, drivers, vehicles, expenseSettlements] = await Promise.all([
+      const period = req.query.period as string || "all";
+      
+      const [allTransports, allCollects, drivers, vehicles, expenseSettlements] = await Promise.all([
         storage.getTransports(),
         storage.getCollects(),
         storage.getDrivers(),
         storage.getVehicles(),
         storage.getExpenseSettlements(),
       ]);
+
+      const now = new Date();
+      let startDate: Date | null = null;
+      
+      if (period === "month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else if (period === "quarter") {
+        startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      } else if (period === "semester") {
+        startDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      }
+
+      const filterByPeriod = (item: { createdAt?: Date | string | null }) => {
+        if (!startDate) return true;
+        if (!item.createdAt) return false;
+        const itemDate = new Date(item.createdAt);
+        return itemDate >= startDate;
+      };
+
+      const transports = allTransports.filter(filterByPeriod);
+      const collects = allCollects.filter(filterByPeriod);
 
       const transportsByStatus = {
         pendente: transports.filter(t => t.status === "pendente").length,
@@ -156,9 +179,9 @@ export async function registerRoutes(
         cancelado: collects.filter(c => c.status === "cancelado").length,
       };
 
-      const now = new Date();
+      const currentDate = new Date();
       const last6Months = Array.from({ length: 6 }, (_, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+        const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - (5 - i), 1);
         return { month: d.toLocaleString("pt-BR", { month: "short" }), year: d.getFullYear() };
       });
 

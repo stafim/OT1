@@ -780,7 +780,7 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState("all");
   
   const { data: analytics, isLoading } = useQuery<Analytics>({
-    queryKey: ["/api/dashboard/analytics", period],
+    queryKey: [`/api/dashboard/analytics?period=${period}`],
   });
 
   return (
