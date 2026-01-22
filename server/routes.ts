@@ -221,6 +221,104 @@ export async function registerRoutes(
     }
   });
 
+  // Yard Report - Billing by days in stock
+  app.get("/api/reports/yard-billing", isAuthenticatedJWT, async (req, res) => {
+    try {
+      // Get all vehicles that are currently in stock (em_estoque)
+      const vehiclesInStock = await db
+        .select()
+        .from(vehicles)
+        .where(eq(vehicles.status, "em_estoque"));
+
+      // Get all clients
+      const allClients = await db.select().from(clients);
+      const clientsMap = new Map(allClients.map(c => [c.id, c]));
+
+      // Get all yards
+      const allYards = await db.select().from(yards);
+      const yardsMap = new Map(allYards.map(y => [y.id, y]));
+
+      const now = new Date();
+      
+      // Calculate billing for each vehicle
+      const vehicleBilling = vehiclesInStock.map(vehicle => {
+        const client = vehicle.clientId ? clientsMap.get(vehicle.clientId) : null;
+        const yard = vehicle.yardId ? yardsMap.get(vehicle.yardId) : null;
+        const dailyCost = client?.dailyCost ? parseFloat(client.dailyCost) : 0;
+        
+        // Calculate days in stock
+        let daysInStock = 0;
+        if (vehicle.yardEntryDateTime) {
+          const entryDate = new Date(vehicle.yardEntryDateTime);
+          const diffTime = now.getTime() - entryDate.getTime();
+          daysInStock = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (daysInStock < 0) daysInStock = 0;
+        }
+
+        const totalCost = daysInStock * dailyCost;
+
+        return {
+          chassi: vehicle.chassi,
+          clientId: vehicle.clientId,
+          clientName: client?.name || "Sem cliente",
+          yardId: vehicle.yardId,
+          yardName: yard?.name || "Sem pátio",
+          entryDate: vehicle.yardEntryDateTime,
+          daysInStock,
+          dailyCost,
+          totalCost,
+        };
+      });
+
+      // Group by client
+      const byClient: Record<string, {
+        clientId: string | null;
+        clientName: string;
+        dailyCost: number;
+        vehicles: typeof vehicleBilling;
+        totalDays: number;
+        totalCost: number;
+      }> = {};
+
+      vehicleBilling.forEach(v => {
+        const key = v.clientId || "no-client";
+        if (!byClient[key]) {
+          byClient[key] = {
+            clientId: v.clientId,
+            clientName: v.clientName,
+            dailyCost: v.dailyCost,
+            vehicles: [],
+            totalDays: 0,
+            totalCost: 0,
+          };
+        }
+        byClient[key].vehicles.push(v);
+        byClient[key].totalDays += v.daysInStock;
+        byClient[key].totalCost += v.totalCost;
+      });
+
+      const clientGroups = Object.values(byClient).sort((a, b) => 
+        a.clientName.localeCompare(b.clientName)
+      );
+
+      const grandTotal = clientGroups.reduce((sum, g) => sum + g.totalCost, 0);
+      const totalVehicles = vehicleBilling.length;
+      const totalDays = clientGroups.reduce((sum, g) => sum + g.totalDays, 0);
+
+      res.json({
+        clientGroups,
+        summary: {
+          totalVehicles,
+          totalDays,
+          grandTotal,
+        },
+      });
+    } catch (error) {
+      console.error("Error generating yard billing report:", error);
+      res.status(500).json({ message: "Failed to generate yard billing report" });
+    }
+  });
+
   // Drivers
   app.get("/api/drivers", isAuthenticatedJWT, async (req, res) => {
     try {
