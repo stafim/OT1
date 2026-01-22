@@ -35,13 +35,29 @@ let loadCallbacks: (() => void)[] = [];
 
 function loadGoogleMaps(): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (googleMapsLoaded && window.google?.maps?.places) {
+    // Check if already loaded
+    if (window.google?.maps?.places) {
+      googleMapsLoaded = true;
       resolve();
       return;
     }
 
     if (googleMapsLoading) {
       loadCallbacks.push(() => resolve());
+      return;
+    }
+
+    // Check if script is already in DOM
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
+    if (existingScript) {
+      // Script exists, wait for it to load
+      const checkInterval = setInterval(() => {
+        if (window.google?.maps?.places) {
+          clearInterval(checkInterval);
+          googleMapsLoaded = true;
+          resolve();
+        }
+      }, 100);
       return;
     }
 
