@@ -1597,9 +1597,15 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Já existe uma prestação de contas para este transporte" });
       }
       
+      // Get transport to copy route information
+      const transport = await storage.getTransport(req.body.transportId);
+      
       const settlementData = {
         ...req.body,
         submittedAt: req.body.status === "enviado" ? new Date() : undefined,
+        routeDistance: transport?.routeDistanceKm ? `${transport.routeDistanceKm} km` : null,
+        estimatedTolls: transport?.estimatedTolls || null,
+        estimatedFuel: transport?.estimatedFuel || null,
       };
       
       const settlement = await storage.createExpenseSettlement(settlementData);

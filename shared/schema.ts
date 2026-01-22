@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, date, integer, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, date, integer, pgEnum, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -446,6 +446,11 @@ export const transports = pgTable("transports", {
   checkoutDamagePhotos: text("checkout_damage_photos").array(),
   checkoutSelfiePhoto: text("checkout_selfie_photo"),
   checkoutNotes: text("checkout_notes"),
+  // Route information (calculated when transport is created)
+  routeDistanceKm: numeric("route_distance_km"),
+  routeDurationMinutes: integer("route_duration_minutes"),
+  estimatedTolls: numeric("estimated_tolls"),
+  estimatedFuel: numeric("estimated_fuel"),
 });
 
 export const transportsRelations = relations(transports, ({ one }) => ({

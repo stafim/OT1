@@ -431,6 +431,10 @@ export default function TransportsPage() {
         deliveryDate: data.deliveryDate || null,
         notes: data.notes || null,
         status: "pendente",
+        routeDistanceKm: routeSummary ? (routeSummary.distance.value / 1000).toFixed(2) : null,
+        routeDurationMinutes: routeSummary ? Math.round(routeSummary.duration.value / 60) : null,
+        estimatedTolls: routeSummary?.tollCost ? routeSummary.tollCost.amount : null,
+        estimatedFuel: routeSummary ? routeSummary.fuelCost.toFixed(2) : null,
       });
     },
     onSuccess: () => {
