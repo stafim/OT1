@@ -667,6 +667,10 @@ export const expenseSettlements = pgTable("expense_settlements", {
   driverNotes: text("driver_notes"),
   totalExpenses: text("total_expenses"),  // Valor total das despesas
   
+  // Adiantamento e saldo
+  advanceAmount: text("advance_amount"),  // Valor adiantado ao motorista
+  balanceAmount: text("balance_amount"),  // Saldo (despesas - adiantamento): positivo = a receber, negativo = a devolver
+  
   // Valores do transporte (copiados para referência)
   routeDistance: text("route_distance"),
   estimatedTolls: text("estimated_tolls"),

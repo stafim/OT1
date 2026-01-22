@@ -2062,6 +2062,27 @@ export async function registerRoutes(
         doc.moveDown(1);
       }
 
+      // Adiantamento e Saldo
+      const totalDespesasCalc = items?.reduce((sum, item) => sum + parseFloat(item.amount || "0"), 0) || 0;
+      const advanceAmount = parseFloat(settlement.advanceAmount || "0");
+      const balance = totalDespesasCalc - advanceAmount;
+      
+      doc.fontSize(14).font("Helvetica-Bold").text("ADIANTAMENTO E SALDO");
+      doc.moveDown(0.5);
+      doc.fontSize(11).font("Helvetica");
+      doc.text(`Valor Adiantado: R$ ${advanceAmount.toFixed(2).replace(".", ",")}`);
+      doc.text(`Total das Despesas: R$ ${totalDespesasCalc.toFixed(2).replace(".", ",")}`);
+      doc.moveDown(0.5);
+      doc.fontSize(12).font("Helvetica-Bold");
+      if (balance > 0) {
+        doc.text(`MOTORISTA DEVE RECEBER: R$ ${balance.toFixed(2).replace(".", ",")}`);
+      } else if (balance < 0) {
+        doc.text(`MOTORISTA DEVE DEVOLVER: R$ ${Math.abs(balance).toFixed(2).replace(".", ",")}`);
+      } else {
+        doc.text(`SALDO ZERADO`);
+      }
+      doc.moveDown(1);
+
       // Status e Data de Aprovação
       doc.moveDown(1);
       doc.fontSize(12).font("Helvetica-Bold").text("STATUS: APROVADO", { align: "center" });

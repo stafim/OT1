@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,6 +90,8 @@ export default function FinanceiroPage() {
   const [returnReason, setReturnReason] = useState("");
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"pending" | "all">("pending");
+  const [localAdvanceAmount, setLocalAdvanceAmount] = useState<string>("");
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   interface ExpenseItemDraft {
     id: string;
     type: string;
@@ -182,6 +184,27 @@ export default function FinanceiroPage() {
       toast({ title: "Erro ao devolver prestação de contas", variant: "destructive" });
     },
   });
+
+  const updateAdvanceMutation = useMutation({
+    mutationFn: async ({ settlementId, advanceAmount }: { settlementId: string; advanceAmount: string }) => {
+      return apiRequest("PATCH", `/api/expense-settlements/${settlementId}`, { advanceAmount });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/expense-settlements"] });
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar adiantamento", variant: "destructive" });
+    },
+  });
+
+  const debouncedUpdateAdvance = useCallback((settlementId: string, value: string) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      updateAdvanceMutation.mutate({ settlementId, advanceAmount: value });
+    }, 500);
+  }, [updateAdvanceMutation]);
 
   const addItemMutation = useMutation({
     mutationFn: async (data: { settlementId: string; type: string; amount: string; photoUrl: string; description: string }) => {
@@ -364,6 +387,7 @@ export default function FinanceiroPage() {
 
   const openDetails = (settlement: ExpenseSettlementWithRelations) => {
     setSelectedSettlement(settlement);
+    setLocalAdvanceAmount("");
     setShowDetails(true);
   };
 
@@ -869,6 +893,100 @@ export default function FinanceiroPage() {
                             </div>
                           </div>
                         )}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Adiantamento e Saldo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const totalExpenses = selectedSettlement.items?.reduce((sum, item) => 
+                      sum + parseFloat(item.amount || "0"), 0) || 0;
+                    const currentAdvance = localAdvanceAmount !== "" ? localAdvanceAmount : (selectedSettlement.advanceAmount || "0");
+                    const advanceAmount = parseFloat(currentAdvance);
+                    const balance = totalExpenses - advanceAmount;
+                    
+                    return (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="advance-amount" className="text-sm font-medium">
+                              Valor Adiantado (R$)
+                            </Label>
+                            <Input
+                              id="advance-amount"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={localAdvanceAmount !== "" ? localAdvanceAmount : (selectedSettlement.advanceAmount || "")}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setLocalAdvanceAmount(value);
+                                debouncedUpdateAdvance(selectedSettlement.id, value);
+                              }}
+                              placeholder="0,00"
+                              className="mt-1"
+                              data-testid="input-advance-amount"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Total das Despesas</Label>
+                            <div className="mt-1 p-2 bg-muted rounded-md text-lg font-semibold">
+                              R$ {totalExpenses.toFixed(2).replace(".", ",")}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className={`p-4 rounded-lg border-2 ${
+                          balance > 0 
+                            ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700" 
+                            : balance < 0 
+                              ? "bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700"
+                              : "bg-gray-50 dark:bg-gray-900/20 border-gray-300 dark:border-gray-700"
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">
+                                {balance > 0 ? "Motorista deve receber" : balance < 0 ? "Motorista deve devolver" : "Saldo zerado"}
+                              </p>
+                              <p className={`text-2xl font-bold ${
+                                balance > 0 
+                                  ? "text-blue-600 dark:text-blue-400" 
+                                  : balance < 0 
+                                    ? "text-orange-600 dark:text-orange-400"
+                                    : "text-gray-600 dark:text-gray-400"
+                              }`}>
+                                R$ {Math.abs(balance).toFixed(2).replace(".", ",")}
+                              </p>
+                            </div>
+                            <div className={`p-3 rounded-full ${
+                              balance > 0 
+                                ? "bg-blue-100 dark:bg-blue-800" 
+                                : balance < 0 
+                                  ? "bg-orange-100 dark:bg-orange-800"
+                                  : "bg-gray-100 dark:bg-gray-800"
+                            }`}>
+                              {balance > 0 ? (
+                                <DollarSign className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                              ) : balance < 0 ? (
+                                <RotateCcw className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                              ) : (
+                                <CheckCircle className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Cálculo: Despesas (R$ {totalExpenses.toFixed(2).replace(".", ",")}) - Adiantamento (R$ {advanceAmount.toFixed(2).replace(".", ",")})
+                          </p>
+                        </div>
                       </div>
                     );
                   })()}
