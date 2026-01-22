@@ -119,6 +119,107 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/dashboard/analytics", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const [transports, collects, drivers, vehicles, expenseSettlements] = await Promise.all([
+        storage.getTransports(),
+        storage.getCollects(),
+        storage.getDrivers(),
+        storage.getVehicles(),
+        storage.getExpenseSettlements(),
+      ]);
+
+      const transportsByStatus = {
+        pendente: transports.filter(t => t.status === "pendente").length,
+        aguardando_saida: transports.filter(t => t.status === "aguardando_saida").length,
+        em_transito: transports.filter(t => t.status === "em_transito").length,
+        entregue: transports.filter(t => t.status === "entregue").length,
+        cancelado: transports.filter(t => t.status === "cancelado").length,
+      };
+
+      const collectsByStatus = {
+        pendente: collects.filter(c => c.status === "pendente").length,
+        em_transito: collects.filter(c => c.status === "em_transito").length,
+        entregue: collects.filter(c => c.status === "entregue").length,
+        cancelado: collects.filter(c => c.status === "cancelado").length,
+      };
+
+      const now = new Date();
+      const last6Months = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+        return { month: d.toLocaleString("pt-BR", { month: "short" }), year: d.getFullYear() };
+      });
+
+      const transportsByMonth = last6Months.map(({ month, year }) => {
+        const count = transports.filter(t => {
+          if (!t.createdAt) return false;
+          const d = new Date(t.createdAt);
+          return d.toLocaleString("pt-BR", { month: "short" }) === month && d.getFullYear() === year;
+        }).length;
+        return { name: month.charAt(0).toUpperCase() + month.slice(1), transportes: count };
+      });
+
+      const collectsByMonth = last6Months.map(({ month, year }) => {
+        const count = collects.filter(c => {
+          if (!c.createdAt) return false;
+          const d = new Date(c.createdAt);
+          return d.toLocaleString("pt-BR", { month: "short" }) === month && d.getFullYear() === year;
+        }).length;
+        return { name: month.charAt(0).toUpperCase() + month.slice(1), coletas: count };
+      });
+
+      const driverPerformance = drivers.filter(d => d.active).map(driver => {
+        const driverTransports = transports.filter(t => t.driverId === driver.id);
+        const completed = driverTransports.filter(t => t.status === "entregue").length;
+        const inProgress = driverTransports.filter(t => ["em_transito", "aguardando_saida"].includes(t.status)).length;
+        return {
+          name: driver.name.split(" ")[0],
+          entregues: completed,
+          emAndamento: inProgress,
+          total: driverTransports.length,
+        };
+      }).sort((a, b) => b.total - a.total).slice(0, 8);
+
+      const totalExpenses = expenseSettlements.reduce((sum, s) => sum + parseFloat(s.totalAmount || "0"), 0);
+      const approvedSettlements = expenseSettlements.filter(s => s.status === "aprovado").length;
+      const pendingSettlements = expenseSettlements.filter(s => ["rascunho", "enviado"].includes(s.status)).length;
+
+      const totalDistanceKm = transports.reduce((sum, t) => sum + parseFloat(t.routeDistanceKm || "0"), 0);
+      const avgDeliveryTime = transports.filter(t => t.status === "entregue" && t.deliveredAt && t.exitAt)
+        .reduce((acc, t, _, arr) => {
+          const diff = (new Date(t.deliveredAt!).getTime() - new Date(t.exitAt!).getTime()) / (1000 * 60 * 60);
+          return acc + diff / arr.length;
+        }, 0);
+
+      res.json({
+        transportsByStatus,
+        collectsByStatus,
+        transportsByMonth,
+        collectsByMonth,
+        driverPerformance,
+        financials: {
+          totalExpenses,
+          approvedSettlements,
+          pendingSettlements,
+          totalSettlements: expenseSettlements.length,
+        },
+        metrics: {
+          totalTransports: transports.length,
+          totalCollects: collects.length,
+          totalDrivers: drivers.filter(d => d.active).length,
+          totalVehicles: vehicles.length,
+          vehiclesInStock: vehicles.filter(v => v.status === "em_estoque").length,
+          totalDistanceKm: Math.round(totalDistanceKm),
+          avgDeliveryTimeHours: Math.round(avgDeliveryTime * 10) / 10,
+          deliveryRate: transports.length > 0 ? Math.round((transportsByStatus.entregue / transports.length) * 100) : 0,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
   // Drivers
   app.get("/api/drivers", isAuthenticatedJWT, async (req, res) => {
     try {
