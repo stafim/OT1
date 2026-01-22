@@ -90,21 +90,21 @@ function KPICard({
 
   return (
     <Card data-testid={testId} className="hover-elevate transition-all">
-      <CardContent className="p-6">
+      <CardContent className="p-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-muted-foreground">{title}</span>
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Icon className="h-5 w-5 text-primary" />
+          <span className="text-xs font-medium text-muted-foreground">{title}</span>
+          <div className="p-1.5 rounded-lg bg-primary/10">
+            <Icon className="h-4 w-4 text-primary" />
           </div>
         </div>
-        <div className="mt-3">
-          <span className="text-4xl font-bold tracking-tight">{value}</span>
+        <div className="mt-2">
+          <span className="text-xl font-bold tracking-tight">{value}</span>
           {subtitle && (
-            <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
           )}
           {trend && (
-            <div className={`flex items-center gap-1 mt-2 text-sm ${trend.value >= 0 ? "text-green-600" : "text-red-600"}`}>
-              <TrendingUp className={`h-4 w-4 ${trend.value < 0 ? "rotate-180" : ""}`} />
+            <div className={`flex items-center gap-1 mt-1 text-xs ${trend.value >= 0 ? "text-green-600" : "text-red-600"}`}>
+              <TrendingUp className={`h-3 w-3 ${trend.value < 0 ? "rotate-180" : ""}`} />
               <span>{trend.value >= 0 ? "+" : ""}{trend.value}% {trend.label}</span>
             </div>
           )}
