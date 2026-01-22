@@ -36,7 +36,11 @@ import {
   Car,
   Building,
   ImageOff,
-  Plus
+  Plus,
+  Upload,
+  Loader2,
+  Trash2,
+  Hotel
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { 
@@ -60,14 +64,10 @@ interface ExpenseSettlementWithRelations extends ExpenseSettlement {
 }
 
 const expenseTypeLabels: Record<string, { label: string; icon: any }> = {
-  pedagio: { label: "Pedágio", icon: Receipt },
   combustivel: { label: "Combustível", icon: Fuel },
+  pedagio: { label: "Pedágio", icon: Receipt },
+  hospedagem: { label: "Hotel", icon: Hotel },
   alimentacao: { label: "Alimentação", icon: Utensils },
-  hospedagem: { label: "Hospedagem", icon: Building },
-  manutencao: { label: "Manutenção", icon: Wrench },
-  multa: { label: "Multa", icon: AlertTriangle },
-  estacionamento: { label: "Estacionamento", icon: Car },
-  lavagem: { label: "Lavagem", icon: Car },
   outros: { label: "Outros", icon: Receipt },
 };
 
@@ -86,10 +86,13 @@ export default function FinanceiroPage() {
   const [showDetails, setShowDetails] = useState(false);
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [showNewDialog, setShowNewDialog] = useState(false);
+  const [showAddItemDialog, setShowAddItemDialog] = useState(false);
   const [returnReason, setReturnReason] = useState("");
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"pending" | "all">("pending");
   const [newSettlement, setNewSettlement] = useState({ transportId: "", driverId: "", driverNotes: "" });
+  const [newItem, setNewItem] = useState({ type: "", amount: "", photoUrl: "", description: "" });
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const { data: settlements, isLoading } = useQuery<ExpenseSettlementWithRelations[]>({
     queryKey: ["/api/expense-settlements"],
@@ -147,6 +150,128 @@ export default function FinanceiroPage() {
       toast({ title: "Erro ao devolver prestação de contas", variant: "destructive" });
     },
   });
+
+  const addItemMutation = useMutation({
+    mutationFn: async (data: { settlementId: string; type: string; amount: string; photoUrl: string; description: string }) => {
+      return apiRequest("POST", `/api/expense-settlements/${data.settlementId}/items`, {
+        type: data.type,
+        amount: data.amount,
+        photoUrl: data.photoUrl,
+        description: data.description,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/expense-settlements"] });
+      // Refresh the selected settlement to show new item
+      if (selectedSettlement) {
+        const response = await fetch(`/api/expense-settlements/${selectedSettlement.id}`);
+        if (response.ok) {
+          const updatedSettlement = await response.json();
+          setSelectedSettlement(updatedSettlement);
+        }
+      }
+      toast({ title: "Despesa adicionada com sucesso!" });
+      setShowAddItemDialog(false);
+      setNewItem({ type: "", amount: "", photoUrl: "", description: "" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao adicionar despesa", variant: "destructive" });
+    },
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      return apiRequest("DELETE", `/api/expense-settlement-items/${itemId}`);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/expense-settlements"] });
+      // Refresh the selected settlement to show updated items
+      if (selectedSettlement) {
+        const response = await fetch(`/api/expense-settlements/${selectedSettlement.id}`);
+        if (response.ok) {
+          const updatedSettlement = await response.json();
+          setSelectedSettlement(updatedSettlement);
+        }
+      }
+      toast({ title: "Despesa removida com sucesso!" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao remover despesa", variant: "destructive" });
+    },
+  });
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      // Try Object Storage first
+      const response = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentType: file.type,
+          name: file.name,
+          isPublic: false,
+        }),
+      });
+      if (!response.ok) throw new Error("Object Storage unavailable");
+
+      const { uploadURL, objectPath } = await response.json();
+
+      await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      setNewItem(prev => ({ ...prev, photoUrl: objectPath }));
+    } catch {
+      // Fallback to local upload
+      try {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const localResponse = await fetch("/api/uploads/local", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type,
+            data: base64,
+          }),
+        });
+
+        if (!localResponse.ok) throw new Error("Upload failed");
+        const { objectPath } = await localResponse.json();
+        setNewItem(prev => ({ ...prev, photoUrl: objectPath }));
+      } catch (err) {
+        toast({ title: "Erro ao fazer upload da foto", variant: "destructive" });
+      }
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleAddItem = () => {
+    if (!selectedSettlement) return;
+    if (!newItem.type || !newItem.amount || !newItem.photoUrl) {
+      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+      return;
+    }
+    addItemMutation.mutate({
+      settlementId: selectedSettlement.id,
+      type: newItem.type,
+      amount: newItem.amount,
+      photoUrl: newItem.photoUrl,
+      description: newItem.description,
+    });
+  };
 
   const pendingSettlements = settlements?.filter(s => s.status === "enviado") || [];
   const allSettlements = settlements || [];
@@ -455,16 +580,36 @@ export default function FinanceiroPage() {
 
               <Card>
                 <CardHeader className="py-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Camera className="h-4 w-4" />
-                    Comprovantes Enviados ({selectedSettlement.items?.length || 0})
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Camera className="h-4 w-4" />
+                      Comprovantes ({selectedSettlement.items?.length || 0})
+                    </CardTitle>
+                    <Button 
+                      size="sm" 
+                      onClick={() => setShowAddItemDialog(true)}
+                      data-testid="button-add-expense-item"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Adicionar Despesa
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {!selectedSettlement.items?.length ? (
-                    <p className="text-center text-muted-foreground py-4">
-                      Nenhum comprovante enviado
-                    </p>
+                    <div className="text-center py-8">
+                      <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-muted-foreground">Nenhum comprovante adicionado</p>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={() => setShowAddItemDialog(true)}
+                        data-testid="button-add-first-expense"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Adicionar primeira despesa
+                      </Button>
+                    </div>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {selectedSettlement.items.map((item) => {
@@ -506,9 +651,23 @@ export default function FinanceiroPage() {
                               )}
                             </div>
                             <CardContent className="p-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <TypeIcon className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">{typeConfig.label}</span>
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <TypeIcon className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-sm font-medium">{typeConfig.label}</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteItemMutation.mutate(item.id);
+                                  }}
+                                  data-testid={`button-delete-item-${item.id}`}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               </div>
                               <p className="font-bold text-green-600">
                                 {formatCurrency(item.amount)}
@@ -718,6 +877,141 @@ export default function FinanceiroPage() {
               data-testid="button-create-settlement"
             >
               {createMutation.isPending ? "Criando..." : "Criar Prestação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddItemDialog} onOpenChange={setShowAddItemDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Adicionar Despesa
+            </DialogTitle>
+            <DialogDescription>
+              Adicione uma despesa com foto do comprovante
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Foto do Comprovante *</Label>
+              <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                {newItem.photoUrl ? (
+                  <div className="relative">
+                    <img 
+                      src={normalizeImageUrl(newItem.photoUrl)} 
+                      alt="Comprovante" 
+                      className="max-h-48 mx-auto rounded-lg"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-6 w-6"
+                      onClick={() => setNewItem(prev => ({ ...prev, photoUrl: "" }))}
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer block">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                      disabled={isUploadingPhoto}
+                      data-testid="input-expense-photo"
+                    />
+                    {isUploadingPhoto ? (
+                      <div className="py-4">
+                        <Loader2 className="h-8 w-8 mx-auto animate-spin text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground mt-2">Enviando foto...</p>
+                      </div>
+                    ) : (
+                      <div className="py-4">
+                        <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Clique para enviar foto do comprovante
+                        </p>
+                      </div>
+                    )}
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipo de Despesa *</Label>
+              <Select 
+                value={newItem.type} 
+                onValueChange={(value) => setNewItem(prev => ({ ...prev, type: value }))}
+              >
+                <SelectTrigger data-testid="select-expense-type">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(expenseTypeLabels).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>
+                      <div className="flex items-center gap-2">
+                        <config.icon className="h-4 w-4" />
+                        {config.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Valor (R$) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0,00"
+                value={newItem.amount}
+                onChange={(e) => setNewItem(prev => ({ ...prev, amount: e.target.value }))}
+                data-testid="input-expense-amount"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Observação</Label>
+              <Textarea
+                placeholder="Descrição ou observação sobre esta despesa..."
+                value={newItem.description}
+                onChange={(e) => setNewItem(prev => ({ ...prev, description: e.target.value }))}
+                rows={2}
+                data-testid="textarea-expense-description"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAddItemDialog(false);
+                setNewItem({ type: "", amount: "", photoUrl: "", description: "" });
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleAddItem}
+              disabled={addItemMutation.isPending || !newItem.type || !newItem.amount || !newItem.photoUrl}
+              data-testid="button-save-expense"
+            >
+              {addItemMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Despesa"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
