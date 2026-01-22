@@ -56,7 +56,7 @@ const operationItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
-    title: "Check Points",
+    title: "Check Points (Em dev)",
     url: "/timeline-checkpoints",
     icon: Route,
   },
@@ -132,7 +132,7 @@ const cadastroItems: MenuItem[] = [
     icon: Users,
   },
   {
-    title: "Check Points",
+    title: "Check Points (Em dev)",
     url: "/checkpoints",
     icon: MapPin,
   },
