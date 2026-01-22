@@ -182,7 +182,15 @@ export function AppSidebar() {
                     isActive={location === item.url}
                   >
                     <Link href={item.url} data-testid={`link-nav-${item.url.replace("/", "") || "dashboard"}`}>
-                      <item.icon className="h-4 w-4" />
+                      {item.url === "/trafego-agora" ? (
+                        <span className="relative">
+                          <item.icon className="h-4 w-4 text-red-500" />
+                          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500" />
+                        </span>
+                      ) : (
+                        <item.icon className="h-4 w-4" />
+                      )}
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
