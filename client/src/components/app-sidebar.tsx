@@ -29,6 +29,7 @@ import {
   Route,
   Receipt,
   ClipboardCheck,
+  FileBarChart,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -92,6 +93,11 @@ const financeiroItems: MenuItem[] = [
     title: "Prestação de Contas",
     url: "/prestacao-de-contas",
     icon: Receipt,
+  },
+  {
+    title: "Relatório de Pátio",
+    url: "/relatorio-patio",
+    icon: FileBarChart,
   },
 ];
 
