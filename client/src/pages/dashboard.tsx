@@ -4,10 +4,17 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Truck, Package, Users, Warehouse, TrendingUp, DollarSign, 
   Clock, MapPin, CheckCircle2, AlertCircle, Timer, LayoutGrid,
-  Gauge, Star, Target, Activity, Zap
+  Gauge, Star, Target, Activity, Zap, Calendar
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -770,9 +777,10 @@ function EficienciaDashboard({ analytics, isLoading }: { analytics: Analytics | 
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("geral");
+  const [period, setPeriod] = useState("all");
   
   const { data: analytics, isLoading } = useQuery<Analytics>({
-    queryKey: ["/api/dashboard/analytics"],
+    queryKey: ["/api/dashboard/analytics", period],
   });
 
   return (
@@ -780,7 +788,8 @@ export default function DashboardPage() {
       <PageHeader title="Dashboard de Gestão" />
       <div className="flex-1 overflow-auto p-4 md:p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
             <TabsTrigger value="geral" className="gap-2" data-testid="tab-geral">
               <LayoutGrid className="h-4 w-4 hidden sm:inline" />
               Geral
@@ -801,7 +810,21 @@ export default function DashboardPage() {
               <Gauge className="h-4 w-4 hidden sm:inline" />
               Eficiência
             </TabsTrigger>
-          </TabsList>
+            </TabsList>
+
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-period">
+                <Calendar className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todo Período</SelectItem>
+                <SelectItem value="semester">Semestre</SelectItem>
+                <SelectItem value="quarter">Trimestre</SelectItem>
+                <SelectItem value="month">Mês Atual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <TabsContent value="geral" className="space-y-4">
             <GeralDashboard analytics={analytics} isLoading={isLoading} />
