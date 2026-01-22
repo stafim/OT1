@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -240,8 +240,9 @@ export default function RouteManagementPage() {
     });
   }, [watchedValues]);
 
-  // Track last calculated route to avoid duplicate API calls
-  const [lastCalculatedKey, setLastCalculatedKey] = useState("");
+  // Track last calculated route to avoid duplicate API calls (using ref to avoid triggering re-renders)
+  const lastCalculatedKeyRef = useRef("");
+  const isCalculatingRef = useRef(false);
 
   // Auto-fetch distance and tolls when origin and destination are selected
   useEffect(() => {
@@ -259,10 +260,11 @@ export default function RouteManagementPage() {
       const routeKey = `${originYardId}-${destinationLocationId}-${truckType}`;
       
       // Don't fetch if already calculated this exact route or currently calculating
-      if (routeKey === lastCalculatedKey || isCalculatingRoute) {
+      if (routeKey === lastCalculatedKeyRef.current || isCalculatingRef.current) {
         return;
       }
       
+      isCalculatingRef.current = true;
       setIsCalculatingRoute(true);
       
       try {
@@ -292,17 +294,18 @@ export default function RouteManagementPage() {
           });
         }
         
-        setLastCalculatedKey(routeKey);
+        lastCalculatedKeyRef.current = routeKey;
         setRouteCalculated(true);
       } catch (error) {
         console.error("Error calculating route:", error);
       } finally {
+        isCalculatingRef.current = false;
         setIsCalculatingRoute(false);
       }
     };
     
     fetchRouteInfo();
-  }, [watchedValues.originYardId, watchedValues.destinationLocationId, watchedValues.truckType, isCalculatingRoute, lastCalculatedKey]);
+  }, [watchedValues.originYardId, watchedValues.destinationLocationId, watchedValues.truckType]);
 
   const { data: routes = [], isLoading: loadingRoutes } = useQuery<RouteWithRelations[]>({
     queryKey: ["/api/routes"],
@@ -407,7 +410,7 @@ export default function RouteManagementPage() {
   const handleNewRoute = () => {
     setEditingRoute(null);
     setRouteCalculated(false);
-    setLastCalculatedKey("");
+    lastCalculatedKeyRef.current = "";
     form.reset();
     setIsDialogOpen(true);
   };
@@ -424,7 +427,7 @@ export default function RouteManagementPage() {
               setIsDialogOpen(open);
               if (!open) {
                 setRouteCalculated(false);
-                setLastCalculatedKey("");
+                lastCalculatedKeyRef.current = "";
                 setEditingRoute(null);
               }
             }}>
