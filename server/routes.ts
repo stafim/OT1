@@ -4,6 +4,9 @@ import { storage } from "./storage";
 import { registerJWTAuthRoutes, isAuthenticatedJWT, hashPassword, type AuthenticatedRequest } from "./auth-jwt";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { setupSwagger } from "./swagger";
+import * as fs from "fs";
+import * as path from "path";
+import { randomUUID } from "crypto";
 import {
   insertDriverSchema,
   insertManufacturerSchema,
@@ -60,6 +63,50 @@ export async function registerRoutes(
   registerJWTAuthRoutes(app);
   registerObjectStorageRoutes(app);
   setupSwagger(app);
+
+  // Alternative upload route (fallback when Object Storage fails)
+  const uploadsDir = path.join(process.cwd(), "uploads");
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  app.post("/api/uploads/local", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { data, filename, contentType } = req.body;
+      if (!data || !filename) {
+        return res.status(400).json({ error: "Missing data or filename" });
+      }
+
+      // Remove base64 prefix if present
+      const base64Data = data.replace(/^data:.*;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+
+      const ext = path.extname(filename) || ".jpg";
+      const uniqueFilename = `${randomUUID()}${ext}`;
+      const filePath = path.join(uploadsDir, uniqueFilename);
+
+      fs.writeFileSync(filePath, buffer);
+
+      res.json({
+        objectPath: `/uploads/${uniqueFilename}`,
+        filename: uniqueFilename,
+      });
+    } catch (error) {
+      console.error("Error uploading file locally:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
+  // Serve uploaded files
+  app.get("/uploads/:filename", (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(uploadsDir, filename);
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).json({ error: "File not found" });
+    }
+  });
 
   // Dashboard
   app.get("/api/dashboard/stats", isAuthenticatedJWT, async (req, res) => {

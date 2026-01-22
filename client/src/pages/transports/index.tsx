@@ -71,6 +71,7 @@ function PhotoUpload({ label, value, onChange, testId }: PhotoUploadProps) {
 
     setIsUploading(true);
     try {
+      // Try Object Storage first
       const response = await fetch("/api/uploads/request-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -80,7 +81,7 @@ function PhotoUpload({ label, value, onChange, testId }: PhotoUploadProps) {
           isPublic: false,
         }),
       });
-      if (!response.ok) throw new Error("Failed to get upload URL");
+      if (!response.ok) throw new Error("Object Storage unavailable");
 
       const { uploadURL, objectPath } = await response.json();
 
@@ -91,8 +92,34 @@ function PhotoUpload({ label, value, onChange, testId }: PhotoUploadProps) {
       });
 
       onChange(objectPath);
-    } catch (error) {
-      console.error("Upload failed:", error);
+    } catch {
+      // Fallback to local upload
+      try {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const token = localStorage.getItem("accessToken");
+        const localResponse = await fetch("/api/uploads/local", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            data: base64,
+            filename: file.name,
+            contentType: file.type,
+          }),
+        });
+        if (!localResponse.ok) throw new Error("Failed to upload locally");
+        const { objectPath } = await localResponse.json();
+        onChange(objectPath);
+      } catch (error) {
+        console.error("Upload failed:", error);
+      }
     } finally {
       setIsUploading(false);
     }
@@ -152,6 +179,7 @@ function MultiPhotoUpload({ label, values = [], onChange, testId, maxPhotos = 5 
 
     setIsUploading(true);
     try {
+      // Try Object Storage first
       const response = await fetch("/api/uploads/request-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -161,7 +189,7 @@ function MultiPhotoUpload({ label, values = [], onChange, testId, maxPhotos = 5 
           isPublic: false,
         }),
       });
-      if (!response.ok) throw new Error("Failed to get upload URL");
+      if (!response.ok) throw new Error("Object Storage unavailable");
 
       const { uploadURL, objectPath } = await response.json();
 
@@ -172,8 +200,34 @@ function MultiPhotoUpload({ label, values = [], onChange, testId, maxPhotos = 5 
       });
 
       onChange([...values, objectPath]);
-    } catch (error) {
-      console.error("Upload failed:", error);
+    } catch {
+      // Fallback to local upload
+      try {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const token = localStorage.getItem("accessToken");
+        const localResponse = await fetch("/api/uploads/local", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            data: base64,
+            filename: file.name,
+            contentType: file.type,
+          }),
+        });
+        if (!localResponse.ok) throw new Error("Failed to upload locally");
+        const { objectPath } = await localResponse.json();
+        onChange([...values, objectPath]);
+      } catch (error) {
+        console.error("Upload failed:", error);
+      }
     } finally {
       setIsUploading(false);
     }

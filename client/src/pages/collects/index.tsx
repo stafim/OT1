@@ -776,23 +776,50 @@ function CheckInOutModal({ collect, type, onClose }: CheckInOutModalProps) {
   });
 
   const uploadPhoto = async (file: File): Promise<string> => {
-    const response = await fetch("/api/uploads/request-url", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: file.name,
-        size: file.size,
-        contentType: file.type,
-      }),
-    });
-    if (!response.ok) throw new Error("Failed to get upload URL");
-    const { uploadURL, objectPath } = await response.json();
-    await fetch(uploadURL, {
-      method: "PUT",
-      body: file,
-      headers: { "Content-Type": file.type },
-    });
-    return objectPath;
+    try {
+      // Try Object Storage first
+      const response = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type,
+        }),
+      });
+      if (!response.ok) throw new Error("Object Storage unavailable");
+      const { uploadURL, objectPath } = await response.json();
+      await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      return objectPath;
+    } catch {
+      // Fallback to local upload
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const token = localStorage.getItem("accessToken");
+      const localResponse = await fetch("/api/uploads/local", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          data: base64,
+          filename: file.name,
+          contentType: file.type,
+        }),
+      });
+      if (!localResponse.ok) throw new Error("Failed to upload locally");
+      const { objectPath } = await localResponse.json();
+      return objectPath;
+    }
   };
 
   const handleSingleUpload = async (
