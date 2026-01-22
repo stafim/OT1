@@ -489,65 +489,52 @@ export default function DriverEvaluationsPage() {
                 />
               </div>
 
-              {hadIncident ? (
-                <>
-                  <div className="space-y-2">
-                    <Label>Descreva o que aconteceu:</Label>
-                    <Textarea
-                      placeholder="Descreva detalhadamente o imprevisto ocorrido durante a viagem..."
-                      value={incidentDescription}
-                      onChange={(e) => setIncidentDescription(e.target.value)}
-                      rows={3}
-                      data-testid="textarea-incident"
-                    />
-                  </div>
+              {hadIncident && (
+                <div className="space-y-2">
+                  <Label>Descreva o que aconteceu:</Label>
+                  <Textarea
+                    placeholder="Descreva detalhadamente o imprevisto ocorrido durante a viagem..."
+                    value={incidentDescription}
+                    onChange={(e) => setIncidentDescription(e.target.value)}
+                    rows={3}
+                    data-testid="textarea-incident"
+                  />
+                </div>
+              )}
 
-                  <div className="space-y-4">
-                    <p className="text-sm font-medium text-muted-foreground">Avalie o motorista em cada categoria:</p>
-                    <RatingSelector
-                      label="Postura Profissional"
-                      value={ratings.posturaProfissional}
-                      onChange={(v) => setRatings({ ...ratings, posturaProfissional: v })}
-                    />
-                    <RatingSelector
-                      label="Pontualidade"
-                      value={ratings.pontualidade}
-                      onChange={(v) => setRatings({ ...ratings, pontualidade: v })}
-                    />
-                    <RatingSelector
-                      label="Apresentacao Pessoal"
-                      value={ratings.apresentacaoPessoal}
-                      onChange={(v) => setRatings({ ...ratings, apresentacaoPessoal: v })}
-                    />
-                    <RatingSelector
-                      label="Cordialidade"
-                      value={ratings.cordialidade}
-                      onChange={(v) => setRatings({ ...ratings, cordialidade: v })}
-                    />
-                    <RatingSelector
-                      label="Cumpriu o Processo"
-                      value={ratings.cumpriuProcesso}
-                      onChange={(v) => setRatings({ ...ratings, cumpriuProcesso: v })}
-                    />
-                  </div>
+              <div className="space-y-4">
+                <RatingSelector
+                  label="Postura Profissional"
+                  value={ratings.posturaProfissional}
+                  onChange={(v) => setRatings({ ...ratings, posturaProfissional: v })}
+                />
+                <RatingSelector
+                  label="Pontualidade"
+                  value={ratings.pontualidade}
+                  onChange={(v) => setRatings({ ...ratings, pontualidade: v })}
+                />
+                <RatingSelector
+                  label="Apresentacao Pessoal"
+                  value={ratings.apresentacaoPessoal}
+                  onChange={(v) => setRatings({ ...ratings, apresentacaoPessoal: v })}
+                />
+                <RatingSelector
+                  label="Cordialidade"
+                  value={ratings.cordialidade}
+                  onChange={(v) => setRatings({ ...ratings, cordialidade: v })}
+                />
+                <RatingSelector
+                  label="Cumpriu o Processo"
+                  value={ratings.cumpriuProcesso}
+                  onChange={(v) => setRatings({ ...ratings, cumpriuProcesso: v })}
+                />
+              </div>
 
-                  {Object.values(ratings).every((r) => r !== "") && (
-                    <Card className="bg-primary/5 border-primary/20">
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <span className="font-medium">Media da Avaliacao:</span>
-                        <StarRating score={calculateAverageFromRatings()} />
-                      </CardContent>
-                    </Card>
-                  )}
-                </>
-              ) : (
-                <Card className="bg-green-500/10 border-green-500/30">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <Star className="h-5 w-5 text-green-600 fill-green-600" />
-                    <div>
-                      <p className="font-medium text-green-700 dark:text-green-400">Avaliacao automatica: Bom</p>
-                      <p className="text-xs text-muted-foreground">Sem incidentes, todas as notas serao "Bom" (4 estrelas)</p>
-                    </div>
+              {Object.values(ratings).every((r) => r !== "") && (
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <span className="font-medium">Media da Avaliacao:</span>
+                    <StarRating score={calculateAverageFromRatings()} />
                   </CardContent>
                 </Card>
               )}
