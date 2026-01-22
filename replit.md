@@ -127,3 +127,8 @@ Status enums for workflow tracking:
   - Integration with yards and delivery locations
   - Full CRUD API endpoints with proper partial update handling
   - Added to Cadastros menu with Route icon
+  - **Google Maps API Integration**: Auto-fetch distance and tolls when origin/destination selected
+    - Backend endpoint `/api/routes/calculate-route` using Google Routes API with Distance Matrix fallback
+    - Smart state management with `lastCalculatedKey` to prevent duplicate API calls
+    - Loading indicators in distance and toll field labels during API calls
+    - All fields remain editable for manual adjustments after auto-calculation
