@@ -905,11 +905,22 @@ export default function FinanceiroPage() {
                     <SelectValue placeholder="Selecione um transporte" />
                   </SelectTrigger>
                   <SelectContent>
-                    {transports?.filter(t => t.status === "entregue").map((transport) => (
+                    {transports?.filter(t => 
+                      t.status === "entregue" && 
+                      !settlements?.some(s => s.transportId === t.id)
+                    ).map((transport) => (
                       <SelectItem key={transport.id} value={transport.id}>
                         {transport.requestNumber} - {transport.vehicleChassi}
                       </SelectItem>
                     ))}
+                    {transports?.filter(t => 
+                      t.status === "entregue" && 
+                      !settlements?.some(s => s.transportId === t.id)
+                    ).length === 0 && (
+                      <div className="py-4 px-2 text-center text-sm text-muted-foreground">
+                        Todos os transportes entregues já possuem prestação de contas
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
