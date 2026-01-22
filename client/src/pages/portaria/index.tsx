@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -44,6 +45,7 @@ export default function PortariaPage() {
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [selectedCollectId, setSelectedCollectId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
+  const [confirmExitWithoutCheckin, setConfirmExitWithoutCheckin] = useState<string | null>(null);
 
   const { data: collects, isLoading: collectsLoading } = useQuery<CollectWithRelations[]>({
     queryKey: ["/api/collects"],
@@ -630,11 +632,23 @@ export default function PortariaPage() {
                     )}
 
                     {isPendingCheckin ? (
-                      <div className="p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md text-center">
-                        <p className="text-sm text-orange-700 dark:text-orange-400 flex items-center justify-center gap-2">
-                          <AlertCircle className="h-4 w-4" />
-                          Aguardando motorista fazer check-in
-                        </p>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md text-center">
+                          <p className="text-sm text-orange-700 dark:text-orange-400 flex items-center justify-center gap-2">
+                            <AlertCircle className="h-4 w-4" />
+                            Aguardando motorista fazer check-in
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="w-full border-orange-400 text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+                          onClick={() => setConfirmExitWithoutCheckin(transport.id)}
+                          disabled={isAuthorizing}
+                          data-testid={`button-authorize-exit-no-checkin-${transport.id}`}
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Autorizar Saída Mesmo Assim
+                        </Button>
                       </div>
                     ) : (
                       <Button
@@ -820,6 +834,42 @@ export default function PortariaPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!confirmExitWithoutCheckin} onOpenChange={() => setConfirmExitWithoutCheckin(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-600">
+              <AlertCircle className="h-5 w-5" />
+              Autorização Sem Check-in
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base">
+              <span className="block mb-4">
+                O motorista ainda não realizou o check-in para este transporte.
+              </span>
+              <span className="block p-4 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md text-orange-800 dark:text-orange-300 font-medium">
+                Ao confirmar, você assume total responsabilidade pela autorização desta saída sem a verificação do check-in do motorista.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-exit-no-checkin">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-600 hover:bg-orange-700"
+              onClick={() => {
+                if (confirmExitWithoutCheckin) {
+                  authorizeExitMutation.mutate(confirmExitWithoutCheckin);
+                  setConfirmExitWithoutCheckin(null);
+                }
+              }}
+              data-testid="button-confirm-exit-no-checkin"
+            >
+              Confirmo e Autorizo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
