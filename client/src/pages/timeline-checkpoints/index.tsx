@@ -268,28 +268,57 @@ function TransportTimelineHorizontal({ transport }: { transport: TransportWithDe
 
             <div className={`h-1 w-12 ${getLineColor(!!transport.checkinDateTime)}`} />
 
-            {sortedCheckpoints.map((cp, index) => (
-              <div key={cp.id} className="flex items-center">
-                <div className="flex flex-col items-center">
-                  <div className={`relative flex items-center justify-center w-10 h-10 rounded-full ${getStatusColor(cp.status)} shadow-lg`}>
-                    <MapPin className="h-5 w-5 text-white" />
-                    {cp.status === "alcancado" && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                        <Navigation className="h-2.5 w-2.5 text-white" />
+            {(() => {
+              const minSlots = 5;
+              const checkpointSlots = Math.max(minSlots, sortedCheckpoints.length);
+              const slots = [];
+              
+              for (let i = 0; i < checkpointSlots; i++) {
+                const cp = sortedCheckpoints[i];
+                
+                if (cp) {
+                  slots.push(
+                    <div key={cp.id} className="flex items-center">
+                      <div className="flex flex-col items-center">
+                        <div className={`relative flex items-center justify-center w-10 h-10 rounded-full ${getStatusColor(cp.status)} shadow-lg`}>
+                          <MapPin className="h-5 w-5 text-white" />
+                          {cp.status === "alcancado" && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                              <Navigation className="h-2.5 w-2.5 text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-2 text-center max-w-[80px]">
+                          <p className="text-xs font-medium truncate">{cp.checkpoint?.city || `CP${i + 1}`}</p>
+                          <p className="text-[10px] text-muted-foreground">{cp.checkpoint?.state}</p>
+                          {cp.reachedAt && (
+                            <p className="text-[10px] text-green-600">{formatDate(cp.reachedAt)}</p>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  <div className="mt-2 text-center max-w-[80px]">
-                    <p className="text-xs font-medium truncate">{cp.checkpoint?.city || `CP${index + 1}`}</p>
-                    <p className="text-[10px] text-muted-foreground">{cp.checkpoint?.state}</p>
-                    {cp.reachedAt && (
-                      <p className="text-[10px] text-green-600">{formatDate(cp.reachedAt)}</p>
-                    )}
-                  </div>
-                </div>
-                <div className={`h-1 w-12 ${getLineColor(cp.status === "concluido")}`} />
-              </div>
-            ))}
+                      <div className={`h-1 w-12 ${getLineColor(cp.status === "concluido")}`} />
+                    </div>
+                  );
+                } else {
+                  slots.push(
+                    <div key={`empty-${i}`} className="flex items-center">
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800">
+                          <Plus className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <div className="mt-2 text-center max-w-[80px]">
+                          <p className="text-xs text-muted-foreground">CP {i + 1}</p>
+                          <p className="text-[10px] text-muted-foreground">-</p>
+                        </div>
+                      </div>
+                      <div className="h-1 w-12 bg-gray-300 dark:bg-gray-600" />
+                    </div>
+                  );
+                }
+              }
+              
+              return slots;
+            })()}
 
             <div className="flex flex-col items-center">
               <div className={`flex items-center justify-center w-10 h-10 rounded-full ${transport.checkoutDateTime ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"} shadow-lg`}>
