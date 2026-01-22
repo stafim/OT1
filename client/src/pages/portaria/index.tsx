@@ -14,7 +14,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { normalizeImageUrl } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Truck, CheckCircle, Clock, Building, MapPin, User, DoorOpen, Loader2, Search, LogOut, Package, Eye, Shield, History } from "lucide-react";
+import { Truck, CheckCircle, Clock, Building, MapPin, User, DoorOpen, Loader2, Search, LogOut, Package, Eye, Shield, History, AlertCircle } from "lucide-react";
 import type { Collect, Manufacturer, Yard, Driver, Vehicle, Transport, Client, DeliveryLocation } from "@shared/schema";
 
 interface CollectWithRelations extends Collect {
@@ -144,7 +144,7 @@ export default function PortariaPage() {
   };
 
   const pendingTransports = transports?.filter((t) => {
-    if (t.status !== "aguardando_saida") return false;
+    if (t.status !== "aguardando_saida" && t.status !== "pendente") return false;
     
     if (!transportSearchTerm.trim()) return true;
     
@@ -528,17 +528,26 @@ export default function PortariaPage() {
               const deliveryLocation = (transport as any).deliveryLocation;
               const driver = (transport as any).driver;
 
+              const isPendingCheckin = transport.status === "pendente";
+
               return (
-                <Card key={transport.id} className="overflow-hidden" data-testid={`card-transport-${transport.id}`}>
-                  <CardHeader className="pb-2 bg-gradient-to-r from-blue-500/10 to-blue-500/5 border-b">
+                <Card key={transport.id} className={`overflow-hidden ${isPendingCheckin ? "border-orange-400/50" : ""}`} data-testid={`card-transport-${transport.id}`}>
+                  <CardHeader className={`pb-2 border-b ${isPendingCheckin ? "bg-gradient-to-r from-orange-500/10 to-orange-500/5" : "bg-gradient-to-r from-blue-500/10 to-blue-500/5"}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Truck className="h-4 w-4 text-blue-600" />
+                        <Truck className={`h-4 w-4 ${isPendingCheckin ? "text-orange-600" : "text-blue-600"}`} />
                         <span className="font-mono text-sm font-semibold">{transport.requestNumber}</span>
                       </div>
-                      <Badge variant="secondary" className="text-xs">
-                        Pendente
-                      </Badge>
+                      {isPendingCheckin ? (
+                        <Badge variant="secondary" className="text-xs bg-orange-500/20 text-orange-700">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Falta Check-in
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700">
+                          Aguardando Saída
+                        </Badge>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 space-y-3">
@@ -620,19 +629,28 @@ export default function PortariaPage() {
                       </div>
                     )}
 
-                    <Button
-                      className="w-full"
-                      onClick={() => authorizeExitMutation.mutate(transport.id)}
-                      disabled={isAuthorizing}
-                      data-testid={`button-authorize-exit-${transport.id}`}
-                    >
-                      {isAuthorizing ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <LogOut className="mr-2 h-4 w-4" />
-                      )}
-                      Autorizar Saída
-                    </Button>
+                    {isPendingCheckin ? (
+                      <div className="p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md text-center">
+                        <p className="text-sm text-orange-700 dark:text-orange-400 flex items-center justify-center gap-2">
+                          <AlertCircle className="h-4 w-4" />
+                          Aguardando motorista fazer check-in
+                        </p>
+                      </div>
+                    ) : (
+                      <Button
+                        className="w-full"
+                        onClick={() => authorizeExitMutation.mutate(transport.id)}
+                        disabled={isAuthorizing}
+                        data-testid={`button-authorize-exit-${transport.id}`}
+                      >
+                        {isAuthorizing ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <LogOut className="mr-2 h-4 w-4" />
+                        )}
+                        Autorizar Saída
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               );
