@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Truck, MapPin, Clock, User, Building2, Package, Navigation } from "lucide-react";
+import { Loader2, Truck, MapPin, Clock, User, Building2, Package, Navigation, AlertTriangle } from "lucide-react";
 import type { Collect, Driver, Yard, Manufacturer } from "@shared/schema";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -22,6 +22,12 @@ export default function TrafficPage() {
   const activeCollects = collects?.filter(
     (c) => c.status === "em_transito" || (c.checkinDateTime && !c.checkoutDateTime)
   ) || [];
+
+  const delayedCollects = activeCollects.filter((c) => {
+    if (!c.checkinDateTime) return false;
+    const hoursInTransit = (Date.now() - new Date(c.checkinDateTime).getTime()) / (1000 * 60 * 60);
+    return hoursInTransit > 24;
+  });
 
   const recentCollects = collects
     ?.filter((c) => c.status === "finalizada")
@@ -50,7 +56,7 @@ export default function TrafficPage() {
         ]}
       />
       <div className="flex-1 overflow-auto p-4 md:p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -61,6 +67,21 @@ export default function TrafficPage() {
             <CardContent>
               <p className="text-3xl font-bold text-orange-600">{activeCollects.length}</p>
               <p className="text-xs text-muted-foreground mt-1">veículos em movimento</p>
+            </CardContent>
+          </Card>
+
+          <Card className={delayedCollects.length > 0 ? "border-red-500/50 bg-red-500/5" : ""}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Em Atraso</CardTitle>
+                <AlertTriangle className={`h-4 w-4 ${delayedCollects.length > 0 ? "text-red-500 animate-pulse" : "text-muted-foreground"}`} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className={`text-3xl font-bold ${delayedCollects.length > 0 ? "text-red-600" : "text-muted-foreground"}`}>
+                {delayedCollects.length}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">mais de 24h em trânsito</p>
             </CardContent>
           </Card>
 
