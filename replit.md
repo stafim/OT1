@@ -118,3 +118,12 @@ Status enums for workflow tracking:
   - Progress percentage calculation
   - Ability to assign checkpoints to transports
   - Created `transportCheckpoints` table to associate checkpoints with transports
+- **Route Management (Gestão de Rotas)**: New comprehensive route management module (`/routes`)
+  - Database table `routes` with origin yard, destination location, truck type, and cost parameters
+  - Automatic cost calculations: fuel cost, Arla 32 (5% of fuel), tolls, driver logistics, Ad Valorem, admin fee
+  - Profit margin calculation: suggested price = total cost × (1 + margin%)
+  - Net profit calculation: suggested price - total cost
+  - Favorite routes toggle functionality for quick access
+  - Integration with yards and delivery locations
+  - Full CRUD API endpoints with proper partial update handling
+  - Added to Cadastros menu with Route icon
