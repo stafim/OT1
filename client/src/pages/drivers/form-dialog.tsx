@@ -30,7 +30,7 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, CreditCard } from "lucide-react";
+import { Loader2, X, CreditCard, User } from "lucide-react";
 import type { Driver } from "@shared/schema";
 import { getAccessToken } from "@/hooks/use-auth";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
@@ -74,6 +74,7 @@ const driverFormSchema = z.object({
   cnhType: z.enum(cnhTypes, { required_error: "Tipo de CNH é obrigatório" }),
   cnhFrontPhoto: z.string().optional(),
   cnhBackPhoto: z.string().optional(),
+  profilePhoto: z.string().optional(),
   isApto: z.string().default("false"),
   isActive: z.string().default("true"),
 });
@@ -119,6 +120,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
       cnhType: undefined,
       cnhFrontPhoto: "",
       cnhBackPhoto: "",
+      profilePhoto: "",
       isApto: "false",
       isActive: "true",
     },
@@ -146,6 +148,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
         cnhType: driver.cnhType as typeof cnhTypes[number],
         cnhFrontPhoto: driver.cnhFrontPhoto || "",
         cnhBackPhoto: driver.cnhBackPhoto || "",
+        profilePhoto: driver.profilePhoto || "",
         isApto: driver.isApto || "false",
         isActive: driver.isActive || "true",
       });
@@ -170,6 +173,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
         cnhType: undefined,
         cnhFrontPhoto: "",
         cnhBackPhoto: "",
+        profilePhoto: "",
         isApto: "false",
         isActive: "true",
       });
@@ -202,7 +206,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
 
   const handlePhotoUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    fieldName: "cnhFrontPhoto" | "cnhBackPhoto"
+    fieldName: "cnhFrontPhoto" | "cnhBackPhoto" | "profilePhoto"
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -443,6 +447,57 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
                               ))}
                             </SelectContent>
                           </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="profilePhoto"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Foto de Perfil</FormLabel>
+                          <FormControl>
+                            <div className="space-y-2">
+                              {field.value ? (
+                                <div className="relative inline-block">
+                                  <img 
+                                    src={field.value} 
+                                    alt="Foto de Perfil" 
+                                    className="h-24 w-24 rounded-full object-cover border"
+                                  />
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="destructive"
+                                    className="absolute -right-2 -top-2 h-6 w-6"
+                                    onClick={() => form.setValue("profilePhoto", "")}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <label className="flex h-24 w-24 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50">
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => handlePhotoUpload(e, "profilePhoto")}
+                                    disabled={isUploading}
+                                    data-testid="upload-profile-photo"
+                                  />
+                                  {isUploading ? (
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                  ) : (
+                                    <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                                      <User className="h-6 w-6" />
+                                      <span className="text-xs">Upload</span>
+                                    </div>
+                                  )}
+                                </label>
+                              )}
+                            </div>
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}

@@ -72,6 +72,7 @@ export const drivers = pgTable("drivers", {
   cnhType: varchar("cnh_type", { length: 5 }).notNull(),
   cnhFrontPhoto: text("cnh_front_photo"),
   cnhBackPhoto: text("cnh_back_photo"),
+  profilePhoto: text("profile_photo"),
   isApto: text("is_apto").default("false"),
   isActive: text("is_active").default("true"),
   createdAt: timestamp("created_at").defaultNow(),
