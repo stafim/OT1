@@ -18,6 +18,7 @@ import {
   insertTransportSchema,
   insertSystemUserSchema,
   insertCheckpointSchema,
+  insertRouteSchema,
   drivers,
   manufacturers,
   yards,
@@ -34,6 +35,7 @@ import {
   insertDriverEvaluationSchema,
   expenseSettlements,
   expenseSettlementItems,
+  routes,
   type FeatureKey,
 } from "@shared/schema";
 import { db } from "./db";
@@ -2477,6 +2479,226 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching driver summary:", error);
       res.status(500).json({ message: "Failed to fetch driver summary" });
+    }
+  });
+
+  // ============== GESTÃO DE ROTAS (Route Management) ==============
+  
+  // Get all routes with relations
+  app.get("/api/routes", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const allRoutes = await db.select().from(routes).orderBy(routes.createdAt);
+      
+      // Get yards and delivery locations for each route
+      const routesWithRelations = await Promise.all(
+        allRoutes.map(async (route) => {
+          const originYard = await db.select().from(yards).where(eq(yards.id, route.originYardId)).limit(1);
+          const destinationLocation = await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, route.destinationLocationId)).limit(1);
+          
+          return {
+            ...route,
+            originYard: originYard[0] || null,
+            destinationLocation: destinationLocation[0] || null,
+          };
+        })
+      );
+      
+      res.json(routesWithRelations);
+    } catch (error) {
+      console.error("Error fetching routes:", error);
+      res.status(500).json({ message: "Failed to fetch routes" });
+    }
+  });
+
+  // Get single route by ID
+  app.get("/api/routes/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const route = await db.select().from(routes).where(eq(routes.id, id)).limit(1);
+      
+      if (!route[0]) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      const originYard = await db.select().from(yards).where(eq(yards.id, route[0].originYardId)).limit(1);
+      const destinationLocation = await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, route[0].destinationLocationId)).limit(1);
+      
+      res.json({
+        ...route[0],
+        originYard: originYard[0] || null,
+        destinationLocation: destinationLocation[0] || null,
+      });
+    } catch (error) {
+      console.error("Error fetching route:", error);
+      res.status(500).json({ message: "Failed to fetch route" });
+    }
+  });
+
+  // Create new route
+  app.post("/api/routes", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const validatedData = insertRouteSchema.parse(req.body);
+      
+      // Calculate costs automatically
+      const distanceKm = parseFloat(validatedData.distanceKm || "0");
+      const dieselPrice = parseFloat(validatedData.dieselPrice || "0");
+      const fuelConsumption = parseFloat(validatedData.fuelConsumption || "0");
+      const tollCost = parseFloat(validatedData.tollCost || "0");
+      const driverDailyCost = parseFloat(validatedData.driverDailyCost || "0");
+      const returnTicket = parseFloat(validatedData.returnTicket || "0");
+      const extraExpenses = parseFloat(validatedData.extraExpenses || "0");
+      const adValoremPercentage = parseFloat(validatedData.adValoremPercentage || "0");
+      const vehicleValue = parseFloat(validatedData.vehicleValue || "0");
+      const profitMarginPercentage = parseFloat(validatedData.profitMarginPercentage || "0");
+      const adminFee = parseFloat(validatedData.adminFee || "0");
+      
+      // Calculate fuel cost: (distance / consumption) * price
+      const fuelCost = fuelConsumption > 0 ? (distanceKm / fuelConsumption) * dieselPrice : 0;
+      // Arla 32: 5% of fuel cost
+      const arla32Cost = fuelCost * 0.05;
+      // Ad Valorem cost
+      const adValoremCost = (vehicleValue * adValoremPercentage) / 100;
+      
+      // Total cost
+      const totalCost = fuelCost + arla32Cost + tollCost + driverDailyCost + returnTicket + extraExpenses + adValoremCost + adminFee;
+      
+      // Suggested price (cost + margin)
+      const suggestedPrice = totalCost * (1 + profitMarginPercentage / 100);
+      
+      // Net profit
+      const netProfit = suggestedPrice - totalCost;
+      
+      const routeData = {
+        ...validatedData,
+        fuelCost: fuelCost.toFixed(2),
+        arla32Cost: arla32Cost.toFixed(2),
+        adValoremCost: adValoremCost.toFixed(2),
+        totalCost: totalCost.toFixed(2),
+        suggestedPrice: suggestedPrice.toFixed(2),
+        netProfit: netProfit.toFixed(2),
+      };
+      
+      const newRoute = await db.insert(routes).values(routeData).returning();
+      res.status(201).json(newRoute[0]);
+    } catch (error) {
+      console.error("Error creating route:", error);
+      res.status(500).json({ message: "Failed to create route" });
+    }
+  });
+
+  // Update route
+  app.patch("/api/routes/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Load existing route first
+      const existingRoute = await db.select().from(routes).where(eq(routes.id, id)).limit(1);
+      if (!existingRoute[0]) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      const existing = existingRoute[0];
+      const validatedData = insertRouteSchema.partial().parse(req.body);
+      
+      // Merge with existing values - use incoming data if provided, otherwise use existing
+      const distanceKm = parseFloat(validatedData.distanceKm ?? existing.distanceKm ?? "0");
+      const dieselPrice = parseFloat(validatedData.dieselPrice ?? existing.dieselPrice ?? "0");
+      const fuelConsumption = parseFloat(validatedData.fuelConsumption ?? existing.fuelConsumption ?? "0");
+      const tollCost = parseFloat(validatedData.tollCost ?? existing.tollCost ?? "0");
+      const driverDailyCost = parseFloat(validatedData.driverDailyCost ?? existing.driverDailyCost ?? "0");
+      const returnTicket = parseFloat(validatedData.returnTicket ?? existing.returnTicket ?? "0");
+      const extraExpenses = parseFloat(validatedData.extraExpenses ?? existing.extraExpenses ?? "0");
+      const adValoremPercentage = parseFloat(validatedData.adValoremPercentage ?? existing.adValoremPercentage ?? "0");
+      const vehicleValue = parseFloat(validatedData.vehicleValue ?? existing.vehicleValue ?? "0");
+      const profitMarginPercentage = parseFloat(validatedData.profitMarginPercentage ?? existing.profitMarginPercentage ?? "0");
+      const adminFee = parseFloat(validatedData.adminFee ?? existing.adminFee ?? "0");
+      
+      // Calculate fuel cost
+      const fuelCost = fuelConsumption > 0 ? (distanceKm / fuelConsumption) * dieselPrice : 0;
+      const arla32Cost = fuelCost * 0.05;
+      const adValoremCost = (vehicleValue * adValoremPercentage) / 100;
+      const totalCost = fuelCost + arla32Cost + tollCost + driverDailyCost + returnTicket + extraExpenses + adValoremCost + adminFee;
+      const suggestedPrice = totalCost * (1 + profitMarginPercentage / 100);
+      const netProfit = suggestedPrice - totalCost;
+      
+      const routeData = {
+        ...validatedData,
+        fuelCost: fuelCost.toFixed(2),
+        arla32Cost: arla32Cost.toFixed(2),
+        adValoremCost: adValoremCost.toFixed(2),
+        totalCost: totalCost.toFixed(2),
+        suggestedPrice: suggestedPrice.toFixed(2),
+        netProfit: netProfit.toFixed(2),
+        updatedAt: new Date(),
+      };
+      
+      const updatedRoute = await db.update(routes).set(routeData).where(eq(routes.id, id)).returning();
+      
+      if (!updatedRoute[0]) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      res.json(updatedRoute[0]);
+    } catch (error) {
+      console.error("Error updating route:", error);
+      res.status(500).json({ message: "Failed to update route" });
+    }
+  });
+
+  // Delete route
+  app.delete("/api/routes/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(routes).where(eq(routes.id, id));
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting route:", error);
+      res.status(500).json({ message: "Failed to delete route" });
+    }
+  });
+
+  // Toggle favorite
+  app.patch("/api/routes/:id/favorite", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const route = await db.select().from(routes).where(eq(routes.id, id)).limit(1);
+      
+      if (!route[0]) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      const newFavoriteStatus = route[0].isFavorite === "true" ? "false" : "true";
+      const updatedRoute = await db.update(routes).set({ isFavorite: newFavoriteStatus, updatedAt: new Date() }).where(eq(routes.id, id)).returning();
+      
+      res.json(updatedRoute[0]);
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      res.status(500).json({ message: "Failed to toggle favorite" });
+    }
+  });
+
+  // Get favorite routes only
+  app.get("/api/routes/favorites/list", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const favoriteRoutes = await db.select().from(routes).where(eq(routes.isFavorite, "true")).orderBy(routes.name);
+      
+      const routesWithRelations = await Promise.all(
+        favoriteRoutes.map(async (route) => {
+          const originYard = await db.select().from(yards).where(eq(yards.id, route.originYardId)).limit(1);
+          const destinationLocation = await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, route.destinationLocationId)).limit(1);
+          
+          return {
+            ...route,
+            originYard: originYard[0] || null,
+            destinationLocation: destinationLocation[0] || null,
+          };
+        })
+      );
+      
+      res.json(routesWithRelations);
+    } catch (error) {
+      console.error("Error fetching favorite routes:", error);
+      res.status(500).json({ message: "Failed to fetch favorite routes" });
     }
   });
 

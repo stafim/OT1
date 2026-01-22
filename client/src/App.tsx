@@ -50,6 +50,7 @@ import CheckpointsPage from "@/pages/checkpoints/index";
 import TimelineCheckpointsPage from "@/pages/timeline-checkpoints/index";
 import DriverRankingPage from "@/pages/driver-ranking/index";
 import FinancialDashboardPage from "@/pages/financial-dashboard/index";
+import RouteManagementPage from "@/pages/route-management/index";
 
 function AuthenticatedRouter() {
   return (
@@ -81,6 +82,7 @@ function AuthenticatedRouter() {
       <Route path="/timeline-checkpoints" component={TimelineCheckpointsPage} />
       <Route path="/ranking-motoristas" component={DriverRankingPage} />
       <Route path="/dashboard-financeiro" component={FinancialDashboardPage} />
+      <Route path="/gestao-rotas" component={RouteManagementPage} />
       <Route path="/usuarios" component={UsersPage} />
       <Route path="/usuarios/:id" component={UserFormPage} />
       <Route path="/integracoes" component={IntegrationsPage} />

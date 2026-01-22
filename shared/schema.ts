@@ -849,3 +849,82 @@ export const insertDriverEvaluationSchema = createInsertSchema(driverEvaluations
 
 export type InsertDriverEvaluation = z.infer<typeof insertDriverEvaluationSchema>;
 export type DriverEvaluation = typeof driverEvaluations.$inferSelect;
+
+// ============== TIPOS DE CAMINHÃO (Truck Types for Toll Calculation) ==============
+export const truckTypeEnum = pgEnum("truck_type", [
+  "2_eixos",
+  "3_eixos",
+  "4_eixos",
+  "5_eixos",
+  "6_eixos",
+  "7_eixos",
+  "9_eixos"
+]);
+
+// ============== GESTÃO DE ROTAS (Route Management) ==============
+export const routes = pgTable("routes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  
+  // Origem e Destino
+  originYardId: varchar("origin_yard_id").notNull().references(() => yards.id),
+  destinationLocationId: varchar("destination_location_id").notNull().references(() => deliveryLocations.id),
+  
+  // Dados da rota
+  distanceKm: numeric("distance_km", { precision: 10, scale: 2 }),
+  truckType: truckTypeEnum("truck_type").default("2_eixos"),
+  
+  // Parâmetros de combustível
+  dieselPrice: numeric("diesel_price", { precision: 10, scale: 2 }), // R$/litro
+  fuelConsumption: numeric("fuel_consumption", { precision: 5, scale: 2 }), // km/litro
+  
+  // Custos calculados e manuais
+  fuelCost: numeric("fuel_cost", { precision: 10, scale: 2 }), // (distância / consumo) * preço
+  arla32Cost: numeric("arla32_cost", { precision: 10, scale: 2 }), // 5% do combustível
+  tollCost: numeric("toll_cost", { precision: 10, scale: 2 }), // Inserção manual
+  
+  // Logística do motorista
+  driverDailyCost: numeric("driver_daily_cost", { precision: 10, scale: 2 }),
+  returnTicket: numeric("return_ticket", { precision: 10, scale: 2 }),
+  extraExpenses: numeric("extra_expenses", { precision: 10, scale: 2 }), // Uber, alimentação
+  
+  // Taxas e lucro
+  adValoremPercentage: numeric("ad_valorem_percentage", { precision: 5, scale: 2 }), // % sobre valor veículo
+  vehicleValue: numeric("vehicle_value", { precision: 15, scale: 2 }), // Valor do veículo para cálculo
+  adValoremCost: numeric("ad_valorem_cost", { precision: 10, scale: 2 }), // Calculado
+  profitMarginPercentage: numeric("profit_margin_percentage", { precision: 5, scale: 2 }), // % markup
+  adminFee: numeric("admin_fee", { precision: 10, scale: 2 }), // Taxa fixa
+  
+  // Totais calculados
+  totalCost: numeric("total_cost", { precision: 15, scale: 2 }),
+  suggestedPrice: numeric("suggested_price", { precision: 15, scale: 2 }),
+  netProfit: numeric("net_profit", { precision: 15, scale: 2 }),
+  
+  // Controle
+  isFavorite: text("is_favorite").default("false"),
+  isActive: text("is_active").default("true"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const routesRelations = relations(routes, ({ one }) => ({
+  originYard: one(yards, {
+    fields: [routes.originYardId],
+    references: [yards.id],
+  }),
+  destinationLocation: one(deliveryLocations, {
+    fields: [routes.destinationLocationId],
+    references: [deliveryLocations.id],
+  }),
+}));
+
+export const insertRouteSchema = createInsertSchema(routes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(2, "Nome é obrigatório"),
+});
+
+export type InsertRoute = z.infer<typeof insertRouteSchema>;
+export type Route = typeof routes.$inferSelect;

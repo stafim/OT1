@@ -156,6 +156,11 @@ const cadastroItems: MenuItem[] = [
     url: "/estoque",
     icon: Package,
   },
+  {
+    title: "Gestão de Rotas",
+    url: "/gestao-rotas",
+    icon: Route,
+  },
 ];
 
 const configItems: MenuItem[] = [
