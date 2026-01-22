@@ -690,20 +690,23 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Transporte não encontrado" });
       }
 
-      if (transport.status !== "pendente") {
-        return res.status(400).json({ message: "Transporte não está pendente" });
+      if (transport.status !== "pendente" && transport.status !== "aguardando_saida") {
+        return res.status(400).json({ message: "Transporte não está pendente ou aguardando saída" });
       }
 
-      // Update vehicle status from em_estoque to despachado
+      // Update vehicle status from em_estoque to despachado (if not already)
       const vehicle = await storage.getVehicle(transport.vehicleChassi);
       if (vehicle) {
-        if (vehicle.status !== "em_estoque") {
-          return res.status(400).json({ message: "Veículo não está em estoque" });
+        if (vehicle.status !== "em_estoque" && vehicle.status !== "despachado") {
+          return res.status(400).json({ message: "Veículo não está em estoque ou despachado" });
         }
-        await storage.updateVehicle(transport.vehicleChassi, {
-          status: "despachado",
-          dispatchDateTime: new Date(),
-        });
+        // Only update if not already despachado
+        if (vehicle.status === "em_estoque") {
+          await storage.updateVehicle(transport.vehicleChassi, {
+            status: "despachado",
+            dispatchDateTime: new Date(),
+          });
+        }
       }
 
       // Update transport status to em_transito and set transit start time
