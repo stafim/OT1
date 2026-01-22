@@ -90,9 +90,22 @@ export default function FinanceiroPage() {
   const [returnReason, setReturnReason] = useState("");
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"pending" | "all">("pending");
-  const [newSettlement, setNewSettlement] = useState({ transportId: "", driverId: "", driverNotes: "" });
+  interface ExpenseItemDraft {
+    id: string;
+    type: string;
+    amount: string;
+    photoUrl: string;
+    description: string;
+  }
+  const [newSettlement, setNewSettlement] = useState<{
+    transportId: string;
+    driverId: string;
+    driverNotes: string;
+    items: ExpenseItemDraft[];
+  }>({ transportId: "", driverId: "", driverNotes: "", items: [] });
   const [newItem, setNewItem] = useState({ type: "", amount: "", photoUrl: "", description: "" });
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadingItemIndex, setUploadingItemIndex] = useState<number | null>(null);
 
   const { data: settlements, isLoading } = useQuery<ExpenseSettlementWithRelations[]>({
     queryKey: ["/api/expense-settlements"],
@@ -107,17 +120,37 @@ export default function FinanceiroPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { transportId: string; driverId: string; driverNotes?: string }) => {
-      return apiRequest("POST", "/api/expense-settlements", data);
+    mutationFn: async (data: { transportId: string; driverId: string; driverNotes?: string; items: ExpenseItemDraft[] }) => {
+      // Create settlement first
+      const settlement = await apiRequest("POST", "/api/expense-settlements", {
+        transportId: data.transportId,
+        driverId: data.driverId,
+        driverNotes: data.driverNotes,
+        status: "enviado",
+        submittedAt: new Date().toISOString(),
+      });
+      const settlementData = await settlement.json();
+      
+      // Create all items
+      for (const item of data.items) {
+        await apiRequest("POST", `/api/expense-settlements/${settlementData.id}/items`, {
+          type: item.type,
+          amount: item.amount,
+          photoUrl: item.photoUrl,
+          description: item.description,
+        });
+      }
+      
+      return settlementData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/expense-settlements"] });
       toast({ title: "Prestação de contas criada com sucesso!" });
       setShowNewDialog(false);
-      setNewSettlement({ transportId: "", driverId: "", driverNotes: "" });
+      setNewSettlement({ transportId: "", driverId: "", driverNotes: "", items: [] });
     },
-    onError: () => {
-      toast({ title: "Erro ao criar prestação de contas", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: error?.message || "Erro ao criar prestação de contas", variant: "destructive" });
     },
   });
 
@@ -200,11 +233,7 @@ export default function FinanceiroPage() {
     },
   });
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingPhoto(true);
+  const uploadPhoto = async (file: File): Promise<string | null> => {
     try {
       // Try Object Storage first
       const response = await fetch("/api/uploads/request-url", {
@@ -226,7 +255,7 @@ export default function FinanceiroPage() {
         body: file,
       });
 
-      setNewItem(prev => ({ ...prev, photoUrl: objectPath }));
+      return objectPath;
     } catch {
       // Fallback to local upload
       try {
@@ -249,13 +278,64 @@ export default function FinanceiroPage() {
 
         if (!localResponse.ok) throw new Error("Upload failed");
         const { objectPath } = await localResponse.json();
-        setNewItem(prev => ({ ...prev, photoUrl: objectPath }));
+        return objectPath;
       } catch (err) {
         toast({ title: "Erro ao fazer upload da foto", variant: "destructive" });
+        return null;
       }
-    } finally {
-      setIsUploadingPhoto(false);
     }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPhoto(true);
+    const objectPath = await uploadPhoto(file);
+    if (objectPath) {
+      setNewItem(prev => ({ ...prev, photoUrl: objectPath }));
+    }
+    setIsUploadingPhoto(false);
+  };
+
+  const handleNewSettlementItemPhoto = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingItemIndex(index);
+    const objectPath = await uploadPhoto(file);
+    if (objectPath) {
+      setNewSettlement(prev => ({
+        ...prev,
+        items: prev.items.map((item, i) => 
+          i === index ? { ...item, photoUrl: objectPath } : item
+        ),
+      }));
+    }
+    setUploadingItemIndex(null);
+  };
+
+  const addNewSettlementItem = () => {
+    setNewSettlement(prev => ({
+      ...prev,
+      items: [...prev.items, { id: crypto.randomUUID(), type: "", amount: "", photoUrl: "", description: "" }],
+    }));
+  };
+
+  const removeNewSettlementItem = (index: number) => {
+    setNewSettlement(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateNewSettlementItem = (index: number, field: string, value: string) => {
+    setNewSettlement(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      ),
+    }));
   };
 
   const handleAddItem = () => {
@@ -807,76 +887,242 @@ export default function FinanceiroPage() {
       </Dialog>
 
       <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova Prestação de Contas</DialogTitle>
             <DialogDescription>
-              Crie uma nova prestação de contas associada a um transporte e motorista.
+              Crie uma prestação de contas com as despesas e comprovantes do transporte.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-transport">Transporte (OTD)</Label>
-              <Select 
-                value={newSettlement.transportId} 
-                onValueChange={(value) => setNewSettlement({ ...newSettlement, transportId: value })}
-              >
-                <SelectTrigger data-testid="select-transport">
-                  <SelectValue placeholder="Selecione um transporte" />
-                </SelectTrigger>
-                <SelectContent>
-                  {transports?.filter(t => t.status === "entregue").map((transport) => (
-                    <SelectItem key={transport.id} value={transport.id}>
-                      {transport.requestNumber} - {transport.vehicleChassi}
-                    </SelectItem>
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-transport">Transporte (OTD) *</Label>
+                <Select 
+                  value={newSettlement.transportId} 
+                  onValueChange={(value) => {
+                    const transport = transports?.find(t => t.id === value);
+                    setNewSettlement({ 
+                      ...newSettlement, 
+                      transportId: value,
+                      driverId: transport?.driverId || ""
+                    });
+                  }}
+                >
+                  <SelectTrigger data-testid="select-transport">
+                    <SelectValue placeholder="Selecione um transporte" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {transports?.filter(t => t.status === "entregue").map((transport) => (
+                      <SelectItem key={transport.id} value={transport.id}>
+                        {transport.requestNumber} - {transport.vehicleChassi}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="new-driver">Motorista *</Label>
+                <Select 
+                  value={newSettlement.driverId} 
+                  onValueChange={(value) => setNewSettlement({ ...newSettlement, driverId: value })}
+                >
+                  <SelectTrigger data-testid="select-driver">
+                    <SelectValue placeholder="Selecione um motorista" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {drivers?.filter(d => d.isActive === "true").map((driver) => (
+                      <SelectItem key={driver.id} value={driver.id}>
+                        {driver.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Receipt className="h-4 w-4" />
+                  Despesas ({newSettlement.items.length})
+                </h3>
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  onClick={addNewSettlementItem}
+                  data-testid="button-add-item"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Adicionar Despesa
+                </Button>
+              </div>
+
+              {newSettlement.items.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Receipt className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Nenhuma despesa adicionada</p>
+                  <p className="text-xs">Clique em "Adicionar Despesa" para incluir comprovantes</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {newSettlement.items.map((item, index) => (
+                    <Card key={item.id} className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="w-24 h-24 shrink-0">
+                          {item.photoUrl ? (
+                            <div className="relative w-full h-full">
+                              <img 
+                                src={normalizeImageUrl(item.photoUrl)} 
+                                alt="Comprovante" 
+                                className="w-full h-full object-cover rounded-lg border"
+                              />
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="absolute -top-2 -right-2 h-5 w-5"
+                                onClick={() => updateNewSettlementItem(index, "photoUrl", "")}
+                              >
+                                <XCircle className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <label className="cursor-pointer block w-full h-full border-2 border-dashed rounded-lg flex items-center justify-center hover:bg-muted/50 transition-colors">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleNewSettlementItemPhoto(e, index)}
+                                disabled={uploadingItemIndex === index}
+                                data-testid={`input-photo-${index}`}
+                              />
+                              {uploadingItemIndex === index ? (
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                              ) : (
+                                <div className="text-center">
+                                  <Camera className="h-6 w-6 mx-auto text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">Foto</span>
+                                </div>
+                              )}
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="flex-1 grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Tipo *</Label>
+                            <Select 
+                              value={item.type} 
+                              onValueChange={(value) => updateNewSettlementItem(index, "type", value)}
+                            >
+                              <SelectTrigger className="h-9" data-testid={`select-type-${index}`}>
+                                <SelectValue placeholder="Tipo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(expenseTypeLabels).map(([key, config]) => (
+                                  <SelectItem key={key} value={key}>
+                                    <div className="flex items-center gap-2">
+                                      <config.icon className="h-3 w-3" />
+                                      {config.label}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs">Valor (R$) *</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="0,00"
+                              value={item.amount}
+                              onChange={(e) => updateNewSettlementItem(index, "amount", e.target.value)}
+                              className="h-9"
+                              data-testid={`input-amount-${index}`}
+                            />
+                          </div>
+
+                          <div className="col-span-2 space-y-1">
+                            <Label className="text-xs">Observação</Label>
+                            <Input
+                              placeholder="Descrição da despesa..."
+                              value={item.description}
+                              onChange={(e) => updateNewSettlementItem(index, "description", e.target.value)}
+                              className="h-9"
+                              data-testid={`input-description-${index}`}
+                            />
+                          </div>
+                        </div>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                          onClick={() => removeNewSettlementItem(index)}
+                          data-testid={`button-remove-item-${index}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </Card>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="new-driver">Motorista</Label>
-              <Select 
-                value={newSettlement.driverId} 
-                onValueChange={(value) => setNewSettlement({ ...newSettlement, driverId: value })}
-              >
-                <SelectTrigger data-testid="select-driver">
-                  <SelectValue placeholder="Selecione um motorista" />
-                </SelectTrigger>
-                <SelectContent>
-                  {drivers?.filter(d => d.isActive === "true").map((driver) => (
-                    <SelectItem key={driver.id} value={driver.id}>
-                      {driver.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="new-notes">Observações (opcional)</Label>
+              <Label htmlFor="new-notes">Observações Gerais (opcional)</Label>
               <Textarea
                 id="new-notes"
                 placeholder="Adicione observações sobre a prestação de contas..."
                 value={newSettlement.driverNotes}
                 onChange={(e) => setNewSettlement({ ...newSettlement, driverNotes: e.target.value })}
-                rows={3}
+                rows={2}
                 data-testid="textarea-notes"
               />
             </div>
+
+            {newSettlement.items.length > 0 && (
+              <div className="bg-muted/50 rounded-lg p-3 flex items-center justify-between">
+                <span className="text-sm font-medium">Total das Despesas:</span>
+                <span className="text-lg font-bold text-green-600">
+                  {newSettlement.items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+              </div>
+            )}
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowNewDialog(false);
+              setNewSettlement({ transportId: "", driverId: "", driverNotes: "", items: [] });
+            }}>
               Cancelar
             </Button>
             <Button 
               onClick={() => createMutation.mutate(newSettlement)}
-              disabled={createMutation.isPending || !newSettlement.transportId || !newSettlement.driverId}
+              disabled={
+                createMutation.isPending || 
+                !newSettlement.transportId || 
+                !newSettlement.driverId || 
+                newSettlement.items.length === 0 ||
+                newSettlement.items.some(item => !item.type || !item.amount || !item.photoUrl)
+              }
               data-testid="button-create-settlement"
             >
-              {createMutation.isPending ? "Criando..." : "Criar Prestação"}
+              {createMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Prestação"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
