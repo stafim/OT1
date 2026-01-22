@@ -135,6 +135,7 @@ export default function DriverEvaluationsPage() {
   const [selectedTransport, setSelectedTransport] = useState<TransportWithDetails | null>(null);
   const [hadIncident, setHadIncident] = useState(false);
   const [incidentDescription, setIncidentDescription] = useState("");
+  const [manualScore, setManualScore] = useState<string>("4.0");
   const [ratings, setRatings] = useState<{
     posturaProfissional: RatingValue | "";
     pontualidade: RatingValue | "";
@@ -191,6 +192,7 @@ export default function DriverEvaluationsPage() {
     });
     setHadIncident(false);
     setIncidentDescription("");
+    setManualScore("4.0");
     setSelectedTransport(null);
   };
 
@@ -230,6 +232,22 @@ export default function DriverEvaluationsPage() {
       return;
     }
 
+    if (hadIncident) {
+      const score = parseFloat(manualScore);
+      if (isNaN(score) || score < 1 || score > 5) {
+        toast({
+          title: "Nota invalida",
+          description: "Por favor, insira uma nota entre 1.0 e 5.0.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const finalScore = hadIncident 
+      ? parseFloat(manualScore) 
+      : calculateAverageFromRatings();
+
     submitEvaluationMutation.mutate({
       transportId: selectedTransport.id,
       driverId: selectedTransport.driverId,
@@ -240,6 +258,7 @@ export default function DriverEvaluationsPage() {
       apresentacaoPessoal: ratings.apresentacaoPessoal,
       cordialidade: ratings.cordialidade,
       cumpriuProcesso: ratings.cumpriuProcesso,
+      averageScore: finalScore.toFixed(1),
       hadIncident: hadIncident ? "true" : "false",
       incidentDescription: hadIncident ? incidentDescription : null,
     });
@@ -530,13 +549,46 @@ export default function DriverEvaluationsPage() {
                 />
               </div>
 
-              {Object.values(ratings).every((r) => r !== "") && (
-                <Card className="bg-primary/5 border-primary/20">
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <span className="font-medium">Media da Avaliacao:</span>
-                    <StarRating score={calculateAverageFromRatings()} />
+              {hadIncident ? (
+                <Card className="bg-yellow-500/10 border-yellow-500/30">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Nota Final (editavel):</span>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          max="5"
+                          step="0.1"
+                          value={manualScore}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (val >= 1 && val <= 5) {
+                              setManualScore(e.target.value);
+                            } else if (e.target.value === "") {
+                              setManualScore("");
+                            }
+                          }}
+                          className="w-20 text-center font-bold"
+                          data-testid="input-manual-score"
+                        />
+                        <span className="text-muted-foreground text-sm">(1.0 a 5.0)</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Como houve um imprevisto, voce pode definir a nota final manualmente.
+                    </p>
                   </CardContent>
                 </Card>
+              ) : (
+                Object.values(ratings).every((r) => r !== "") && (
+                  <Card className="bg-primary/5 border-primary/20">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <span className="font-medium">Media da Avaliacao:</span>
+                      <StarRating score={calculateAverageFromRatings()} />
+                    </CardContent>
+                  </Card>
+                )
               )}
             </div>
           )}
