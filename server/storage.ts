@@ -13,6 +13,7 @@ import {
   rolePermissions, type RolePermission, type InsertRolePermission, type FeatureKey,
   expenseSettlements, type ExpenseSettlement, type InsertExpenseSettlement,
   expenseSettlementItems, type ExpenseSettlementItem, type InsertExpenseSettlementItem,
+  checkpoints, type Checkpoint, type InsertCheckpoint,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -118,6 +119,13 @@ export interface IStorage {
   createExpenseSettlementItem(item: InsertExpenseSettlementItem): Promise<ExpenseSettlementItem>;
   updateExpenseSettlementItem(id: string, item: Partial<InsertExpenseSettlementItem>): Promise<ExpenseSettlementItem | undefined>;
   deleteExpenseSettlementItem(id: string): Promise<void>;
+
+  // Checkpoints
+  getCheckpoints(): Promise<Checkpoint[]>;
+  getCheckpoint(id: string): Promise<Checkpoint | undefined>;
+  createCheckpoint(checkpoint: InsertCheckpoint): Promise<Checkpoint>;
+  updateCheckpoint(id: string, checkpoint: Partial<InsertCheckpoint>): Promise<Checkpoint | undefined>;
+  deleteCheckpoint(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -527,6 +535,30 @@ export class DatabaseStorage implements IStorage {
 
   async deleteExpenseSettlementItem(id: string): Promise<void> {
     await db.delete(expenseSettlementItems).where(eq(expenseSettlementItems.id, id));
+  }
+
+  // Checkpoints
+  async getCheckpoints(): Promise<Checkpoint[]> {
+    return db.select().from(checkpoints).orderBy(desc(checkpoints.createdAt));
+  }
+
+  async getCheckpoint(id: string): Promise<Checkpoint | undefined> {
+    const [checkpoint] = await db.select().from(checkpoints).where(eq(checkpoints.id, id));
+    return checkpoint;
+  }
+
+  async createCheckpoint(checkpoint: InsertCheckpoint): Promise<Checkpoint> {
+    const [created] = await db.insert(checkpoints).values(checkpoint).returning();
+    return created;
+  }
+
+  async updateCheckpoint(id: string, checkpoint: Partial<InsertCheckpoint>): Promise<Checkpoint | undefined> {
+    const [updated] = await db.update(checkpoints).set(checkpoint).where(eq(checkpoints.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCheckpoint(id: string): Promise<void> {
+    await db.delete(checkpoints).where(eq(checkpoints.id, id));
   }
 }
 
