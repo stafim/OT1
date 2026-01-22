@@ -5,7 +5,7 @@ import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Pencil, Trash2, History, User, Clock, Truck, Building2, Navigation, Camera, Car, Gauge, AlertTriangle, Download, FileText, Paperclip, Calendar, MapPin, Loader2, Check, ChevronsUpDown, Receipt, Fuel } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, History, User, Clock, Truck, Building2, Navigation, Camera, Car, Gauge, AlertTriangle, Download, MapPin, Loader2 } from "lucide-react";
 import { VehicleFormDialog } from "./form-dialog";
 import * as XLSX from "xlsx";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -14,8 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import type { Vehicle, Manufacturer, Client, Collect, Driver, Yard, DeliveryLocation } from "@shared/schema";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useUpload } from "@/hooks/use-upload";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,9 +41,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -82,9 +77,6 @@ export default function VehiclesPage() {
   const [transportDriverId, setTransportDriverId] = useState("");
   const [transportDeliveryDate, setTransportDeliveryDate] = useState("");
   const [transportNotes, setTransportNotes] = useState("");
-  const [transportDocuments, setTransportDocuments] = useState<string[]>([]);
-  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
-  const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [routeSummary, setRouteSummary] = useState<{
     distance: { value: number; text: string };
@@ -95,7 +87,6 @@ export default function VehiclesPage() {
     tollCost?: { amount: string };
     fuelCost: number;
   } | null>(null);
-  const { uploadFile } = useUpload();
 
   const { data: chassiHistory, isLoading: isLoadingHistory } = useQuery<CollectWithRelations[]>({
     queryKey: ["/api/collects/by-chassi", historyChassi],
@@ -190,7 +181,6 @@ export default function VehiclesPage() {
     setTransportDriverId("");
     setTransportDeliveryDate("");
     setTransportNotes("");
-    setTransportDocuments([]);
     setTransportDialogOpen(true);
   };
 
@@ -202,7 +192,6 @@ export default function VehiclesPage() {
     setTransportDriverId("");
     setTransportDeliveryDate("");
     setTransportNotes("");
-    setTransportDocuments([]);
     setRouteSummary(null);
   };
 
@@ -254,31 +243,6 @@ export default function VehiclesPage() {
     fetchRouteSummary();
   }, [transportVehicle?.yardId, transportDeliveryLocationId, yards, transportLocations]);
 
-  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setIsUploadingDocument(true);
-    try {
-      for (const file of Array.from(files)) {
-        const result = await uploadFile(file);
-        if (result?.objectPath) {
-          setTransportDocuments(prev => [...prev, result.objectPath]);
-        }
-      }
-      toast({ title: "Documento(s) anexado(s) com sucesso" });
-    } catch {
-      toast({ title: "Erro ao anexar documento", variant: "destructive" });
-    } finally {
-      setIsUploadingDocument(false);
-      e.target.value = "";
-    }
-  };
-
-  const removeDocument = (index: number) => {
-    setTransportDocuments(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleCreateTransport = () => {
     if (!transportVehicle) return;
     if (!transportClientId) {
@@ -302,7 +266,6 @@ export default function VehiclesPage() {
       driverId: transportDriverId || null,
       deliveryDate: transportDeliveryDate || null,
       notes: transportNotes || null,
-      documents: transportDocuments.length > 0 ? transportDocuments : null,
     });
   };
 
@@ -840,17 +803,14 @@ export default function VehiclesPage() {
       />
 
       <Dialog open={transportDialogOpen} onOpenChange={closeTransportDialog}>
-        <DialogContent className="max-w-lg max-h-[85vh]">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Criar Transporte
-            </DialogTitle>
+            <DialogTitle>Novo Transporte</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[65vh] pr-4">
-            <div className="space-y-4">
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Chassi</Label>
+                <Label>Veículo (Chassi) *</Label>
                 <Input
                   value={transportVehicle?.chassi || ""}
                   disabled
@@ -860,12 +820,12 @@ export default function VehiclesPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Data da Entrega</Label>
+                <Label>Pátio de Origem *</Label>
                 <Input
-                  type="date"
-                  value={transportDeliveryDate}
-                  onChange={(e) => setTransportDeliveryDate(e.target.value)}
-                  data-testid="input-transport-delivery-date"
+                  value={yards?.find(y => y.id === transportVehicle?.yardId)?.name || ""}
+                  disabled
+                  className="bg-muted"
+                  data-testid="input-transport-origin-yard"
                 />
               </div>
 
@@ -879,7 +839,7 @@ export default function VehiclesPage() {
                   }}
                 >
                   <SelectTrigger data-testid="select-transport-client">
-                    <SelectValue placeholder="Selecione um cliente" />
+                    <SelectValue placeholder="Selecione o cliente" />
                   </SelectTrigger>
                   <SelectContent>
                     {clients?.map((client) => (
@@ -899,239 +859,166 @@ export default function VehiclesPage() {
                   disabled={!transportClientId}
                 >
                   <SelectTrigger data-testid="select-transport-delivery-location">
-                    <SelectValue placeholder={!transportClientId ? "Selecione um cliente primeiro" : "Selecione um local de entrega"} />
+                    <SelectValue placeholder={transportClientId ? "Selecione o local" : "Selecione o cliente primeiro"} />
                   </SelectTrigger>
                   <SelectContent>
                     {transportLocations?.map((location) => (
                       <SelectItem key={location.id} value={location.id}>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-3 w-3" />
-                          {location.name} - {location.city}/{location.state}
-                        </div>
+                        {location.name} - {location.city}/{location.state}
                       </SelectItem>
                     ))}
-                    {transportLocations?.length === 0 && (
-                      <div className="text-sm text-muted-foreground p-2">
-                        Nenhum local de entrega cadastrado para este cliente
+                  </SelectContent>
+                </Select>
+                {transportClientId && transportLocations?.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nenhum local de entrega cadastrado para este cliente</p>
+                )}
+              </div>
+            </div>
+
+            {/* Route Summary Card */}
+            {(loadingRoute || routeSummary) && (
+              <Card className="bg-muted/50">
+                <CardHeader className="py-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Navigation className="h-4 w-4" />
+                    Resumo da Viagem
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="py-2">
+                  {loadingRoute ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-sm text-muted-foreground">Calculando rota...</span>
+                    </div>
+                  ) : routeSummary ? (
+                    <div className="space-y-3">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-start gap-2 p-2 bg-background rounded">
+                          <MapPin className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs text-muted-foreground">Origem</p>
+                            <p className="font-medium break-words" title={routeSummary.originAddress}>
+                              {routeSummary.originAddress}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2 p-2 bg-background rounded">
+                          <MapPin className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs text-muted-foreground">Destino</p>
+                            <p className="font-medium break-words" title={routeSummary.destinationAddress}>
+                              {routeSummary.destinationAddress}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    )}
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t">
+                        <div className="text-center p-2 bg-background rounded">
+                          <p className="text-xs text-muted-foreground">Distância</p>
+                          <p className="font-semibold text-primary">{routeSummary.distance.text}</p>
+                        </div>
+                        <div className="text-center p-2 bg-background rounded">
+                          <p className="text-xs text-muted-foreground">Tempo Estimado</p>
+                          <p className="font-semibold text-primary">{routeSummary.duration.text}</p>
+                        </div>
+                        <div className="text-center p-2 bg-background rounded">
+                          <p className="text-xs text-muted-foreground">Pedágios</p>
+                          <p className="font-semibold text-orange-600">
+                            {routeSummary.tollCost 
+                              ? `R$ ${parseFloat(routeSummary.tollCost.amount).toFixed(2)}`
+                              : "Sem pedágios"}
+                          </p>
+                        </div>
+                        <div className="text-center p-2 bg-background rounded">
+                          <p className="text-xs text-muted-foreground">Combustível (4km/L)</p>
+                          <p className="font-semibold text-blue-600">
+                            R$ {routeSummary.fuelCost.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Custo Total Estimado:</span>
+                          <span className="font-bold text-lg">
+                            R$ {(routeSummary.fuelCost + (routeSummary.tollCost ? parseFloat(routeSummary.tollCost.amount) : 0)).toFixed(2)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          * Baseado em consumo de 4 km/litro e diesel a R$ 6,50/litro
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Motorista</Label>
+                <Select
+                  value={transportDriverId}
+                  onValueChange={setTransportDriverId}
+                >
+                  <SelectTrigger data-testid="select-transport-driver">
+                    <SelectValue placeholder="Selecione o motorista (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {drivers?.filter(d => d.isApto === "true" && d.isActive === "true").map((driver) => (
+                      <SelectItem key={driver.id} value={driver.id}>
+                        {driver.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Route Summary Card */}
-              {(loadingRoute || routeSummary) && (
-                <Card className="bg-muted/50">
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Navigation className="h-4 w-4" />
-                      Resumo da Viagem
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="py-2">
-                    {loadingRoute ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        <span className="ml-2 text-sm text-muted-foreground">Calculando rota...</span>
-                      </div>
-                    ) : routeSummary ? (
-                      <div className="space-y-3">
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-start gap-2 p-2 bg-background rounded">
-                            <MapPin className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs text-muted-foreground">Origem</p>
-                              <p className="font-medium break-words" title={routeSummary.originAddress}>
-                                {routeSummary.originAddress}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-2 p-2 bg-background rounded">
-                            <MapPin className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs text-muted-foreground">Destino</p>
-                              <p className="font-medium break-words" title={routeSummary.destinationAddress}>
-                                {routeSummary.destinationAddress}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 pt-2 border-t">
-                          <div className="text-center p-2 bg-background rounded">
-                            <p className="text-xs text-muted-foreground">Distância</p>
-                            <p className="font-semibold text-primary">{routeSummary.distance.text}</p>
-                          </div>
-                          <div className="text-center p-2 bg-background rounded">
-                            <p className="text-xs text-muted-foreground">Tempo Estimado</p>
-                            <p className="font-semibold text-primary">{routeSummary.duration.text}</p>
-                          </div>
-                          <div className="text-center p-2 bg-background rounded">
-                            <div className="flex items-center justify-center gap-1 mb-1">
-                              <Receipt className="h-3 w-3 text-orange-500" />
-                            </div>
-                            <p className="text-xs text-muted-foreground">Pedágios</p>
-                            <p className="font-semibold text-orange-600">
-                              {routeSummary.tollCost 
-                                ? `R$ ${parseFloat(routeSummary.tollCost.amount).toFixed(2)}`
-                                : "Sem pedágios"}
-                            </p>
-                          </div>
-                          <div className="text-center p-2 bg-background rounded">
-                            <div className="flex items-center justify-center gap-1 mb-1">
-                              <Fuel className="h-3 w-3 text-blue-500" />
-                            </div>
-                            <p className="text-xs text-muted-foreground">Combustível (4km/L)</p>
-                            <p className="font-semibold text-blue-600">
-                              R$ {routeSummary.fuelCost.toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t">
-                          <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                            <span className="font-medium">Custo Total Estimado:</span>
-                            <span className="font-bold text-xl text-primary">
-                              R$ {(routeSummary.fuelCost + (routeSummary.tollCost ? parseFloat(routeSummary.tollCost.amount) : 0)).toFixed(2)}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            * Baseado em consumo de 4 km/litro e diesel a R$ 6,50/litro
-                          </p>
-                        </div>
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              )}
-
               <div className="space-y-2">
-                <Label>Motorista (opcional)</Label>
-                <Popover open={driverPopoverOpen} onOpenChange={setDriverPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={driverPopoverOpen}
-                      className="w-full justify-between font-normal"
-                      data-testid="select-transport-driver"
-                    >
-                      {transportDriverId
-                        ? drivers?.find(d => d.id === transportDriverId)?.name || "Selecione um motorista"
-                        : "Selecione um motorista"}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[400px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Buscar motorista..." data-testid="input-search-driver" />
-                      <CommandList>
-                        <CommandEmpty>Nenhum motorista encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="none"
-                            onSelect={() => {
-                              setTransportDriverId("");
-                              setDriverPopoverOpen(false);
-                            }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", !transportDriverId ? "opacity-100" : "opacity-0")} />
-                            Nenhum
-                          </CommandItem>
-                          {drivers?.filter(d => d.isApto === "true" && d.isActive === "true").map((driver) => (
-                            <CommandItem
-                              key={driver.id}
-                              value={driver.name}
-                              onSelect={() => {
-                                setTransportDriverId(driver.id);
-                                setDriverPopoverOpen(false);
-                              }}
-                            >
-                              <Check className={cn("mr-2 h-4 w-4", transportDriverId === driver.id ? "opacity-100" : "opacity-0")} />
-                              {driver.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Documentos Anexos</Label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isUploadingDocument}
-                    onClick={() => document.getElementById("transport-document-input")?.click()}
-                    data-testid="button-attach-document"
-                  >
-                    {isUploadingDocument ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Paperclip className="h-4 w-4 mr-2" />
-                    )}
-                    Anexar Documento
-                  </Button>
-                  <input
-                    id="transport-document-input"
-                    type="file"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    multiple
-                    className="hidden"
-                    onChange={handleDocumentUpload}
-                  />
-                </div>
-                {transportDocuments.length > 0 && (
-                  <div className="space-y-2 mt-2">
-                    {transportDocuments.map((doc, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 rounded border bg-muted/50">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          <span className="text-sm truncate max-w-[200px]">
-                            {doc.split("/").pop()}
-                          </span>
-                        </div>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => removeDocument(index)}
-                          data-testid={`button-remove-document-${index}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Observações da Viagem</Label>
-                <Textarea
-                  placeholder="Instruções e sugestões de viagem..."
-                  value={transportNotes}
-                  onChange={(e) => setTransportNotes(e.target.value)}
-                  rows={4}
-                  data-testid="textarea-transport-notes"
+                <Label>Previsão de Entrega</Label>
+                <Input
+                  type="datetime-local"
+                  value={transportDeliveryDate}
+                  onChange={(e) => setTransportDeliveryDate(e.target.value)}
+                  data-testid="input-transport-delivery-date"
                 />
               </div>
             </div>
-          </ScrollArea>
+
+            <div className="space-y-2">
+              <Label>Observações</Label>
+              <Textarea
+                value={transportNotes}
+                onChange={(e) => setTransportNotes(e.target.value)}
+                placeholder="Observações adicionais..."
+                data-testid="textarea-transport-notes"
+              />
+            </div>
+          </div>
           <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={closeTransportDialog} data-testid="button-cancel-transport">
+            <Button variant="outline" onClick={closeTransportDialog}>
               Cancelar
             </Button>
             <Button
               onClick={handleCreateTransport}
-              disabled={transportMutation.isPending}
+              disabled={
+                transportMutation.isPending ||
+                !transportVehicle?.chassi ||
+                !transportClientId ||
+                !transportVehicle?.yardId ||
+                !transportDeliveryLocationId
+              }
               data-testid="button-save-transport"
             >
-              {transportMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Criar Transporte
+              {transportMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar"
+              )}
             </Button>
           </div>
         </DialogContent>
