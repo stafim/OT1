@@ -234,11 +234,19 @@ export default function FinanceiroPage() {
   });
 
   const uploadPhoto = async (file: File): Promise<string | null> => {
+    const token = localStorage.getItem("access_token");
+    const authHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      authHeaders["Authorization"] = `Bearer ${token}`;
+    }
+
     try {
       // Try Object Storage first
       const response = await fetch("/api/uploads/request-url", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           contentType: file.type,
           name: file.name,
@@ -268,7 +276,7 @@ export default function FinanceiroPage() {
 
         const localResponse = await fetch("/api/uploads/local", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             filename: file.name,
             contentType: file.type,
