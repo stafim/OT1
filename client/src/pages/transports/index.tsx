@@ -308,6 +308,7 @@ const initialCheckFormData: CheckFormData = {
 export default function TransportsPage() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewTransport, setViewTransport] = useState<TransportWithRelations | null>(null);
   const [checkinTransport, setCheckinTransport] = useState<TransportWithRelations | null>(null);
@@ -533,12 +534,14 @@ export default function TransportsPage() {
     );
   };
 
-  const filteredData = transports?.filter(
-    (t) =>
+  const filteredData = transports?.filter((t) => {
+    const matchesSearch =
       t.requestNumber.toLowerCase().includes(search.toLowerCase()) ||
       t.vehicleChassi.toLowerCase().includes(search.toLowerCase()) ||
-      t.client?.name?.toLowerCase().includes(search.toLowerCase())
-  );
+      t.client?.name?.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === "all" || t.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const columns = [
     {
@@ -693,21 +696,73 @@ export default function TransportsPage() {
         ]}
       />
       <div className="flex-1 overflow-auto p-4 md:p-6">
-        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative max-w-sm flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nº solicitação, chassi ou cliente..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-              data-testid="input-search-transports"
-            />
+        <div className="mb-4 flex flex-col gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative max-w-sm flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nº solicitação, chassi ou cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-transports"
+              />
+            </div>
+            <Button onClick={() => setShowNewDialog(true)} data-testid="button-add-transport">
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Transporte
+            </Button>
           </div>
-          <Button onClick={() => setShowNewDialog(true)} data-testid="button-add-transport">
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Transporte
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={statusFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+              data-testid="filter-all"
+            >
+              Todos
+            </Button>
+            <Button
+              variant={statusFilter === "pendente" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("pendente")}
+              data-testid="filter-pendente"
+            >
+              Pendente
+            </Button>
+            <Button
+              variant={statusFilter === "aguardando_saida" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("aguardando_saida")}
+              data-testid="filter-aguardando-saida"
+            >
+              Aguardando Saída
+            </Button>
+            <Button
+              variant={statusFilter === "em_transito" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("em_transito")}
+              data-testid="filter-em-transito"
+            >
+              Em Trânsito
+            </Button>
+            <Button
+              variant={statusFilter === "entregue" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("entregue")}
+              data-testid="filter-entregue"
+            >
+              Entregue
+            </Button>
+            <Button
+              variant={statusFilter === "cancelado" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("cancelado")}
+              data-testid="filter-cancelado"
+            >
+              Cancelado
+            </Button>
+          </div>
         </div>
 
         <DataTable
