@@ -2677,6 +2677,159 @@ export async function registerRoutes(
     }
   });
 
+  // Calculate route distance and tolls using Google Maps API
+  app.post("/api/routes/calculate-route", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { originYardId, destinationLocationId, truckAxles } = req.body;
+      
+      if (!originYardId || !destinationLocationId) {
+        return res.status(400).json({ message: "Origin yard and destination location are required" });
+      }
+      
+      // Get origin yard coordinates
+      const originYard = await db.select().from(yards).where(eq(yards.id, originYardId)).limit(1);
+      if (!originYard[0]) {
+        return res.status(404).json({ message: "Origin yard not found" });
+      }
+      
+      // Get destination location coordinates
+      const destinationLocation = await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, destinationLocationId)).limit(1);
+      if (!destinationLocation[0]) {
+        return res.status(404).json({ message: "Destination location not found" });
+      }
+      
+      const originLat = originYard[0].latitude;
+      const originLng = originYard[0].longitude;
+      const destLat = destinationLocation[0].latitude;
+      const destLng = destinationLocation[0].longitude;
+      
+      if (!originLat || !originLng || !destLat || !destLng) {
+        return res.status(400).json({ message: "Origin or destination coordinates are missing" });
+      }
+      
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ message: "Google Maps API key not configured" });
+      }
+      
+      // Use Google Routes API to get distance and tolls
+      const routesApiUrl = "https://routes.googleapis.com/directions/v2:computeRoutes";
+      
+      // Map truck axles to vehicle type for toll calculation
+      const axlesNum = parseInt(truckAxles) || 2;
+      
+      const requestBody: any = {
+        origin: {
+          location: {
+            latLng: {
+              latitude: parseFloat(originLat),
+              longitude: parseFloat(originLng)
+            }
+          }
+        },
+        destination: {
+          location: {
+            latLng: {
+              latitude: parseFloat(destLat),
+              longitude: parseFloat(destLng)
+            }
+          }
+        },
+        travelMode: "DRIVE",
+        computeAlternativeRoutes: false,
+        extraComputations: ["TOLLS"],
+        routeModifiers: {
+          vehicleInfo: {
+            emissionType: "DIESEL"
+          }
+        }
+      };
+      
+      // Add axle count for toll calculation if supported
+      if (axlesNum > 2) {
+        requestBody.routeModifiers.vehicleInfo.axleCount = axlesNum;
+      }
+      
+      const response = await fetch(routesApiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.travelAdvisory.tollInfo"
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Google Routes API error:", errorText);
+        
+        // Fallback to Distance Matrix API for distance only
+        const distanceMatrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originLat},${originLng}&destinations=${destLat},${destLng}&mode=driving&key=${apiKey}`;
+        
+        const dmResponse = await fetch(distanceMatrixUrl);
+        const dmData = await dmResponse.json();
+        
+        if (dmData.status === "OK" && dmData.rows[0]?.elements[0]?.status === "OK") {
+          const element = dmData.rows[0].elements[0];
+          const distanceKm = (element.distance.value / 1000).toFixed(2);
+          const durationMinutes = Math.round(element.duration.value / 60);
+          
+          return res.json({
+            distanceKm,
+            durationMinutes,
+            tollCost: null, // Not available from Distance Matrix API
+            message: "Distance calculated, but toll information requires Google Routes API"
+          });
+        }
+        
+        return res.status(500).json({ message: "Failed to calculate route" });
+      }
+      
+      const data = await response.json();
+      
+      if (!data.routes || data.routes.length === 0) {
+        return res.status(404).json({ message: "No route found" });
+      }
+      
+      const route = data.routes[0];
+      const distanceKm = (route.distanceMeters / 1000).toFixed(2);
+      const durationMinutes = Math.round(parseInt(route.duration.replace("s", "")) / 60);
+      
+      // Extract toll cost
+      let tollCost: string | null = null;
+      if (route.travelAdvisory?.tollInfo?.estimatedPrice) {
+        const prices = route.travelAdvisory.tollInfo.estimatedPrice;
+        if (prices.length > 0) {
+          // Sum all toll prices (might be in different currencies), prefer BRL
+          const brlPrices = prices.filter((p: any) => p.currencyCode === "BRL");
+          const pricesToUse = brlPrices.length > 0 ? brlPrices : prices;
+          
+          const total = pricesToUse.reduce((sum: number, p: any) => {
+            const units = typeof p.units === 'string' ? parseFloat(p.units) : (p.units || 0);
+            const nanos = typeof p.nanos === 'string' ? parseFloat(p.nanos) : (p.nanos || 0);
+            return sum + units + nanos / 1000000000;
+          }, 0);
+          
+          if (total > 0) {
+            tollCost = total.toFixed(2);
+          }
+        }
+      }
+      
+      res.json({
+        distanceKm,
+        durationMinutes,
+        tollCost,
+        originYardName: originYard[0].name,
+        destinationLocationName: destinationLocation[0].name
+      });
+    } catch (error) {
+      console.error("Error calculating route:", error);
+      res.status(500).json({ message: "Failed to calculate route" });
+    }
+  });
+
   // Get favorite routes only
   app.get("/api/routes/favorites/list", isAuthenticatedJWT, async (req, res) => {
     try {

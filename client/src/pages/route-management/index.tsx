@@ -28,7 +28,8 @@ import {
   TrendingUp,
   Percent,
   Receipt,
-  Edit2
+  Edit2,
+  Loader2
 } from "lucide-react";
 import type { Yard, DeliveryLocation, Route } from "@shared/schema";
 
@@ -165,6 +166,8 @@ export default function RouteManagementPage() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<RouteWithRelations | null>(null);
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+  const [routeCalculated, setRouteCalculated] = useState(false);
   const [calculatedCosts, setCalculatedCosts] = useState({
     fuelCost: 0,
     arla32Cost: 0,
@@ -236,6 +239,70 @@ export default function RouteManagementPage() {
       netProfit,
     });
   }, [watchedValues]);
+
+  // Track last calculated route to avoid duplicate API calls
+  const [lastCalculatedKey, setLastCalculatedKey] = useState("");
+
+  // Auto-fetch distance and tolls when origin and destination are selected
+  useEffect(() => {
+    const fetchRouteInfo = async () => {
+      const originYardId = watchedValues.originYardId;
+      const destinationLocationId = watchedValues.destinationLocationId;
+      const truckType = watchedValues.truckType;
+      
+      // Only fetch if both are selected
+      if (!originYardId || !destinationLocationId) {
+        return;
+      }
+      
+      // Create a unique key for this route combination
+      const routeKey = `${originYardId}-${destinationLocationId}-${truckType}`;
+      
+      // Don't fetch if already calculated this exact route or currently calculating
+      if (routeKey === lastCalculatedKey || isCalculatingRoute) {
+        return;
+      }
+      
+      setIsCalculatingRoute(true);
+      
+      try {
+        const truckAxles = truckType?.replace("_eixos", "") || "2";
+        const response = await apiRequest("POST", "/api/routes/calculate-route", {
+          originYardId,
+          destinationLocationId,
+          truckAxles
+        });
+        
+        const data = await response.json();
+        
+        if (data.distanceKm) {
+          form.setValue("distanceKm", data.distanceKm);
+        }
+        
+        if (data.tollCost !== null && data.tollCost !== undefined) {
+          form.setValue("tollCost", data.tollCost);
+          toast({
+            title: "Rota calculada",
+            description: `Distância: ${data.distanceKm} km | Pedágio: R$ ${data.tollCost}`,
+          });
+        } else {
+          toast({
+            title: "Distância calculada",
+            description: `Distância: ${data.distanceKm} km. Pedágio não disponível via API.`,
+          });
+        }
+        
+        setLastCalculatedKey(routeKey);
+        setRouteCalculated(true);
+      } catch (error) {
+        console.error("Error calculating route:", error);
+      } finally {
+        setIsCalculatingRoute(false);
+      }
+    };
+    
+    fetchRouteInfo();
+  }, [watchedValues.originYardId, watchedValues.destinationLocationId, watchedValues.truckType, isCalculatingRoute, lastCalculatedKey]);
 
   const { data: routes = [], isLoading: loadingRoutes } = useQuery<RouteWithRelations[]>({
     queryKey: ["/api/routes"],
@@ -316,6 +383,7 @@ export default function RouteManagementPage() {
 
   const handleEdit = (route: RouteWithRelations) => {
     setEditingRoute(route);
+    setRouteCalculated(true); // Already has values, don't auto-fetch
     form.reset({
       name: route.name,
       originYardId: route.originYardId,
@@ -338,6 +406,8 @@ export default function RouteManagementPage() {
 
   const handleNewRoute = () => {
     setEditingRoute(null);
+    setRouteCalculated(false);
+    setLastCalculatedKey("");
     form.reset();
     setIsDialogOpen(true);
   };
@@ -350,7 +420,14 @@ export default function RouteManagementPage() {
           <p className="text-muted-foreground">
             Cadastre rotas e calcule automaticamente a viabilidade financeira
           </p>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) {
+                setRouteCalculated(false);
+                setLastCalculatedKey("");
+                setEditingRoute(null);
+              }
+            }}>
             <DialogTrigger asChild>
               <Button onClick={handleNewRoute} data-testid="button-new-route">
                 <Plus className="h-4 w-4 mr-2" />
@@ -452,10 +529,14 @@ export default function RouteManagementPage() {
                             name="distanceKm"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Distância (km)</FormLabel>
+                                <FormLabel className="flex items-center gap-2">
+                                  Distância (km)
+                                  {isCalculatingRoute && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                                </FormLabel>
                                 <FormControl>
                                   <Input type="number" step="0.01" placeholder="0" {...field} data-testid="input-distance" />
                                 </FormControl>
+                                <p className="text-xs text-muted-foreground">Calculado automaticamente ou edite manualmente</p>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -489,10 +570,14 @@ export default function RouteManagementPage() {
                             name="tollCost"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Pedágios (R$)</FormLabel>
+                                <FormLabel className="flex items-center gap-2">
+                                  Pedágios (R$)
+                                  {isCalculatingRoute && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                                </FormLabel>
                                 <FormControl>
                                   <Input type="number" step="0.01" placeholder="0,00" {...field} data-testid="input-toll" />
                                 </FormControl>
+                                <p className="text-xs text-muted-foreground">Calculado automaticamente ou edite manualmente</p>
                                 <FormMessage />
                               </FormItem>
                             )}
