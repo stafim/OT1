@@ -635,7 +635,11 @@ export default function FinanceiroPage() {
                     </div>
                     <div className="text-center p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
                       <p className="text-xs text-muted-foreground">Total Despesas</p>
-                      <p className="font-bold text-green-600">{formatCurrency(selectedSettlement.totalExpenses)}</p>
+                      <p className="font-bold text-green-600">
+                        {formatCurrency(
+                          (selectedSettlement.items?.reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0) || 0).toString()
+                        )}
+                      </p>
                     </div>
                   </div>
                   
