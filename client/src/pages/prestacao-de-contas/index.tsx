@@ -619,32 +619,74 @@ export default function FinanceiroPage() {
                     Resumo Financeiro
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-3 bg-muted rounded-lg">
-                      <p className="text-xs text-muted-foreground">Distância</p>
-                      <p className="font-bold">{selectedSettlement.routeDistance || "-"}</p>
+                <CardContent className="space-y-4">
+                  <div className="text-center p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground">Distância</p>
+                    <p className="font-bold">{selectedSettlement.routeDistance || "-"}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Despesas Previstas</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <p className="text-xs text-muted-foreground">Pedágios</p>
+                        <p className="font-bold text-blue-600">{formatCurrency(selectedSettlement.estimatedTolls)}</p>
+                      </div>
+                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <p className="text-xs text-muted-foreground">Combustível</p>
+                        <p className="font-bold text-blue-600">{formatCurrency(selectedSettlement.estimatedFuel)}</p>
+                      </div>
+                      <div className="text-center p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-300 dark:border-blue-700">
+                        <p className="text-xs text-muted-foreground">Total Previsto</p>
+                        <p className="font-bold text-blue-700">
+                          {formatCurrency(
+                            (parseFloat(selectedSettlement.estimatedTolls || "0") + parseFloat(selectedSettlement.estimatedFuel || "0")).toString()
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-center p-3 bg-muted rounded-lg">
-                      <p className="text-xs text-muted-foreground">Pedágios (Est.)</p>
-                      <p className="font-bold">{formatCurrency(selectedSettlement.estimatedTolls)}</p>
-                    </div>
-                    <div className="text-center p-3 bg-muted rounded-lg">
-                      <p className="text-xs text-muted-foreground">Combustível (Est.)</p>
-                      <p className="font-bold">{formatCurrency(selectedSettlement.estimatedFuel)}</p>
-                    </div>
-                    <div className="text-center p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                      <p className="text-xs text-muted-foreground">Total Despesas</p>
-                      <p className="font-bold text-green-600">
-                        {formatCurrency(
-                          (selectedSettlement.items?.reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0) || 0).toString()
-                        )}
-                      </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Despesas Realizadas</p>
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <p className="text-xs text-muted-foreground">Pedágios</p>
+                        <p className="font-bold text-green-600">
+                          {formatCurrency(
+                            (selectedSettlement.items?.filter(i => i.type === "pedagio").reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0) || 0).toString()
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <p className="text-xs text-muted-foreground">Combustível</p>
+                        <p className="font-bold text-green-600">
+                          {formatCurrency(
+                            (selectedSettlement.items?.filter(i => i.type === "combustivel").reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0) || 0).toString()
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <p className="text-xs text-muted-foreground">Outras</p>
+                        <p className="font-bold text-green-600">
+                          {formatCurrency(
+                            (selectedSettlement.items?.filter(i => !["pedagio", "combustivel"].includes(i.type || "")).reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0) || 0).toString()
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-center p-3 bg-green-100 dark:bg-green-900/30 rounded-lg border border-green-300 dark:border-green-700">
+                        <p className="text-xs text-muted-foreground">Total Realizado</p>
+                        <p className="font-bold text-green-700">
+                          {formatCurrency(
+                            (selectedSettlement.items?.reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0) || 0).toString()
+                          )}
+                        </p>
+                      </div>
                     </div>
                   </div>
                   
                   {selectedSettlement.driverNotes && (
-                    <div className="mt-4 p-3 bg-muted rounded-lg">
+                    <div className="p-3 bg-muted rounded-lg">
                       <p className="text-xs text-muted-foreground mb-1">Observações do Motorista:</p>
                       <p className="text-sm">{selectedSettlement.driverNotes}</p>
                     </div>
