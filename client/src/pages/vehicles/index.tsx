@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Pencil, Trash2, History, User, Clock, Truck, Building2, Navigation, Camera, Car, Gauge, AlertTriangle, Download, FileText, Paperclip, Calendar, MapPin, Loader2, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, History, User, Clock, Truck, Building2, Navigation, Camera, Car, Gauge, AlertTriangle, Download, FileText, Paperclip, Calendar, MapPin, Loader2, Check, ChevronsUpDown, Receipt, Fuel } from "lucide-react";
 import { VehicleFormDialog } from "./form-dialog";
 import * as XLSX from "xlsx";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -85,6 +85,16 @@ export default function VehiclesPage() {
   const [transportDocuments, setTransportDocuments] = useState<string[]>([]);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
+  const [loadingRoute, setLoadingRoute] = useState(false);
+  const [routeSummary, setRouteSummary] = useState<{
+    distance: { value: number; text: string };
+    duration: { value: number; text: string };
+    durationInTraffic?: { value: number; text: string };
+    originAddress: string;
+    destinationAddress: string;
+    tollCost?: { amount: string };
+    fuelCost: number;
+  } | null>(null);
   const { uploadFile } = useUpload();
 
   const { data: chassiHistory, isLoading: isLoadingHistory } = useQuery<CollectWithRelations[]>({
@@ -193,7 +203,56 @@ export default function VehiclesPage() {
     setTransportDeliveryDate("");
     setTransportNotes("");
     setTransportDocuments([]);
+    setRouteSummary(null);
   };
+
+  // Calculate route when origin yard and delivery location are selected
+  useEffect(() => {
+    const fetchRouteSummary = async () => {
+      const originYardId = transportVehicle?.yardId;
+      const deliveryLocationId = transportDeliveryLocationId;
+
+      if (!originYardId || !deliveryLocationId) {
+        setRouteSummary(null);
+        return;
+      }
+
+      const originYard = yards?.find(y => y.id === originYardId);
+      const destLocation = transportLocations?.find(l => l.id === deliveryLocationId);
+
+      if (!originYard?.latitude || !originYard?.longitude || !destLocation?.latitude || !destLocation?.longitude) {
+        setRouteSummary(null);
+        return;
+      }
+
+      setLoadingRoute(true);
+      try {
+        const response = await apiRequest("POST", "/api/routing/calculate", {
+          origin: { lat: parseFloat(originYard.latitude), lng: parseFloat(originYard.longitude) },
+          destination: { lat: parseFloat(destLocation.latitude), lng: parseFloat(destLocation.longitude) },
+        });
+
+        const data = await response.json();
+        
+        const distanceKm = data.distance.value / 1000;
+        const litersNeeded = distanceKm / 4;
+        const fuelPricePerLiter = 6.50;
+        const fuelCost = litersNeeded * fuelPricePerLiter;
+
+        setRouteSummary({
+          ...data,
+          fuelCost,
+        });
+      } catch (error) {
+        console.error("Error fetching route:", error);
+        setRouteSummary(null);
+      } finally {
+        setLoadingRoute(false);
+      }
+    };
+
+    fetchRouteSummary();
+  }, [transportVehicle?.yardId, transportDeliveryLocationId, yards, transportLocations]);
 
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -859,6 +918,92 @@ export default function VehiclesPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Route Summary Card */}
+              {(loadingRoute || routeSummary) && (
+                <Card className="bg-muted/50">
+                  <CardHeader className="py-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Navigation className="h-4 w-4" />
+                      Resumo da Viagem
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="py-2">
+                    {loadingRoute ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-sm text-muted-foreground">Calculando rota...</span>
+                      </div>
+                    ) : routeSummary ? (
+                      <div className="space-y-3">
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-start gap-2 p-2 bg-background rounded">
+                            <MapPin className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs text-muted-foreground">Origem</p>
+                              <p className="font-medium break-words" title={routeSummary.originAddress}>
+                                {routeSummary.originAddress}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2 p-2 bg-background rounded">
+                            <MapPin className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs text-muted-foreground">Destino</p>
+                              <p className="font-medium break-words" title={routeSummary.destinationAddress}>
+                                {routeSummary.destinationAddress}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+                          <div className="text-center p-2 bg-background rounded">
+                            <p className="text-xs text-muted-foreground">Distância</p>
+                            <p className="font-semibold text-primary">{routeSummary.distance.text}</p>
+                          </div>
+                          <div className="text-center p-2 bg-background rounded">
+                            <p className="text-xs text-muted-foreground">Tempo Estimado</p>
+                            <p className="font-semibold text-primary">{routeSummary.duration.text}</p>
+                          </div>
+                          <div className="text-center p-2 bg-background rounded">
+                            <div className="flex items-center justify-center gap-1 mb-1">
+                              <Receipt className="h-3 w-3 text-orange-500" />
+                            </div>
+                            <p className="text-xs text-muted-foreground">Pedágios</p>
+                            <p className="font-semibold text-orange-600">
+                              {routeSummary.tollCost 
+                                ? `R$ ${parseFloat(routeSummary.tollCost.amount).toFixed(2)}`
+                                : "Sem pedágios"}
+                            </p>
+                          </div>
+                          <div className="text-center p-2 bg-background rounded">
+                            <div className="flex items-center justify-center gap-1 mb-1">
+                              <Fuel className="h-3 w-3 text-blue-500" />
+                            </div>
+                            <p className="text-xs text-muted-foreground">Combustível (4km/L)</p>
+                            <p className="font-semibold text-blue-600">
+                              R$ {routeSummary.fuelCost.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t">
+                          <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                            <span className="font-medium">Custo Total Estimado:</span>
+                            <span className="font-bold text-xl text-primary">
+                              R$ {(routeSummary.fuelCost + (routeSummary.tollCost ? parseFloat(routeSummary.tollCost.amount) : 0)).toFixed(2)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            * Baseado em consumo de 4 km/litro e diesel a R$ 6,50/litro
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="space-y-2">
                 <Label>Motorista (opcional)</Label>
