@@ -127,7 +127,6 @@ export default function FinanceiroPage() {
         driverId: data.driverId,
         driverNotes: data.driverNotes,
         status: "enviado",
-        submittedAt: new Date().toISOString(),
       });
       const settlementData = await settlement.json();
       

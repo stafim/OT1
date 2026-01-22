@@ -1596,7 +1596,13 @@ export async function registerRoutes(
       if (existingForTransport) {
         return res.status(400).json({ message: "Já existe uma prestação de contas para este transporte" });
       }
-      const settlement = await storage.createExpenseSettlement(req.body);
+      
+      const settlementData = {
+        ...req.body,
+        submittedAt: req.body.status === "enviado" ? new Date() : undefined,
+      };
+      
+      const settlement = await storage.createExpenseSettlement(settlementData);
       res.status(201).json(settlement);
     } catch (error) {
       console.error("Error creating expense settlement:", error);
