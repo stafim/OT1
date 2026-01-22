@@ -1590,6 +1590,12 @@ export async function registerRoutes(
 
   app.post("/api/expense-settlements", async (req, res) => {
     try {
+      // Check if there's already a settlement for this transport
+      const existingSettlements = await storage.getExpenseSettlements();
+      const existingForTransport = existingSettlements.find(s => s.transportId === req.body.transportId);
+      if (existingForTransport) {
+        return res.status(400).json({ message: "Já existe uma prestação de contas para este transporte" });
+      }
       const settlement = await storage.createExpenseSettlement(req.body);
       res.status(201).json(settlement);
     } catch (error) {
