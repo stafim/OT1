@@ -32,6 +32,8 @@ import {
   transportCheckpoints,
   driverEvaluations,
   insertDriverEvaluationSchema,
+  expenseSettlements,
+  expenseSettlementItems,
   type FeatureKey,
 } from "@shared/schema";
 import { db } from "./db";
