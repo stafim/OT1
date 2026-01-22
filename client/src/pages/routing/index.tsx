@@ -297,9 +297,9 @@ export default function RoutingPage() {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b">
         <div>
-          <h1 className="text-2xl font-bold">Roteirização</h1>
+          <h1 className="text-2xl font-bold">Rotograma</h1>
           <p className="text-sm text-muted-foreground">
-            Calcule rotas entre pátios e locais de entrega com pontos intermediários
+            Planeje rotas entre pátios e locais de entrega com pontos intermediários
           </p>
         </div>
       </div>

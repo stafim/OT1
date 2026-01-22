@@ -50,6 +50,11 @@ const operationItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
+    title: "Rotograma",
+    url: "/rotograma",
+    icon: Route,
+  },
+  {
     title: "Tráfego Agora",
     url: "/trafego-agora",
     icon: Radio,
@@ -73,11 +78,6 @@ const operationItems: MenuItem[] = [
     title: "Portaria",
     url: "/portaria",
     icon: DoorOpen,
-  },
-  {
-    title: "Roteirização",
-    url: "/roteirizacao",
-    icon: Route,
   },
 ];
 

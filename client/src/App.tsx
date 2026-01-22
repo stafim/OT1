@@ -65,7 +65,7 @@ function AuthenticatedRouter() {
       <Route path="/localizar-motorista" component={DriverLocationPage} />
       <Route path="/trafego-agora" component={TrafficPage} />
       <Route path="/portaria" component={PortariaPage} />
-      <Route path="/roteirizacao" component={RoutingPage} />
+      <Route path="/rotograma" component={RoutingPage} />
       <Route path="/prestacao-de-contas" component={PrestacaoDeContasPage} />
       <Route path="/usuarios" component={UsersPage} />
       <Route path="/usuarios/:id" component={UserFormPage} />
