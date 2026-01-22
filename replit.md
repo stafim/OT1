@@ -100,3 +100,11 @@ Status enums for workflow tracking:
   - Removed old "body photos" field in favor of individual photo fields
   - Updated transport form with organized photo sections matching collects form
   - Added `checkinFuelLevelPhoto` and `checkoutFuelLevelPhoto` fields to transports schema
+
+### January 22, 2026
+- **Check Points Feature**: Added checkpoint management for route monitoring
+  - Created `checkpoints` table in database schema with: name, address, city, state, latitude, longitude
+  - Implemented full CRUD API endpoints for checkpoints
+  - Created Check Points page (`/checkpoints`) with Google Maps integration
+  - Features include: map click to select location, address autocomplete, reverse geocoding
+  - Google Maps API key stored in environment variable (`VITE_GOOGLE_MAPS_API_KEY`)
