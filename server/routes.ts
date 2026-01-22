@@ -976,6 +976,47 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/transports/with-checkpoints", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const transportsList = await db.select().from(transports);
+      const transportsWithDetails = await Promise.all(
+        transportsList.map(async (transport) => {
+          const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.chassi, transport.vehicleChassi));
+          const [client] = await db.select().from(clients).where(eq(clients.id, transport.clientId));
+          const [originYard] = await db.select().from(yards).where(eq(yards.id, transport.originYardId));
+          const [deliveryLocation] = await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, transport.deliveryLocationId));
+          const [driver] = transport.driverId
+            ? await db.select().from(drivers).where(eq(drivers.id, transport.driverId))
+            : [null];
+          
+          const transportCps = await db.select().from(transportCheckpoints)
+            .where(eq(transportCheckpoints.transportId, transport.id));
+          
+          const cpsWithDetails = await Promise.all(
+            transportCps.map(async (tcp) => {
+              const [checkpoint] = await db.select().from(checkpoints).where(eq(checkpoints.id, tcp.checkpointId));
+              return { ...tcp, checkpoint };
+            })
+          );
+
+          return {
+            ...transport,
+            vehicle,
+            client,
+            originYard,
+            deliveryLocation,
+            driver,
+            checkpoints: cpsWithDetails,
+          };
+        })
+      );
+      res.json(transportsWithDetails);
+    } catch (error) {
+      console.error("Error fetching transports with checkpoints:", error);
+      res.status(500).json({ message: "Failed to fetch transports with checkpoints" });
+    }
+  });
+
   app.get("/api/transports/:id", isAuthenticatedJWT, async (req, res) => {
     try {
       const transport = await storage.getTransport(req.params.id);
@@ -1989,47 +2030,6 @@ export async function registerRoutes(
   });
 
   // Transport Checkpoints - Timeline
-  app.get("/api/transports/with-checkpoints", isAuthenticatedJWT, async (req, res) => {
-    try {
-      const transportsList = await db.select().from(transports);
-      const transportsWithDetails = await Promise.all(
-        transportsList.map(async (transport) => {
-          const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.chassi, transport.vehicleChassi));
-          const [client] = await db.select().from(clients).where(eq(clients.id, transport.clientId));
-          const [originYard] = await db.select().from(yards).where(eq(yards.id, transport.originYardId));
-          const [deliveryLocation] = await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, transport.deliveryLocationId));
-          const [driver] = transport.driverId
-            ? await db.select().from(drivers).where(eq(drivers.id, transport.driverId))
-            : [null];
-          
-          const transportCps = await db.select().from(transportCheckpoints)
-            .where(eq(transportCheckpoints.transportId, transport.id));
-          
-          const cpsWithDetails = await Promise.all(
-            transportCps.map(async (tcp) => {
-              const [checkpoint] = await db.select().from(checkpoints).where(eq(checkpoints.id, tcp.checkpointId));
-              return { ...tcp, checkpoint };
-            })
-          );
-
-          return {
-            ...transport,
-            vehicle,
-            client,
-            originYard,
-            deliveryLocation,
-            driver,
-            checkpoints: cpsWithDetails,
-          };
-        })
-      );
-      res.json(transportsWithDetails);
-    } catch (error) {
-      console.error("Error fetching transports with checkpoints:", error);
-      res.status(500).json({ message: "Failed to fetch transports with checkpoints" });
-    }
-  });
-
   app.post("/api/transports/:id/checkpoints", isAuthenticatedJWT, async (req, res) => {
     try {
       const transportId = req.params.id;
