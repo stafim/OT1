@@ -30,6 +30,7 @@ import {
   Receipt,
   ClipboardCheck,
   FileBarChart,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -85,6 +86,11 @@ const operationItems: MenuItem[] = [
     title: "Avaliação",
     url: "/avaliacao",
     icon: ClipboardCheck,
+  },
+  {
+    title: "Controle de Multas",
+    url: "/controle-multas",
+    icon: AlertTriangle,
   },
 ];
 

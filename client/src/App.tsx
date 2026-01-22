@@ -45,6 +45,7 @@ import RoutingPage from "@/pages/routing/index";
 import PrestacaoDeContasPage from "@/pages/prestacao-de-contas/index";
 import EvaluationPage from "@/pages/evaluation/index";
 import YardReportPage from "@/pages/yard-report/index";
+import FinesControlPage from "@/pages/fines-control/index";
 
 function AuthenticatedRouter() {
   return (
@@ -68,6 +69,7 @@ function AuthenticatedRouter() {
       <Route path="/trafego-agora" component={TrafficPage} />
       <Route path="/portaria" component={PortariaPage} />
       <Route path="/avaliacao" component={EvaluationPage} />
+      <Route path="/controle-multas" component={FinesControlPage} />
       <Route path="/rotograma" component={RoutingPage} />
       <Route path="/prestacao-de-contas" component={PrestacaoDeContasPage} />
       <Route path="/relatorio-patio" component={YardReportPage} />
