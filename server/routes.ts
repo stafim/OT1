@@ -30,6 +30,8 @@ import {
   vehicles,
   checkpoints,
   transportCheckpoints,
+  driverEvaluations,
+  insertDriverEvaluationSchema,
   type FeatureKey,
 } from "@shared/schema";
 import { db } from "./db";
@@ -2074,6 +2076,170 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating transport checkpoint:", error);
       res.status(500).json({ message: "Failed to update transport checkpoint" });
+    }
+  });
+
+  // ============== DRIVER EVALUATIONS ==============
+  
+  const ratingToNumber = (rating: string): number => {
+    const map: Record<string, number> = {
+      pessimo: 1,
+      ruim: 2,
+      regular: 3,
+      bom: 4,
+      excelente: 5,
+    };
+    return map[rating] || 3;
+  };
+
+  app.get("/api/driver-evaluations/pending-transports", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const allTransports = await db.select().from(transports)
+        .where(eq(transports.status, "entregue"));
+      
+      const existingEvaluations = await db.select({ transportId: driverEvaluations.transportId }).from(driverEvaluations);
+      const evaluatedIds = new Set(existingEvaluations.map(e => e.transportId));
+      
+      const pendingTransports = allTransports.filter(t => !evaluatedIds.has(t.id));
+      
+      const transportsWithDetails = await Promise.all(
+        pendingTransports.map(async (transport) => {
+          const vehicle = transport.vehicleChassi 
+            ? await db.select().from(vehicles).where(eq(vehicles.chassi, transport.vehicleChassi)).then(r => r[0])
+            : null;
+          const driver = transport.driverId
+            ? await db.select().from(drivers).where(eq(drivers.id, transport.driverId)).then(r => r[0])
+            : null;
+          const client = transport.clientId
+            ? await db.select().from(clients).where(eq(clients.id, transport.clientId)).then(r => r[0])
+            : null;
+          const deliveryLoc = transport.deliveryLocationId
+            ? await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, transport.deliveryLocationId)).then(r => r[0])
+            : null;
+          
+          return {
+            ...transport,
+            vehicle,
+            driver,
+            client,
+            deliveryLocation: deliveryLoc,
+          };
+        })
+      );
+      
+      res.json(transportsWithDetails);
+    } catch (error) {
+      console.error("Error fetching pending transports for evaluation:", error);
+      res.status(500).json({ message: "Failed to fetch pending transports" });
+    }
+  });
+
+  app.get("/api/driver-evaluations", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const evaluations = await db.select().from(driverEvaluations);
+      
+      const evaluationsWithDetails = await Promise.all(
+        evaluations.map(async (evaluation) => {
+          const driver = await db.select().from(drivers).where(eq(drivers.id, evaluation.driverId)).then(r => r[0]);
+          const transport = await db.select().from(transports).where(eq(transports.id, evaluation.transportId)).then(r => r[0]);
+          return { ...evaluation, driver, transport };
+        })
+      );
+      
+      res.json(evaluationsWithDetails);
+    } catch (error) {
+      console.error("Error fetching evaluations:", error);
+      res.status(500).json({ message: "Failed to fetch evaluations" });
+    }
+  });
+
+  app.get("/api/driver-evaluations/driver/:driverId/average", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const evaluations = await db.select().from(driverEvaluations)
+        .where(eq(driverEvaluations.driverId, req.params.driverId));
+      
+      if (evaluations.length === 0) {
+        return res.json({ average: null, count: 0, evaluations: [] });
+      }
+      
+      const totalScore = evaluations.reduce((acc, e) => acc + parseFloat(e.averageScore || "0"), 0);
+      const average = totalScore / evaluations.length;
+      
+      res.json({ 
+        average: average.toFixed(2), 
+        count: evaluations.length,
+        evaluations 
+      });
+    } catch (error) {
+      console.error("Error fetching driver average:", error);
+      res.status(500).json({ message: "Failed to fetch driver average" });
+    }
+  });
+
+  app.post("/api/driver-evaluations", isAuthenticatedJWT, async (req: any, res) => {
+    try {
+      const data = insertDriverEvaluationSchema.parse(req.body);
+      
+      const scores = [
+        ratingToNumber(data.posturaProfissional),
+        ratingToNumber(data.pontualidade),
+        ratingToNumber(data.apresentacaoPessoal),
+        ratingToNumber(data.cordialidade),
+        ratingToNumber(data.cumpriuProcesso),
+      ];
+      const averageScore = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2);
+      
+      const [evaluation] = await db.insert(driverEvaluations)
+        .values({ ...data, averageScore })
+        .returning();
+      
+      res.status(201).json(evaluation);
+    } catch (error) {
+      console.error("Error creating evaluation:", error);
+      res.status(500).json({ message: "Failed to create evaluation" });
+    }
+  });
+
+  app.get("/api/drivers/:id/evaluation-summary", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const evaluations = await db.select().from(driverEvaluations)
+        .where(eq(driverEvaluations.driverId, req.params.id));
+      
+      if (evaluations.length === 0) {
+        return res.json({
+          totalEvaluations: 0,
+          averageScore: null,
+          categories: {
+            posturaProfissional: null,
+            pontualidade: null,
+            apresentacaoPessoal: null,
+            cordialidade: null,
+            cumpriuProcesso: null,
+          },
+          incidentCount: 0,
+        });
+      }
+      
+      const categoryAverages = {
+        posturaProfissional: evaluations.reduce((acc, e) => acc + ratingToNumber(e.posturaProfissional), 0) / evaluations.length,
+        pontualidade: evaluations.reduce((acc, e) => acc + ratingToNumber(e.pontualidade), 0) / evaluations.length,
+        apresentacaoPessoal: evaluations.reduce((acc, e) => acc + ratingToNumber(e.apresentacaoPessoal), 0) / evaluations.length,
+        cordialidade: evaluations.reduce((acc, e) => acc + ratingToNumber(e.cordialidade), 0) / evaluations.length,
+        cumpriuProcesso: evaluations.reduce((acc, e) => acc + ratingToNumber(e.cumpriuProcesso), 0) / evaluations.length,
+      };
+      
+      const overallAverage = Object.values(categoryAverages).reduce((a, b) => a + b, 0) / 5;
+      const incidentCount = evaluations.filter(e => e.hadIncident === "true").length;
+      
+      res.json({
+        totalEvaluations: evaluations.length,
+        averageScore: overallAverage.toFixed(2),
+        categories: categoryAverages,
+        incidentCount,
+      });
+    } catch (error) {
+      console.error("Error fetching driver summary:", error);
+      res.status(500).json({ message: "Failed to fetch driver summary" });
     }
   });
 

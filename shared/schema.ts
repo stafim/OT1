@@ -800,3 +800,52 @@ export const insertTransportCheckpointSchema = createInsertSchema(transportCheck
 
 export type InsertTransportCheckpoint = z.infer<typeof insertTransportCheckpointSchema>;
 export type TransportCheckpoint = typeof transportCheckpoints.$inferSelect;
+
+// ============== AVALIAÇÕES DE MOTORISTAS (Driver Evaluations) ==============
+export const ratingValueEnum = pgEnum("rating_value", [
+  "pessimo",
+  "ruim",
+  "regular",
+  "bom",
+  "excelente"
+]);
+
+export const driverEvaluations = pgTable("driver_evaluations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transportId: varchar("transport_id").notNull().references(() => transports.id),
+  driverId: varchar("driver_id").notNull().references(() => drivers.id),
+  evaluatorId: varchar("evaluator_id").notNull(),
+  evaluatorName: text("evaluator_name").notNull(),
+  
+  posturaProfissional: ratingValueEnum("postura_profissional").notNull(),
+  pontualidade: ratingValueEnum("pontualidade").notNull(),
+  apresentacaoPessoal: ratingValueEnum("apresentacao_pessoal").notNull(),
+  cordialidade: ratingValueEnum("cordialidade").notNull(),
+  cumpriuProcesso: ratingValueEnum("cumpriu_processo").notNull(),
+  
+  hadIncident: text("had_incident").default("false"),
+  incidentDescription: text("incident_description"),
+  
+  averageScore: numeric("average_score", { precision: 3, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const driverEvaluationsRelations = relations(driverEvaluations, ({ one }) => ({
+  transport: one(transports, {
+    fields: [driverEvaluations.transportId],
+    references: [transports.id],
+  }),
+  driver: one(drivers, {
+    fields: [driverEvaluations.driverId],
+    references: [drivers.id],
+  }),
+}));
+
+export const insertDriverEvaluationSchema = createInsertSchema(driverEvaluations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDriverEvaluation = z.infer<typeof insertDriverEvaluationSchema>;
+export type DriverEvaluation = typeof driverEvaluations.$inferSelect;
