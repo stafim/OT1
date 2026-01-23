@@ -44,6 +44,29 @@ export default function TrafficPage() {
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleMarker | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [mapsLoaded, setMapsLoaded] = useState(false);
+
+  const { data: apiKeyData } = useQuery<{ apiKey: string }>({
+    queryKey: ["/api/integrations/google-maps/api-key"],
+  });
+
+  useEffect(() => {
+    if (!apiKeyData?.apiKey) return;
+
+    const existingScript = document.getElementById("google-maps-script");
+    if (existingScript || (window.google && window.google.maps)) {
+      setMapsLoaded(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "google-maps-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKeyData.apiKey}&libraries=places,marker`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setMapsLoaded(true);
+    document.head.appendChild(script);
+  }, [apiKeyData]);
 
   const { data: transports, isLoading: loadingTransports, refetch: refetchTransports } = useQuery<TransportWithRelations[]>({
     queryKey: ["/api/transports"],
@@ -133,7 +156,7 @@ export default function TrafficPage() {
   );
 
   useEffect(() => {
-    if (!mapRef.current || !window.google) return;
+    if (!mapRef.current || !mapsLoaded || !window.google) return;
 
     const initMap = async () => {
       const { Map } = await google.maps.importLibrary("maps") as google.maps.MapsLibrary;
@@ -202,7 +225,7 @@ export default function TrafficPage() {
     };
 
     initMap();
-  }, [markersKey]);
+  }, [markersKey, mapsLoaded]);
 
   const isLoading = loadingTransports || loadingCollects;
 
