@@ -5,3 +5,4 @@
 [x] 5. Create default admin user (admin / admin123)
 [x] 6. Fixed tsx missing dependency and verified workflow is running
 [x] 7. Cadastro de 10 motoristas com dados brasileiros completos
+[x] 8. Verificação do bucket de armazenamento de imagens (Object Storage já configurado)
