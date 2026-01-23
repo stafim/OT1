@@ -35,7 +35,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
 const BRAZILIAN_STATES = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
@@ -66,6 +65,11 @@ function CheckpointFormDialog({
   const markerRef = useRef<google.maps.Marker | null>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [mapsLoaded, setMapsLoaded] = useState(false);
+
+  const { data: apiKeyData } = useQuery<{ apiKey: string }>({
+    queryKey: ["/api/integrations/google-maps/api-key"],
+  });
 
   const [formData, setFormData] = useState<CheckpointFormData>({
     name: "",
@@ -258,11 +262,11 @@ function CheckpointFormDialog({
   };
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !apiKeyData?.apiKey) return;
 
     const loadGoogleMapsScript = () => {
       if (window.google) {
-        setTimeout(initMap, 100);
+        setMapsLoaded(true);
         return;
       }
 
@@ -270,20 +274,26 @@ function CheckpointFormDialog({
         `script[src*="maps.googleapis.com"]`
       );
       if (existingScript) {
-        existingScript.addEventListener("load", () => setTimeout(initMap, 100));
+        existingScript.addEventListener("load", () => setMapsLoaded(true));
         return;
       }
 
       const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKeyData.apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
-      script.onload = () => setTimeout(initMap, 100);
+      script.onload = () => setMapsLoaded(true);
       document.head.appendChild(script);
     };
 
     loadGoogleMapsScript();
-  }, [open, initMap]);
+  }, [open, apiKeyData?.apiKey]);
+
+  useEffect(() => {
+    if (mapsLoaded && open) {
+      setTimeout(initMap, 100);
+    }
+  }, [mapsLoaded, open, initMap]);
 
   const handleSubmit = () => {
     if (!formData.name.trim()) {
