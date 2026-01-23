@@ -95,17 +95,27 @@ export default function FinanceiroPage() {
   interface ExpenseItemDraft {
     id: string;
     type: string;
+    currency: string;
     amount: string;
     photoUrl: string;
     description: string;
   }
+  
+  const currencyConfig: Record<string, { label: string; country: string; symbol: string }> = {
+    BRL: { label: "Real Brasileiro", country: "Brasil", symbol: "R$" },
+    ARS: { label: "Peso Argentino", country: "Argentina", symbol: "$" },
+    CLP: { label: "Peso Chileno", country: "Chile", symbol: "$" },
+    PEN: { label: "Sol Peruano", country: "Peru", symbol: "S/" },
+    UYU: { label: "Peso Uruguayo", country: "Uruguay", symbol: "$U" },
+  };
+  
   const [newSettlement, setNewSettlement] = useState<{
     transportId: string;
     driverId: string;
     driverNotes: string;
     items: ExpenseItemDraft[];
   }>({ transportId: "", driverId: "", driverNotes: "", items: [] });
-  const [newItem, setNewItem] = useState({ type: "", amount: "", photoUrl: "", description: "" });
+  const [newItem, setNewItem] = useState({ type: "", currency: "BRL", amount: "", photoUrl: "", description: "" });
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [uploadingItemIndex, setUploadingItemIndex] = useState<number | null>(null);
 
@@ -136,6 +146,7 @@ export default function FinanceiroPage() {
       for (const item of data.items) {
         await apiRequest("POST", `/api/expense-settlements/${settlementData.id}/items`, {
           type: item.type,
+          currency: item.currency || "BRL",
           amount: item.amount,
           photoUrl: item.photoUrl,
           description: item.description,
@@ -207,9 +218,10 @@ export default function FinanceiroPage() {
   }, [updateAdvanceMutation]);
 
   const addItemMutation = useMutation({
-    mutationFn: async (data: { settlementId: string; type: string; amount: string; photoUrl: string; description: string }) => {
+    mutationFn: async (data: { settlementId: string; type: string; currency: string; amount: string; photoUrl: string; description: string }) => {
       return apiRequest("POST", `/api/expense-settlements/${data.settlementId}/items`, {
         type: data.type,
+        currency: data.currency,
         amount: data.amount,
         photoUrl: data.photoUrl,
         description: data.description,
@@ -227,7 +239,7 @@ export default function FinanceiroPage() {
       }
       toast({ title: "Despesa adicionada com sucesso!" });
       setShowAddItemDialog(false);
-      setNewItem({ type: "", amount: "", photoUrl: "", description: "" });
+      setNewItem({ type: "", currency: "BRL", amount: "", photoUrl: "", description: "" });
     },
     onError: () => {
       toast({ title: "Erro ao adicionar despesa", variant: "destructive" });
@@ -331,7 +343,7 @@ export default function FinanceiroPage() {
   const addNewSettlementItem = () => {
     setNewSettlement(prev => ({
       ...prev,
-      items: [...prev.items, { id: crypto.randomUUID(), type: "", amount: "", photoUrl: "", description: "" }],
+      items: [...prev.items, { id: crypto.randomUUID(), type: "", currency: "BRL", amount: "", photoUrl: "", description: "" }],
     }));
   };
 
@@ -360,6 +372,7 @@ export default function FinanceiroPage() {
     addItemMutation.mutate({
       settlementId: selectedSettlement.id,
       type: newItem.type,
+      currency: newItem.currency,
       amount: newItem.amount,
       photoUrl: newItem.photoUrl,
       description: newItem.description,
@@ -379,10 +392,17 @@ export default function FinanceiroPage() {
     );
   });
 
-  const formatCurrency = (value: string | null) => {
-    if (!value) return "R$ 0,00";
+  const formatCurrency = (value: string | null, currency: string = "BRL") => {
+    if (!value) return currencyConfig[currency]?.symbol + " 0,00" || "R$ 0,00";
     const num = parseFloat(value);
-    return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const locales: Record<string, string> = {
+      BRL: "pt-BR",
+      ARS: "es-AR",
+      CLP: "es-CL",
+      PEN: "es-PE",
+      UYU: "es-UY",
+    };
+    return num.toLocaleString(locales[currency] || "pt-BR", { style: "currency", currency: currency });
   };
 
   const openDetails = (settlement: ExpenseSettlementWithRelations) => {
@@ -1085,7 +1105,10 @@ export default function FinanceiroPage() {
                                 </Button>
                               </div>
                               <p className="font-bold text-green-600">
-                                {formatCurrency(item.amount)}
+                                {formatCurrency(item.amount, item.currency || "BRL")}
+                                {item.currency && item.currency !== "BRL" && (
+                                  <span className="text-xs text-muted-foreground ml-1">({item.currency})</span>
+                                )}
                               </p>
                               {item.description && (
                                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -1361,7 +1384,26 @@ export default function FinanceiroPage() {
                           )}
                         </div>
 
-                        <div className="flex-1 grid grid-cols-2 gap-3">
+                        <div className="flex-1 grid grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">País/Moeda *</Label>
+                            <Select 
+                              value={item.currency || "BRL"} 
+                              onValueChange={(value) => updateNewSettlementItem(index, "currency", value)}
+                            >
+                              <SelectTrigger className="h-9" data-testid={`select-currency-${index}`}>
+                                <SelectValue placeholder="Moeda" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(currencyConfig).map(([code, config]) => (
+                                  <SelectItem key={code} value={code}>
+                                    <span>{config.country}</span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
                           <div className="space-y-1">
                             <Label className="text-xs">Tipo *</Label>
                             <Select 
@@ -1385,7 +1427,7 @@ export default function FinanceiroPage() {
                           </div>
 
                           <div className="space-y-1">
-                            <Label className="text-xs">Valor (R$) *</Label>
+                            <Label className="text-xs">Valor ({currencyConfig[item.currency || "BRL"]?.symbol || "R$"}) *</Label>
                             <Input
                               type="number"
                               step="0.01"
@@ -1398,7 +1440,7 @@ export default function FinanceiroPage() {
                             />
                           </div>
 
-                          <div className="col-span-2 space-y-1">
+                          <div className="col-span-3 space-y-1">
                             <Label className="text-xs">Observação</Label>
                             <Input
                               placeholder="Descrição da despesa..."
@@ -1540,6 +1582,28 @@ export default function FinanceiroPage() {
             </div>
 
             <div className="space-y-2">
+              <Label>País / Moeda *</Label>
+              <Select 
+                value={newItem.currency} 
+                onValueChange={(value) => setNewItem(prev => ({ ...prev, currency: value }))}
+              >
+                <SelectTrigger data-testid="select-expense-currency">
+                  <SelectValue placeholder="Selecione o país/moeda" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(currencyConfig).map(([code, config]) => (
+                    <SelectItem key={code} value={code}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{config.country}</span>
+                        <span className="text-muted-foreground">({config.symbol})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Tipo de Despesa *</Label>
               <Select 
                 value={newItem.type} 
@@ -1562,7 +1626,7 @@ export default function FinanceiroPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Valor (R$) *</Label>
+              <Label>Valor ({currencyConfig[newItem.currency]?.symbol || "R$"}) *</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -1591,7 +1655,7 @@ export default function FinanceiroPage() {
               variant="outline" 
               onClick={() => {
                 setShowAddItemDialog(false);
-                setNewItem({ type: "", amount: "", photoUrl: "", description: "" });
+                setNewItem({ type: "", currency: "BRL", amount: "", photoUrl: "", description: "" });
               }}
             >
               Cancelar

@@ -720,7 +720,8 @@ export const expenseSettlementItems = pgTable("expense_settlement_items", {
   settlementId: varchar("settlement_id").notNull().references(() => expenseSettlements.id),
   type: expenseTypeEnum("type").notNull(),
   description: text("description"),
-  amount: text("amount").notNull(),         // Valor em R$
+  currency: varchar("currency", { length: 10 }).notNull().default("BRL"), // BRL, ARS, CLP, PEN, UYU
+  amount: text("amount").notNull(),         // Valor na moeda selecionada
   photoUrl: text("photo_url").notNull(),    // Foto do comprovante
   
   // Status da foto (para devoluções)
