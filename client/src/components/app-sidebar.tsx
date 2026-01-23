@@ -100,6 +100,11 @@ const operationItems: MenuItem[] = [
     url: "/rotograma",
     icon: Route,
   },
+  {
+    title: "Ranking de Motoristas",
+    url: "/ranking-motoristas",
+    icon: Trophy,
+  },
 ];
 
 const financeiroItems: MenuItem[] = [
@@ -117,11 +122,6 @@ const financeiroItems: MenuItem[] = [
     title: "Relatório de Pátio",
     url: "/relatorio-patio",
     icon: FileBarChart,
-  },
-  {
-    title: "Ranking de Motoristas",
-    url: "/ranking-motoristas",
-    icon: Trophy,
   },
 ];
 
