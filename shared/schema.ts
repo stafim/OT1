@@ -166,7 +166,7 @@ export const insertYardSchema = createInsertSchema(yards).omit({
   createdAt: true,
 }).extend({
   name: z.string().min(2, "Nome é obrigatório"),
-  state: z.enum(brazilianStates).optional(),
+  state: z.enum(brazilianStates).optional().or(z.literal("")).transform(val => val === "" ? undefined : val),
 });
 
 export type InsertYard = z.infer<typeof insertYardSchema>;
