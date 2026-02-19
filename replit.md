@@ -145,3 +145,16 @@ Status enums for workflow tracking:
   - Signature line with driver name and CPF for manual signing
   - "Baixar PDF" button appears when settlement is approved
   - Uses pdfkit library for PDF generation
+
+### February 19, 2026
+- **Contract Manager (Gestor de Contratos)**: New module for driver contract management (`/contratos`)
+  - Database table `contracts` with contract number, driver link, type (PJ/CLT/Agregado), payment terms, dates
+  - Payment types: por_km, fixo_mensal, por_entrega, comissao
+  - Contract statuses: ativo, suspenso, expirado, cancelado
+  - Full CRUD API endpoints at `/api/contracts`
+  - List view with search by number/driver/plate and status filter
+  - Form dialog for creating/editing contracts with all fields
+  - Detail view dialog for reviewing contract information
+  - Added to Cadastros menu in sidebar
+- **Evaluation Criteria Page**: Added route `/criterios-avaliacao` and sidebar link for configuring evaluation criteria
+- **Evaluation System Update**: Replaced 5-star ratings with 0-100 numeric scores using configurable weighted criteria
