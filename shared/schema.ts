@@ -807,6 +807,24 @@ export const insertTransportCheckpointSchema = createInsertSchema(transportCheck
 export type InsertTransportCheckpoint = z.infer<typeof insertTransportCheckpointSchema>;
 export type TransportCheckpoint = typeof transportCheckpoints.$inferSelect;
 
+// ============== CRITÉRIOS DE AVALIAÇÃO (Evaluation Criteria) ==============
+export const evaluationCriteria = pgTable("evaluation_criteria", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  weight: numeric("weight", { precision: 5, scale: 2 }).notNull(),
+  order: integer("sort_order").default(0),
+  isActive: text("is_active").default("true"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEvaluationCriteriaSchema = createInsertSchema(evaluationCriteria).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEvaluationCriteria = z.infer<typeof insertEvaluationCriteriaSchema>;
+export type EvaluationCriteria = typeof evaluationCriteria.$inferSelect;
+
 // ============== AVALIAÇÕES DE MOTORISTAS (Driver Evaluations) ==============
 export const ratingValueEnum = pgEnum("rating_value", [
   "pessimo",
@@ -822,22 +840,43 @@ export const driverEvaluations = pgTable("driver_evaluations", {
   driverId: varchar("driver_id").notNull().references(() => drivers.id),
   evaluatorId: varchar("evaluator_id").notNull(),
   evaluatorName: text("evaluator_name").notNull(),
-  
-  posturaProfissional: ratingValueEnum("postura_profissional").notNull(),
-  pontualidade: ratingValueEnum("pontualidade").notNull(),
-  apresentacaoPessoal: ratingValueEnum("apresentacao_pessoal").notNull(),
-  cordialidade: ratingValueEnum("cordialidade").notNull(),
-  cumpriuProcesso: ratingValueEnum("cumpriu_processo").notNull(),
-  
+
+  posturaProfissional: ratingValueEnum("postura_profissional"),
+  pontualidade: ratingValueEnum("pontualidade"),
+  apresentacaoPessoal: ratingValueEnum("apresentacao_pessoal"),
+  cordialidade: ratingValueEnum("cordialidade"),
+  cumpriuProcesso: ratingValueEnum("cumpriu_processo"),
+
   hadIncident: text("had_incident").default("false"),
   incidentDescription: text("incident_description"),
-  
-  averageScore: numeric("average_score", { precision: 3, scale: 2 }),
-  
+
+  averageScore: numeric("average_score", { precision: 5, scale: 2 }),
+  weightedScore: numeric("weighted_score", { precision: 5, scale: 2 }),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const driverEvaluationsRelations = relations(driverEvaluations, ({ one }) => ({
+// ============== NOTAS POR CRITÉRIO (Evaluation Scores) ==============
+export const evaluationScores = pgTable("evaluation_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  evaluationId: varchar("evaluation_id").notNull().references(() => driverEvaluations.id),
+  criteriaId: varchar("criteria_id").notNull().references(() => evaluationCriteria.id),
+  score: numeric("score", { precision: 5, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const evaluationScoresRelations = relations(evaluationScores, ({ one }) => ({
+  evaluation: one(driverEvaluations, {
+    fields: [evaluationScores.evaluationId],
+    references: [driverEvaluations.id],
+  }),
+  criteria: one(evaluationCriteria, {
+    fields: [evaluationScores.criteriaId],
+    references: [evaluationCriteria.id],
+  }),
+}));
+
+export const driverEvaluationsRelations = relations(driverEvaluations, ({ one, many }) => ({
   transport: one(transports, {
     fields: [driverEvaluations.transportId],
     references: [transports.id],
@@ -846,6 +885,7 @@ export const driverEvaluationsRelations = relations(driverEvaluations, ({ one })
     fields: [driverEvaluations.driverId],
     references: [drivers.id],
   }),
+  scores: many(evaluationScores),
 }));
 
 export const insertDriverEvaluationSchema = createInsertSchema(driverEvaluations).omit({
@@ -853,8 +893,15 @@ export const insertDriverEvaluationSchema = createInsertSchema(driverEvaluations
   createdAt: true,
 });
 
+export const insertEvaluationScoreSchema = createInsertSchema(evaluationScores).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertDriverEvaluation = z.infer<typeof insertDriverEvaluationSchema>;
 export type DriverEvaluation = typeof driverEvaluations.$inferSelect;
+export type InsertEvaluationScore = z.infer<typeof insertEvaluationScoreSchema>;
+export type EvaluationScore = typeof evaluationScores.$inferSelect;
 
 // ============== TIPOS DE CAMINHÃO (Truck Types for Toll Calculation) ==============
 export const truckTypeEnum = pgEnum("truck_type", [

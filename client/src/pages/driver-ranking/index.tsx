@@ -66,28 +66,31 @@ function calculateAge(birthDate: string | null): number | null {
   return age;
 }
 
-function StarRating({ score }: { score: number | null }) {
+function ScoreRating({ score }: { score: number | null }) {
   if (score === null) {
     return <span className="text-xs text-muted-foreground">Sem avaliacao</span>;
   }
-  const fullStars = Math.floor(score);
-  const hasHalf = score - fullStars >= 0.5;
-  
+
+  const getColor = (s: number) => {
+    if (s >= 80) return "text-green-600";
+    if (s >= 60) return "text-yellow-600";
+    if (s >= 40) return "text-orange-600";
+    return "text-red-600";
+  };
+
+  const getBgColor = (s: number) => {
+    if (s >= 80) return "bg-green-100 dark:bg-green-900/30";
+    if (s >= 60) return "bg-yellow-100 dark:bg-yellow-900/30";
+    if (s >= 40) return "bg-orange-100 dark:bg-orange-900/30";
+    return "bg-red-100 dark:bg-red-900/30";
+  };
+
   return (
     <div className="flex items-center gap-1">
-      {[...Array(5)].map((_, i) => (
-        <Star
-          key={i}
-          className={`h-3 w-3 ${
-            i < fullStars
-              ? "text-yellow-500 fill-yellow-500"
-              : i === fullStars && hasHalf
-              ? "text-yellow-500 fill-yellow-500/50"
-              : "text-muted-foreground"
-          }`}
-        />
-      ))}
-      <span className="text-xs font-medium ml-1">{score.toFixed(1)}</span>
+      <div className={`px-2 py-0.5 rounded ${getBgColor(score)}`}>
+        <span className={`text-xs font-bold ${getColor(score)}`}>{score.toFixed(1)}</span>
+      </div>
+      <span className="text-xs text-muted-foreground">pts</span>
     </div>
   );
 }
@@ -170,7 +173,7 @@ export default function DriverRankingPage() {
                     <Star className="h-5 w-5 text-yellow-500" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{data?.stats.averageScore?.toFixed(1) || "-"}</p>
+                    <p className="text-2xl font-bold">{data?.stats.averageScore?.toFixed(1) || "-"}<span className="text-sm text-muted-foreground font-normal">/100</span></p>
                     <p className="text-xs text-muted-foreground">Nota Media Geral</p>
                   </div>
                 </div>
@@ -212,7 +215,7 @@ export default function DriverRankingPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <StarRating score={driver.averageScore} />
+                        <ScoreRating score={driver.averageScore} />
                         <p className="text-xs text-muted-foreground">{driver.totalTrips} viagens</p>
                       </div>
                     </div>
@@ -243,7 +246,7 @@ export default function DriverRankingPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <StarRating score={driver.averageScore} />
+                        <ScoreRating score={driver.averageScore} />
                         <p className="text-xs text-muted-foreground">{driver.totalTrips} viagens</p>
                       </div>
                     </div>
@@ -369,7 +372,7 @@ export default function DriverRankingPage() {
                         <Badge variant="outline">{driver.tripsLastMonth}</Badge>
                       </div>
                       <div className="flex justify-center">
-                        <StarRating score={driver.averageScore} />
+                        <ScoreRating score={driver.averageScore} />
                       </div>
                       <div className="text-center">
                         {driver.incidentCount > 0 ? (

@@ -7,15 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
 import {
-  Star,
   Truck,
   User,
   MapPin,
@@ -23,12 +22,12 @@ import {
   Search,
   AlertTriangle,
   CheckCircle2,
-  ThumbsUp,
-  ThumbsDown,
   Clock,
   Send,
+  Scale,
+  Award,
 } from "lucide-react";
-import type { Transport, Driver, Vehicle, Client, DeliveryLocation, DriverEvaluation } from "@shared/schema";
+import type { Transport, Driver, Vehicle, Client, DeliveryLocation, DriverEvaluation, EvaluationCriteria, EvaluationScore } from "@shared/schema";
 
 interface TransportWithDetails extends Transport {
   vehicle?: Vehicle | null;
@@ -37,31 +36,15 @@ interface TransportWithDetails extends Transport {
   deliveryLocation?: DeliveryLocation | null;
 }
 
+interface ScoreWithCriteria extends EvaluationScore {
+  criteria?: EvaluationCriteria;
+}
+
 interface EvaluationWithDetails extends DriverEvaluation {
   driver?: Driver;
   transport?: Transport;
+  scores?: ScoreWithCriteria[];
 }
-
-type RatingValue = "pessimo" | "ruim" | "regular" | "bom" | "excelente";
-
-const ratingOptions: { value: RatingValue; label: string; description: string; color: string }[] = [
-  { value: "pessimo", label: "Pessimo", description: "Comprometeu a imagem da empresa ou a seguranca", color: "text-red-600" },
-  { value: "ruim", label: "Ruim", description: "Abaixo do padrao, exige reorientacao", color: "text-orange-600" },
-  { value: "regular", label: "Regular", description: "Cumpriu a obrigacao, mas sem capricho", color: "text-yellow-600" },
-  { value: "bom", label: "Bom", description: "Atendeu a todas as expectativas", color: "text-green-600" },
-  { value: "excelente", label: "Excelente", description: "Superou as expectativas", color: "text-emerald-600" },
-];
-
-const ratingToNumber = (rating: RatingValue): number => {
-  const map: Record<RatingValue, number> = {
-    pessimo: 1,
-    ruim: 2,
-    regular: 3,
-    bom: 4,
-    excelente: 5,
-  };
-  return map[rating];
-};
 
 const formatDate = (date: string | Date | null | undefined) => {
   if (!date) return "-";
@@ -72,58 +55,79 @@ const formatDate = (date: string | Date | null | undefined) => {
   });
 };
 
-function RatingSelector({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: RatingValue | "";
-  onChange: (value: RatingValue) => void;
-}) {
+function ScoreDisplay({ score, label }: { score: number; label?: string }) {
+  const getColor = (s: number) => {
+    if (s >= 80) return "text-green-600";
+    if (s >= 60) return "text-yellow-600";
+    if (s >= 40) return "text-orange-600";
+    return "text-red-600";
+  };
+
+  const getBgColor = (s: number) => {
+    if (s >= 80) return "bg-green-100 dark:bg-green-900/30";
+    if (s >= 60) return "bg-yellow-100 dark:bg-yellow-900/30";
+    if (s >= 40) return "bg-orange-100 dark:bg-orange-900/30";
+    return "bg-red-100 dark:bg-red-900/30";
+  };
+
   return (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium">{label}</Label>
-      <RadioGroup value={value} onValueChange={(v) => onChange(v as RatingValue)} className="flex flex-wrap gap-2">
-        {ratingOptions.map((option) => (
-          <div key={option.value} className="flex items-center">
-            <RadioGroupItem value={option.value} id={`${label}-${option.value}`} className="sr-only" />
-            <Label
-              htmlFor={`${label}-${option.value}`}
-              className={`cursor-pointer px-3 py-1.5 rounded-lg text-xs border transition-all ${
-                value === option.value
-                  ? `bg-primary text-primary-foreground border-primary`
-                  : "bg-card border-border hover-elevate"
-              }`}
-            >
-              {option.label}
-            </Label>
-          </div>
-        ))}
-      </RadioGroup>
+    <div className="flex items-center gap-2">
+      <div className={`px-2 py-0.5 rounded ${getBgColor(score)}`}>
+        <span className={`text-sm font-bold ${getColor(score)}`}>{score.toFixed(1)}</span>
+      </div>
+      {label && <span className="text-xs text-muted-foreground">{label}</span>}
     </div>
   );
 }
 
-function StarRating({ score }: { score: number }) {
-  const fullStars = Math.floor(score);
-  const hasHalf = score - fullStars >= 0.5;
-  
+function CriteriaScoreInput({
+  criteria,
+  score,
+  onChange,
+}: {
+  criteria: EvaluationCriteria;
+  score: number;
+  onChange: (score: number) => void;
+}) {
+  const getColor = (s: number) => {
+    if (s >= 80) return "text-green-600";
+    if (s >= 60) return "text-yellow-600";
+    if (s >= 40) return "text-orange-600";
+    return "text-red-600";
+  };
+
   return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Star
-          key={i}
-          className={`h-4 w-4 ${
-            i <= fullStars
-              ? "text-yellow-500 fill-yellow-500"
-              : i === fullStars + 1 && hasHalf
-              ? "text-yellow-500 fill-yellow-500/50"
-              : "text-gray-300"
-          }`}
-        />
-      ))}
-      <span className="ml-1 text-sm font-medium">{score.toFixed(1)}</span>
+    <div className="space-y-2 p-3 rounded-lg border">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm truncate">{criteria.name}</p>
+          <p className="text-xs text-muted-foreground">Peso: {parseFloat(criteria.weight).toFixed(0)}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            min="0"
+            max="100"
+            value={score}
+            onChange={(e) => {
+              const val = parseInt(e.target.value);
+              if (!isNaN(val) && val >= 0 && val <= 100) onChange(val);
+              else if (e.target.value === "") onChange(0);
+            }}
+            className="w-20 text-center font-bold"
+            data-testid={`input-score-${criteria.id}`}
+          />
+          <span className={`text-sm font-bold w-6 ${getColor(score)}`}>pts</span>
+        </div>
+      </div>
+      <Slider
+        value={[score]}
+        min={0}
+        max={100}
+        step={1}
+        onValueChange={([val]) => onChange(val)}
+        data-testid={`slider-score-${criteria.id}`}
+      />
     </div>
   );
 }
@@ -137,20 +141,8 @@ export default function DriverEvaluationsPage() {
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationWithDetails | null>(null);
   const [hadIncident, setHadIncident] = useState(false);
   const [incidentDescription, setIncidentDescription] = useState("");
-  const [manualScore, setManualScore] = useState<string>("4.0");
-  const [ratings, setRatings] = useState<{
-    posturaProfissional: RatingValue | "";
-    pontualidade: RatingValue | "";
-    apresentacaoPessoal: RatingValue | "";
-    cordialidade: RatingValue | "";
-    cumpriuProcesso: RatingValue | "";
-  }>({
-    posturaProfissional: "",
-    pontualidade: "",
-    apresentacaoPessoal: "",
-    cordialidade: "",
-    cumpriuProcesso: "",
-  });
+  const [criteriaScores, setCriteriaScores] = useState<Record<string, number>>({});
+  const [manualScore, setManualScore] = useState("80");
   const { toast } = useToast();
 
   const { data: pendingTransports, isLoading: loadingPending } = useQuery<TransportWithDetails[]>({
@@ -160,6 +152,12 @@ export default function DriverEvaluationsPage() {
   const { data: evaluations, isLoading: loadingEvaluations } = useQuery<EvaluationWithDetails[]>({
     queryKey: ["/api/driver-evaluations"],
   });
+
+  const { data: criteria } = useQuery<EvaluationCriteria[]>({
+    queryKey: ["/api/evaluation-criteria"],
+  });
+
+  const activeCriteria = criteria?.filter(c => c.isActive === "true") || [];
 
   const submitEvaluationMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -185,41 +183,50 @@ export default function DriverEvaluationsPage() {
   });
 
   const resetForm = () => {
-    setRatings({
-      posturaProfissional: "",
-      pontualidade: "",
-      apresentacaoPessoal: "",
-      cordialidade: "",
-      cumpriuProcesso: "",
-    });
+    setCriteriaScores({});
     setHadIncident(false);
     setIncidentDescription("");
-    setManualScore("4.0");
+    setManualScore("80");
     setSelectedTransport(null);
   };
 
   const handleOpenEvaluation = (transport: TransportWithDetails) => {
     setSelectedTransport(transport);
-    if (!hadIncident) {
-      setRatings({
-        posturaProfissional: "bom",
-        pontualidade: "bom",
-        apresentacaoPessoal: "bom",
-        cordialidade: "bom",
-        cumpriuProcesso: "bom",
-      });
-    }
+    const defaultScores: Record<string, number> = {};
+    activeCriteria.forEach(c => {
+      defaultScores[c.id] = 80;
+    });
+    setCriteriaScores(defaultScores);
+    setHadIncident(false);
+    setIncidentDescription("");
+    setManualScore("80");
     setShowEvaluationDialog(true);
+  };
+
+  const calculateWeightedScore = () => {
+    if (activeCriteria.length === 0) return 0;
+    let weightedSum = 0;
+    for (const c of activeCriteria) {
+      const score = criteriaScores[c.id] || 0;
+      const weight = parseFloat(c.weight);
+      weightedSum += score * (weight / 100);
+    }
+    return weightedSum;
+  };
+
+  const calculateSimpleAverage = () => {
+    if (activeCriteria.length === 0) return 0;
+    const total = activeCriteria.reduce((sum, c) => sum + (criteriaScores[c.id] || 0), 0);
+    return total / activeCriteria.length;
   };
 
   const handleSubmitEvaluation = () => {
     if (!selectedTransport?.driverId) return;
-    
-    const allRated = Object.values(ratings).every((r) => r !== "");
-    if (!allRated) {
+
+    if (activeCriteria.length === 0) {
       toast({
-        title: "Campos obrigatorios",
-        description: "Por favor, avalie todos os criterios.",
+        title: "Sem criterios",
+        description: "Configure os criterios de avaliacao antes de avaliar.",
         variant: "destructive",
       });
       return;
@@ -234,35 +241,23 @@ export default function DriverEvaluationsPage() {
       return;
     }
 
-    if (hadIncident) {
-      const score = parseFloat(manualScore);
-      if (isNaN(score) || score < 1 || score > 5) {
-        toast({
-          title: "Nota invalida",
-          description: "Por favor, insira uma nota entre 1.0 e 5.0.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
+    const scoresToSubmit = activeCriteria.map(c => ({
+      criteriaId: c.id,
+      score: criteriaScores[c.id] || 0,
+    }));
 
-    const finalScore = hadIncident 
-      ? parseFloat(manualScore) 
-      : calculateAverageFromRatings();
+    const finalWeightedScore = hadIncident ? parseFloat(manualScore) : calculateWeightedScore();
 
     submitEvaluationMutation.mutate({
       transportId: selectedTransport.id,
       driverId: selectedTransport.driverId,
       evaluatorId: "system",
       evaluatorName: "Sistema",
-      posturaProfissional: ratings.posturaProfissional,
-      pontualidade: ratings.pontualidade,
-      apresentacaoPessoal: ratings.apresentacaoPessoal,
-      cordialidade: ratings.cordialidade,
-      cumpriuProcesso: ratings.cumpriuProcesso,
-      averageScore: finalScore.toFixed(1),
       hadIncident: hadIncident ? "true" : "false",
       incidentDescription: hadIncident ? incidentDescription : null,
+      averageScore: calculateSimpleAverage().toFixed(2),
+      weightedScore: finalWeightedScore.toFixed(2),
+      criteriaScores: scoresToSubmit,
     });
   };
 
@@ -275,12 +270,6 @@ export default function DriverEvaluationsPage() {
     e.transport?.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.driver?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
-
-  const calculateAverageFromRatings = () => {
-    const values = Object.values(ratings).filter((r) => r !== "") as RatingValue[];
-    if (values.length === 0) return 0;
-    return values.reduce((acc, r) => acc + ratingToNumber(r), 0) / values.length;
-  };
 
   return (
     <div className="flex flex-col h-full">
@@ -335,8 +324,8 @@ export default function DriverEvaluationsPage() {
             ) : (
               <div className="border rounded-md divide-y">
                 {filteredPending.map((transport) => (
-                  <div 
-                    key={transport.id} 
+                  <div
+                    key={transport.id}
                     className="flex items-center justify-between p-3 hover-elevate"
                     data-testid={`row-transport-${transport.id}`}
                   >
@@ -364,7 +353,7 @@ export default function DriverEvaluationsPage() {
                       onClick={() => handleOpenEvaluation(transport)}
                       data-testid={`button-evaluate-${transport.id}`}
                     >
-                      <Star className="h-4 w-4 mr-1" />
+                      <Award className="h-4 w-4 mr-1" />
                       Avaliar
                     </Button>
                   </div>
@@ -387,7 +376,7 @@ export default function DriverEvaluationsPage() {
             ) : filteredEvaluations.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Star className="h-12 w-12 text-muted-foreground mb-4" />
+                  <Award className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground text-center">
                     Nenhuma avaliacao registrada ainda
                   </p>
@@ -396,8 +385,8 @@ export default function DriverEvaluationsPage() {
             ) : (
               <div className="border rounded-md divide-y">
                 {filteredEvaluations.map((evaluation) => (
-                  <div 
-                    key={evaluation.id} 
+                  <div
+                    key={evaluation.id}
                     className="p-3 hover-elevate cursor-pointer"
                     data-testid={`row-evaluation-${evaluation.id}`}
                     onClick={() => {
@@ -426,11 +415,8 @@ export default function DriverEvaluationsPage() {
                           </Badge>
                         )}
                       </div>
-                      <StarRating score={parseFloat(evaluation.averageScore || "0")} />
+                      <ScoreDisplay score={parseFloat(evaluation.weightedScore || evaluation.averageScore || "0")} label="pts" />
                     </div>
-                    {evaluation.hadIncident === "true" && evaluation.incidentDescription && (
-                      <p className="text-xs text-muted-foreground mt-2 pl-6">{evaluation.incidentDescription}</p>
-                    )}
                   </div>
                 ))}
               </div>
@@ -443,13 +429,13 @@ export default function DriverEvaluationsPage() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5 text-yellow-500" />
+              <Award className="h-5 w-5 text-primary" />
               Avaliar Motorista
             </DialogTitle>
           </DialogHeader>
 
           {selectedTransport && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <Card className="bg-muted/50">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
@@ -469,31 +455,12 @@ export default function DriverEvaluationsPage() {
                   <AlertTriangle className="h-5 w-5 text-yellow-500" />
                   <div>
                     <p className="font-medium text-sm">Aconteceu algum imprevisto?</p>
-                    <p className="text-xs text-muted-foreground">Marque se houve algum problema na viagem</p>
+                    <p className="text-xs text-muted-foreground">Marque se houve algum problema</p>
                   </div>
                 </div>
                 <Switch
                   checked={hadIncident}
-                  onCheckedChange={(checked) => {
-                    setHadIncident(checked);
-                    if (!checked) {
-                      setRatings({
-                        posturaProfissional: "bom",
-                        pontualidade: "bom",
-                        apresentacaoPessoal: "bom",
-                        cordialidade: "bom",
-                        cumpriuProcesso: "bom",
-                      });
-                    } else {
-                      setRatings({
-                        posturaProfissional: "",
-                        pontualidade: "",
-                        apresentacaoPessoal: "",
-                        cordialidade: "",
-                        cumpriuProcesso: "",
-                      });
-                    }
-                  }}
+                  onCheckedChange={setHadIncident}
                   data-testid="switch-incident"
                 />
               </div>
@@ -502,7 +469,7 @@ export default function DriverEvaluationsPage() {
                 <div className="space-y-2">
                   <Label>Descreva o que aconteceu:</Label>
                   <Textarea
-                    placeholder="Descreva detalhadamente o imprevisto ocorrido durante a viagem..."
+                    placeholder="Descreva detalhadamente o imprevisto..."
                     value={incidentDescription}
                     onChange={(e) => setIncidentDescription(e.target.value)}
                     rows={3}
@@ -511,71 +478,69 @@ export default function DriverEvaluationsPage() {
                 </div>
               )}
 
-              <div className="space-y-4">
-                <RatingSelector
-                  label="Postura Profissional"
-                  value={ratings.posturaProfissional}
-                  onChange={(v) => setRatings({ ...ratings, posturaProfissional: v })}
-                />
-                <RatingSelector
-                  label="Pontualidade"
-                  value={ratings.pontualidade}
-                  onChange={(v) => setRatings({ ...ratings, pontualidade: v })}
-                />
-                <RatingSelector
-                  label="Apresentacao Pessoal"
-                  value={ratings.apresentacaoPessoal}
-                  onChange={(v) => setRatings({ ...ratings, apresentacaoPessoal: v })}
-                />
-                <RatingSelector
-                  label="Cordialidade"
-                  value={ratings.cordialidade}
-                  onChange={(v) => setRatings({ ...ratings, cordialidade: v })}
-                />
-                <RatingSelector
-                  label="Cumpriu o Processo"
-                  value={ratings.cumpriuProcesso}
-                  onChange={(v) => setRatings({ ...ratings, cumpriuProcesso: v })}
-                />
-              </div>
-
-              {hadIncident ? (
-                <Card className="bg-yellow-500/10 border-yellow-500/30">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">Nota Final (editavel):</span>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="1"
-                          max="5"
-                          step="0.1"
-                          value={manualScore}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (val >= 1 && val <= 5) {
-                              setManualScore(e.target.value);
-                            } else if (e.target.value === "") {
-                              setManualScore("");
-                            }
-                          }}
-                          className="w-20 text-center font-bold"
-                          data-testid="input-manual-score"
-                        />
-                        <span className="text-muted-foreground text-sm">(1.0 a 5.0)</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Como houve um imprevisto, voce pode definir a nota final manualmente.
+              {activeCriteria.length === 0 ? (
+                <Card className="border-destructive">
+                  <CardContent className="p-4 text-center">
+                    <Scale className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm font-medium">Nenhum criterio configurado</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Configure os criterios de avaliacao na pagina de Avaliacao antes de avaliar motoristas.
                     </p>
                   </CardContent>
                 </Card>
               ) : (
-                Object.values(ratings).every((r) => r !== "") && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Criterios (0 a 100 pontos)</Label>
+                  {activeCriteria.map((c) => (
+                    <CriteriaScoreInput
+                      key={c.id}
+                      criteria={c}
+                      score={criteriaScores[c.id] || 0}
+                      onChange={(score) => setCriteriaScores(prev => ({ ...prev, [c.id]: score }))}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {activeCriteria.length > 0 && (
+                hadIncident ? (
+                  <Card className="bg-yellow-500/10 border-yellow-500/30">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">Nota Final (editavel):</span>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            value={manualScore}
+                            onChange={(e) => setManualScore(e.target.value)}
+                            className="w-20 text-center font-bold"
+                            data-testid="input-manual-score"
+                          />
+                          <span className="text-muted-foreground text-sm">pts</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Como houve imprevisto, voce pode ajustar a nota final ponderada manualmente.
+                      </p>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Nota calculada seria:</span>
+                        <span className="font-medium">{calculateWeightedScore().toFixed(1)} pts</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
                   <Card className="bg-primary/5 border-primary/20">
-                    <CardContent className="p-4 flex items-center justify-between">
-                      <span className="font-medium">Media da Avaliacao:</span>
-                      <StarRating score={calculateAverageFromRatings()} />
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">Nota Final Ponderada</p>
+                          <p className="text-xs text-muted-foreground">Media simples: {calculateSimpleAverage().toFixed(1)}</p>
+                        </div>
+                        <ScoreDisplay score={calculateWeightedScore()} label="pts" />
+                      </div>
                     </CardContent>
                   </Card>
                 )
@@ -589,7 +554,7 @@ export default function DriverEvaluationsPage() {
             </Button>
             <Button
               onClick={handleSubmitEvaluation}
-              disabled={submitEvaluationMutation.isPending}
+              disabled={submitEvaluationMutation.isPending || activeCriteria.length === 0}
               data-testid="button-submit-evaluation"
             >
               <Send className="h-4 w-4 mr-2" />
@@ -611,23 +576,15 @@ export default function DriverEvaluationsPage() {
           {selectedEvaluation && (
             <div className="space-y-6">
               <div className="flex items-start gap-4">
-                {(selectedEvaluation.driver as any)?.photo ? (
-                  <img 
-                    src={(selectedEvaluation.driver as any).photo} 
-                    alt={selectedEvaluation.driver?.name}
-                    className="w-20 h-20 rounded-full object-cover border-2 border-primary/20"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
-                    <User className="h-10 w-10 text-muted-foreground" />
-                  </div>
-                )}
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                  <User className="h-8 w-8 text-muted-foreground" />
+                </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold">{selectedEvaluation.driver?.name}</h3>
                   <p className="text-sm text-muted-foreground">{selectedEvaluation.driver?.cpf}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <Badge variant="outline">{selectedEvaluation.driver?.modality}</Badge>
-                    <StarRating score={parseFloat(selectedEvaluation.averageScore || "0")} />
+                    <ScoreDisplay score={parseFloat(selectedEvaluation.weightedScore || selectedEvaluation.averageScore || "0")} label="pts" />
                   </div>
                 </div>
               </div>
@@ -659,116 +616,60 @@ export default function DriverEvaluationsPage() {
                 <Card>
                   <CardHeader className="p-3">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      Destino
+                      <Scale className="h-4 w-4" />
+                      Resultado
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 pt-0 space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Cidade:</span>
-                      <span>{(selectedEvaluation as any).deliveryLocation?.city || "-"}</span>
+                      <span className="text-muted-foreground">Nota Ponderada:</span>
+                      <span className="font-bold">{parseFloat(selectedEvaluation.weightedScore || "0").toFixed(1)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Estado:</span>
-                      <span>{(selectedEvaluation as any).deliveryLocation?.state || "-"}</span>
+                      <span className="text-muted-foreground">Media Simples:</span>
+                      <span>{parseFloat(selectedEvaluation.averageScore || "0").toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Data:</span>
+                      <span>{formatDate(selectedEvaluation.createdAt)}</span>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {selectedEvaluation.scores && selectedEvaluation.scores.length > 0 && (
                 <Card>
                   <CardHeader className="p-3">
-                    <CardTitle className="text-sm flex items-center gap-2 text-green-600">
-                      <Clock className="h-4 w-4" />
-                      Check-in
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Award className="h-4 w-4 text-primary" />
+                      Notas por Criterio
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-3 pt-0 text-sm">
-                    <p className="font-medium">{formatDate(selectedEvaluation.transport?.checkinDateTime)}</p>
-                    <p className="text-muted-foreground text-xs mt-1">
-                      KM: {(selectedEvaluation.transport as any)?.checkinOdometer || "-"}
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="p-3">
-                    <CardTitle className="text-sm flex items-center gap-2 text-blue-600">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Check-out
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 pt-0 text-sm">
-                    <p className="font-medium">{formatDate(selectedEvaluation.transport?.checkoutDateTime)}</p>
-                    <p className="text-muted-foreground text-xs mt-1">
-                      KM: {(selectedEvaluation.transport as any)?.checkoutOdometer || "-"}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {selectedEvaluation.transport?.checkoutSelfiePhoto && (
-                <Card>
-                  <CardHeader className="p-3">
-                    <CardTitle className="text-sm">Foto do Check-out</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 pt-0">
-                    <img 
-                      src={selectedEvaluation.transport.checkoutSelfiePhoto} 
-                      alt="Selfie do Check-out"
-                      className="w-full max-w-xs rounded-lg border"
-                    />
+                  <CardContent className="p-3 pt-0 space-y-2">
+                    {selectedEvaluation.scores.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between p-2 rounded bg-muted/50">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm">{s.criteria?.name || "Criterio"}</span>
+                          {s.criteria?.weight && (
+                            <span className="text-xs text-muted-foreground ml-2">(peso: {parseFloat(s.criteria.weight).toFixed(0)})</span>
+                          )}
+                        </div>
+                        <ScoreDisplay score={parseFloat(s.score)} />
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
               )}
 
-              <Card>
-                <CardHeader className="p-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Star className="h-4 w-4 text-yellow-500" />
-                    Avaliacao
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 pt-0">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                    <div className="flex items-center justify-between p-2 rounded bg-muted/50">
-                      <span>Postura</span>
-                      <Badge variant="outline" className="text-xs">{selectedEvaluation.posturaProfissional}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between p-2 rounded bg-muted/50">
-                      <span>Pontualidade</span>
-                      <Badge variant="outline" className="text-xs">{selectedEvaluation.pontualidade}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between p-2 rounded bg-muted/50">
-                      <span>Apresentacao</span>
-                      <Badge variant="outline" className="text-xs">{selectedEvaluation.apresentacaoPessoal}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between p-2 rounded bg-muted/50">
-                      <span>Cordialidade</span>
-                      <Badge variant="outline" className="text-xs">{selectedEvaluation.cordialidade}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between p-2 rounded bg-muted/50">
-                      <span>Processo</span>
-                      <Badge variant="outline" className="text-xs">{selectedEvaluation.cumpriuProcesso}</Badge>
-                    </div>
+              {selectedEvaluation.hadIncident === "true" && (
+                <div className="p-3 rounded bg-red-500/10 border border-red-500/20">
+                  <div className="flex items-center gap-2 text-red-600 font-medium text-sm">
+                    <AlertTriangle className="h-4 w-4" />
+                    Houve imprevisto
                   </div>
-
-                  {selectedEvaluation.hadIncident === "true" && (
-                    <div className="mt-3 p-3 rounded bg-red-500/10 border border-red-500/20">
-                      <div className="flex items-center gap-2 text-red-600 font-medium text-sm">
-                        <AlertTriangle className="h-4 w-4" />
-                        Houve imprevisto
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">{selectedEvaluation.incidentDescription}</p>
-                    </div>
-                  )}
-
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Avaliado em {formatDate(selectedEvaluation.createdAt)}
-                  </p>
-                </CardContent>
-              </Card>
+                  <p className="text-sm text-muted-foreground mt-1">{selectedEvaluation.incidentDescription}</p>
+                </div>
+              )}
             </div>
           )}
 
