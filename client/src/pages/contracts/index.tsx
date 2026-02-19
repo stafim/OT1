@@ -493,14 +493,14 @@ export default function ContractsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Motorista</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <Select onValueChange={(val) => field.onChange(val === "none" ? "" : val)} value={field.value || "none"}>
                         <FormControl>
                           <SelectTrigger data-testid="select-driver">
                             <SelectValue placeholder="Selecione o motorista" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Nenhum</SelectItem>
+                          <SelectItem value="none">Nenhum</SelectItem>
                           {driversList?.map((driver) => (
                             <SelectItem key={driver.id} value={driver.id}>
                               {driver.name}
@@ -660,14 +660,14 @@ export default function ContractsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>CNH Exigida</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <Select onValueChange={(val) => field.onChange(val === "none" ? "" : val)} value={field.value || "none"}>
                         <FormControl>
                           <SelectTrigger data-testid="select-cnh-required">
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Não especificado</SelectItem>
+                          <SelectItem value="none">Não especificado</SelectItem>
                           <SelectItem value="C">C</SelectItem>
                           <SelectItem value="D">D</SelectItem>
                           <SelectItem value="E">E</SelectItem>
