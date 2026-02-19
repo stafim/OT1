@@ -1000,13 +1000,15 @@ export const paymentTypeEnum = pgEnum("payment_type", [
 export const contracts = pgTable("contracts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   contractNumber: varchar("contract_number", { length: 50 }).notNull().unique(),
+  title: text("title").notNull(),
   driverId: varchar("driver_id").references(() => drivers.id),
   contractType: driverModalityEnum("contract_type").notNull(),
   status: contractStatusEnum("status").default("ativo").notNull(),
-  startDate: date("start_date").notNull(),
+  content: text("content"),
+  startDate: date("start_date"),
   endDate: date("end_date"),
-  paymentType: paymentTypeEnum("payment_type").notNull(),
-  paymentValue: numeric("payment_value", { precision: 12, scale: 2 }).notNull(),
+  paymentType: paymentTypeEnum("payment_type"),
+  paymentValue: numeric("payment_value", { precision: 12, scale: 2 }),
   truckType: text("truck_type"),
   licensePlate: varchar("license_plate", { length: 10 }),
   cnhRequired: varchar("cnh_required", { length: 5 }),
@@ -1029,11 +1031,13 @@ export const insertContractSchema = createInsertSchema(contracts).omit({
   updatedAt: true,
 }).extend({
   contractNumber: z.string().min(1, "Número do contrato é obrigatório"),
+  title: z.string().min(1, "Título é obrigatório"),
   contractType: z.enum(["pj", "clt", "agregado"]),
   status: z.enum(["ativo", "suspenso", "expirado", "cancelado"]).optional(),
-  paymentType: z.enum(["por_km", "fixo_mensal", "por_entrega", "comissao"]),
-  paymentValue: z.string().min(1, "Valor é obrigatório"),
-  startDate: z.string().min(1, "Data de início é obrigatória"),
+  paymentType: z.enum(["por_km", "fixo_mensal", "por_entrega", "comissao"]).optional().nullable(),
+  paymentValue: z.string().optional().nullable(),
+  startDate: z.string().optional().nullable(),
+  content: z.string().optional().nullable(),
 });
 
 export type InsertContract = z.infer<typeof insertContractSchema>;
