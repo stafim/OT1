@@ -75,6 +75,9 @@ export const drivers = pgTable("drivers", {
   profilePhoto: text("profile_photo"),
   isApto: text("is_apto").default("false"),
   isActive: text("is_active").default("true"),
+  documentsApproved: text("documents_approved").default("pendente"),
+  documentsApprovedAt: timestamp("documents_approved_at"),
+  documentsApprovedBy: text("documents_approved_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

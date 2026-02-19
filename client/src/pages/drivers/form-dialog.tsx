@@ -30,7 +30,8 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, CreditCard, User, Send, FileText } from "lucide-react";
+import { Loader2, X, CreditCard, User, Send, FileText, CheckCircle, XCircle, Clock, ShieldCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import type { Driver, Contract } from "@shared/schema";
 import { getAccessToken } from "@/hooks/use-auth";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
@@ -666,6 +667,10 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
               </form>
             </Form>
 
+            {isEditing && driver && (
+              <DocumentReviewSection driver={driver} driverId={driverId!} />
+            )}
+
             {isEditing && (
               <SendContractSection driverId={driverId!} driverEmail={form.watch("email")} />
             )}
@@ -673,6 +678,161 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function DocumentReviewSection({ driver, driverId }: { driver: Driver; driverId: string }) {
+  const { toast } = useToast();
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const hasDocuments = driver.profilePhoto || driver.cnhFrontPhoto || driver.cnhBackPhoto;
+  const approvalStatus = driver.documentsApproved || "pendente";
+
+  const approveMutation = useMutation({
+    mutationFn: async (status: string) => {
+      return apiRequest("POST", `/api/drivers/${driverId}/approve-documents`, { status });
+    },
+    onSuccess: (_res, status) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers", driverId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers"] });
+      const msgs: Record<string, string> = {
+        aprovado: "Documentos aprovados com sucesso!",
+        reprovado: "Documentos reprovados.",
+        pendente: "Status dos documentos voltou para pendente.",
+      };
+      toast({ title: msgs[status] || "Status atualizado" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar status dos documentos", variant: "destructive" });
+    },
+  });
+
+  const statusConfig: Record<string, { label: string; className: string; icon: typeof CheckCircle }> = {
+    pendente: { label: "Pendente", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200", icon: Clock },
+    aprovado: { label: "Aprovado", className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", icon: CheckCircle },
+    reprovado: { label: "Reprovado", className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", icon: XCircle },
+  };
+
+  const current = statusConfig[approvalStatus] || statusConfig.pendente;
+  const StatusIcon = current.icon;
+
+  return (
+    <div className="space-y-4 mt-6 pt-6 border-t">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4" />
+          Verificação de Documentos
+        </h3>
+        <Badge variant="outline" className={current.className} data-testid="badge-documents-status">
+          <StatusIcon className="h-3 w-3 mr-1" />
+          {current.label}
+        </Badge>
+      </div>
+
+      {driver.documentsApprovedBy && approvalStatus !== "pendente" && (
+        <p className="text-xs text-muted-foreground">
+          {approvalStatus === "aprovado" ? "Aprovado" : "Reprovado"} por: {driver.documentsApprovedBy}
+          {driver.documentsApprovedAt && ` em ${new Date(driver.documentsApprovedAt).toLocaleDateString("pt-BR")}`}
+        </p>
+      )}
+
+      {!hasDocuments ? (
+        <p className="text-sm text-muted-foreground">
+          Nenhum documento enviado pelo motorista. Os documentos (foto de perfil, CNH frente e verso) precisam ser enviados antes da aprovação.
+        </p>
+      ) : (
+        <>
+          <div className="grid gap-4 grid-cols-3">
+            {[
+              { label: "Foto de Perfil", src: driver.profilePhoto, rounded: true },
+              { label: "CNH Frente", src: driver.cnhFrontPhoto, rounded: false },
+              { label: "CNH Verso", src: driver.cnhBackPhoto, rounded: false },
+            ].map((doc) => (
+              <div key={doc.label} className="flex flex-col items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">{doc.label}</span>
+                {doc.src ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImage(doc.src!)}
+                    className={`overflow-hidden border-2 cursor-pointer transition-opacity hover:opacity-80 ${
+                      doc.rounded ? "h-20 w-20 rounded-full" : "h-20 w-28 rounded-md"
+                    } ${approvalStatus === "aprovado" ? "border-green-500" : approvalStatus === "reprovado" ? "border-red-500" : "border-muted"}`}
+                    data-testid={`button-view-${doc.label.toLowerCase().replace(/ /g, "-")}`}
+                  >
+                    <img src={doc.src} alt={doc.label} className="h-full w-full object-cover" />
+                  </button>
+                ) : (
+                  <div className={`flex items-center justify-center bg-muted text-muted-foreground ${
+                    doc.rounded ? "h-20 w-20 rounded-full" : "h-20 w-28 rounded-md"
+                  }`}>
+                    <span className="text-xs">Não enviado</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            {approvalStatus !== "aprovado" && (
+              <Button
+                type="button"
+                onClick={() => approveMutation.mutate("aprovado")}
+                disabled={approveMutation.isPending}
+                data-testid="button-approve-documents"
+              >
+                {approveMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                )}
+                Aprovar Documentos
+              </Button>
+            )}
+            {approvalStatus !== "reprovado" && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => approveMutation.mutate("reprovado")}
+                disabled={approveMutation.isPending}
+                data-testid="button-reject-documents"
+              >
+                {approveMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="mr-2 h-4 w-4" />
+                )}
+                Reprovar
+              </Button>
+            )}
+            {approvalStatus !== "pendente" && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => approveMutation.mutate("pendente")}
+                disabled={approveMutation.isPending}
+                data-testid="button-reset-documents"
+              >
+                <Clock className="mr-2 h-4 w-4" />
+                Voltar para Pendente
+              </Button>
+            )}
+          </div>
+        </>
+      )}
+
+      {selectedImage && (
+        <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Visualizar Documento</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center p-4">
+              <img src={selectedImage} alt="Documento" className="max-h-[60vh] max-w-full object-contain rounded-md" />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
   );
 }
 

@@ -408,6 +408,29 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/drivers/:id/approve-documents", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!status || !["aprovado", "reprovado", "pendente"].includes(status)) {
+        return res.status(400).json({ message: "Status inválido" });
+      }
+      const authReq = req as AuthenticatedRequest;
+      const approvedBy = authReq.user?.username || authReq.user?.email || "operador";
+      const driver = await storage.updateDriver(req.params.id, {
+        documentsApproved: status,
+        documentsApprovedAt: status !== "pendente" ? new Date() : null,
+        documentsApprovedBy: status !== "pendente" ? approvedBy : null,
+      });
+      if (!driver) {
+        return res.status(404).json({ message: "Motorista não encontrado" });
+      }
+      res.json(driver);
+    } catch (error: any) {
+      console.error("Error approving driver documents:", error);
+      res.status(500).json({ message: "Erro ao aprovar documentos" });
+    }
+  });
+
   app.delete("/api/drivers/:id", isAuthenticatedJWT, async (req, res) => {
     try {
       await storage.deleteDriver(req.params.id);
