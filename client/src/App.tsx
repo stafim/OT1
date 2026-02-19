@@ -44,6 +44,7 @@ import PortariaPage from "@/pages/portaria/index";
 import RoutingPage from "@/pages/routing/index";
 import PrestacaoDeContasPage from "@/pages/prestacao-de-contas/index";
 import DriverEvaluationsPage from "@/pages/driver-evaluations/index";
+import EvaluationCriteriaPage from "@/pages/evaluation/index";
 import YardReportPage from "@/pages/yard-report/index";
 import FinesControlPage from "@/pages/fines-control/index";
 import CheckpointsPage from "@/pages/checkpoints/index";
@@ -74,6 +75,7 @@ function AuthenticatedRouter() {
       <Route path="/trafego-agora" component={TrafficPage} />
       <Route path="/portaria" component={PortariaPage} />
       <Route path="/avaliacao" component={DriverEvaluationsPage} />
+      <Route path="/criterios-avaliacao" component={EvaluationCriteriaPage} />
       <Route path="/controle-multas" component={FinesControlPage} />
       <Route path="/rotograma" component={RoutingPage} />
       <Route path="/prestacao-de-contas" component={PrestacaoDeContasPage} />

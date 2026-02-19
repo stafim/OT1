@@ -91,6 +91,11 @@ const operationItems: MenuItem[] = [
     icon: ClipboardCheck,
   },
   {
+    title: "Critérios de Avaliação",
+    url: "/criterios-avaliacao",
+    icon: FileBarChart,
+  },
+  {
     title: "Controle de Multas (Em dev)",
     url: "/controle-multas",
     icon: AlertTriangle,
