@@ -8,6 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import PDFDocument from "pdfkit";
 import { randomUUID } from "crypto";
+import nodemailer from "nodemailer";
 import {
   insertDriverSchema,
   insertManufacturerSchema,
@@ -3279,6 +3280,80 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting contract:", error);
       res.status(500).json({ message: "Failed to delete contract" });
+    }
+  });
+
+  app.post("/api/contracts/:id/send-email", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { driverId } = req.body;
+      if (!driverId) {
+        return res.status(400).json({ message: "ID do motorista é obrigatório" });
+      }
+
+      const contract = await storage.getContract(req.params.id);
+      if (!contract) {
+        return res.status(404).json({ message: "Contrato não encontrado" });
+      }
+
+      const driver = await storage.getDriver(driverId);
+      if (!driver) {
+        return res.status(404).json({ message: "Motorista não encontrado" });
+      }
+
+      if (!driver.email) {
+        return res.status(400).json({ message: "Motorista não possui email cadastrado" });
+      }
+
+      const smtpHost = process.env.SMTP_HOST;
+      const smtpPort = process.env.SMTP_PORT || "587";
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASS;
+      const smtpFrom = process.env.SMTP_FROM || smtpUser;
+
+      if (!smtpHost || !smtpUser || !smtpPass) {
+        return res.status(500).json({ message: "Configuração SMTP não encontrada. Configure as variáveis SMTP_HOST, SMTP_USER e SMTP_PASS." });
+      }
+
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(smtpPort),
+        secure: parseInt(smtpPort) === 465,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+          <div style="background-color: #f97316; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0;">OTD Entregas</h1>
+            <p style="margin: 5px 0 0;">Contrato para Assinatura</p>
+          </div>
+          <div style="padding: 20px; border: 1px solid #e5e7eb;">
+            <p>Olá <strong>${driver.name}</strong>,</p>
+            <p>Segue abaixo o contrato <strong>${contract.contractNumber}</strong> - ${contract.title || "Sem título"} para sua análise e assinatura.</p>
+            <hr style="border: 1px solid #e5e7eb; margin: 20px 0;" />
+            <div style="padding: 10px; background: #fafafa; border-radius: 4px;">
+              ${contract.content || "<p>Conteúdo do contrato não disponível.</p>"}
+            </div>
+            <hr style="border: 1px solid #e5e7eb; margin: 20px 0;" />
+            <p style="color: #6b7280; font-size: 12px;">Este email foi enviado automaticamente pelo sistema OTD Entregas.</p>
+          </div>
+        </div>
+      `;
+
+      await transporter.sendMail({
+        from: smtpFrom,
+        to: driver.email,
+        subject: `Contrato ${contract.contractNumber} - ${contract.title || "Para Assinatura"}`,
+        html: htmlContent,
+      });
+
+      res.json({ message: "Contrato enviado com sucesso para " + driver.email });
+    } catch (error: any) {
+      console.error("Error sending contract email:", error);
+      res.status(500).json({ message: "Erro ao enviar email: " + (error.message || "Falha no envio") });
     }
   });
 

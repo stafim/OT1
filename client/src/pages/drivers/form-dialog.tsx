@@ -30,8 +30,8 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, CreditCard, User } from "lucide-react";
-import type { Driver } from "@shared/schema";
+import { Loader2, X, CreditCard, User, Send, FileText } from "lucide-react";
+import type { Driver, Contract } from "@shared/schema";
 import { getAccessToken } from "@/hooks/use-auth";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 
@@ -665,9 +665,92 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
                 </div>
               </form>
             </Form>
+
+            {isEditing && (
+              <SendContractSection driverId={driverId!} driverEmail={form.watch("email")} />
+            )}
           </ScrollArea>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SendContractSection({ driverId, driverEmail }: { driverId: string; driverEmail?: string }) {
+  const { toast } = useToast();
+  const [selectedContractId, setSelectedContractId] = useState<string>("");
+
+  const { data: contractsList = [] } = useQuery<(Contract & { driver?: any })[]>({
+    queryKey: ["/api/contracts"],
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/contracts/${selectedContractId}/send-email`, {
+        driverId,
+      });
+    },
+    onSuccess: async (res) => {
+      const data = await res.json();
+      toast({ title: data.message || "Contrato enviado com sucesso!" });
+      setSelectedContractId("");
+    },
+    onError: async (error: any) => {
+      let msg = "Erro ao enviar contrato por email";
+      try {
+        if (error?.message) msg = error.message;
+      } catch {}
+      toast({ title: msg, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="space-y-4 mt-6 pt-6 border-t">
+      <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+        <FileText className="h-4 w-4" />
+        Enviar Contrato por Email
+      </h3>
+      {!driverEmail && (
+        <p className="text-sm text-muted-foreground">
+          Este motorista não possui email cadastrado. Adicione um email acima para poder enviar contratos.
+        </p>
+      )}
+      {driverEmail && (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            Selecione um contrato cadastrado para enviar ao email do motorista ({driverEmail}).
+          </p>
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <Select value={selectedContractId} onValueChange={setSelectedContractId}>
+                <SelectTrigger data-testid="select-contract-to-send">
+                  <SelectValue placeholder="Selecione um contrato" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contractsList.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.contractNumber} - {c.title || "Sem título"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="button"
+              onClick={() => sendMutation.mutate()}
+              disabled={!selectedContractId || sendMutation.isPending}
+              data-testid="button-send-contract-email"
+            >
+              {sendMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              Enviar
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

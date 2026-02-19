@@ -148,13 +148,19 @@ Status enums for workflow tracking:
 
 ### February 19, 2026
 - **Contract Manager (Gestor de Contratos)**: New module for driver contract management (`/contratos`)
-  - Database table `contracts` with contract number, driver link, type (PJ/CLT/Agregado), payment terms, dates
-  - Payment types: por_km, fixo_mensal, por_entrega, comissao
-  - Contract statuses: ativo, suspenso, expirado, cancelado
+  - Database table `contracts` with contract number, title, driver link, type (PJ/CLT/Agregado), payment terms, dates
+  - TipTap rich text editor for creating contract documents (bold, italic, underline, headings, lists, alignment)
+  - Three view modes: list (cards), editor (full-page with metadata + text editor), read-only (rendered HTML)
+  - Contract content stored as HTML in `content` field
   - Full CRUD API endpoints at `/api/contracts`
-  - List view with search by number/driver/plate and status filter
-  - Form dialog for creating/editing contracts with all fields
-  - Detail view dialog for reviewing contract information
   - Added to Cadastros menu in sidebar
+- **Send Contract via Email**: Added ability to send contracts to drivers by email
+  - New section "Enviar Contrato por Email" in driver edit form
+  - Contract selector dropdown with send button
+  - Backend endpoint `POST /api/contracts/:id/send-email` using nodemailer SMTP
+  - Email includes formatted contract content with OTD Entregas branding
+  - Validates driver has email before allowing send
+  - **SMTP Configuration Required** (secrets): `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`
+  - **SMTP Configuration Optional** (env vars): `SMTP_PORT` (default 587), `SMTP_FROM` (defaults to SMTP_USER)
 - **Evaluation Criteria Page**: Added route `/criterios-avaliacao` and sidebar link for configuring evaluation criteria
 - **Evaluation System Update**: Replaced 5-star ratings with 0-100 numeric scores using configurable weighted criteria
