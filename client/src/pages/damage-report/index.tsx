@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { normalizeImageUrl } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -18,12 +18,10 @@ import {
   Package,
   Camera,
   Clock,
-  Building,
-  MapPin,
-  User,
   Image,
   ChevronLeft,
   ChevronRight,
+  Eye,
 } from "lucide-react";
 import type { Collect, Transport, Manufacturer, Yard, Driver, Client, DeliveryLocation } from "@shared/schema";
 
@@ -51,29 +49,18 @@ function getDamagePhotos(record: CollectWithRelations | TransportWithRelations):
   return photos;
 }
 
-function DamagePhotoGallery({ photos, onPhotoClick }: { photos: string[]; onPhotoClick: (url: string) => void }) {
-  return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-      {photos.map((photo, index) => (
-        <button
-          key={index}
-          type="button"
-          className="relative aspect-square rounded-md overflow-hidden border border-border cursor-pointer hover:ring-2 hover:ring-destructive/50 transition-all group"
-          onClick={() => onPhotoClick(photo)}
-          data-testid={`button-damage-photo-${index}`}
-        >
-          <img
-            src={normalizeImageUrl(photo)}
-            alt={`Avaria ${index + 1}`}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-            <Image className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-        </button>
-      ))}
-    </div>
-  );
+function getCheckinPhotos(record: CollectWithRelations | TransportWithRelations): string[] {
+  if (record.checkinDamagePhotos && Array.isArray(record.checkinDamagePhotos)) {
+    return record.checkinDamagePhotos.filter((p) => p && p.trim() !== "");
+  }
+  return [];
+}
+
+function getCheckoutPhotos(record: CollectWithRelations | TransportWithRelations): string[] {
+  if (record.checkoutDamagePhotos && Array.isArray(record.checkoutDamagePhotos)) {
+    return record.checkoutDamagePhotos.filter((p) => p && p.trim() !== "");
+  }
+  return [];
 }
 
 export default function DamageReportPage() {
@@ -82,6 +69,7 @@ export default function DamageReportPage() {
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const { data: collects, isLoading: collectsLoading } = useQuery<CollectWithRelations[]>({
     queryKey: ["/api/collects"],
@@ -130,11 +118,6 @@ export default function DamageReportPage() {
     setLightboxPhoto(photos[index]);
   };
 
-  const openLightboxSingle = (photo: string, allPhotos: string[]) => {
-    const idx = allPhotos.indexOf(photo);
-    openLightbox(allPhotos, idx >= 0 ? idx : 0);
-  };
-
   const navigateLightbox = (direction: "prev" | "next") => {
     const newIndex = direction === "prev"
       ? (lightboxIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length
@@ -151,6 +134,10 @@ export default function DamageReportPage() {
       return "-";
     }
   };
+
+  const showCollects = activeTab === "all" || activeTab === "collects";
+  const showTransports = activeTab === "all" || activeTab === "transports";
+  const hasResults = (showCollects && filteredCollects.length > 0) || (showTransports && filteredTransports.length > 0);
 
   return (
     <div className="flex flex-col h-full">
@@ -242,237 +229,100 @@ export default function DamageReportPage() {
         </div>
 
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i}>
-                <CardContent className="p-4">
-                  <Skeleton className="h-4 w-32 mb-2" />
-                  <Skeleton className="h-3 w-48 mb-4" />
-                  <div className="grid grid-cols-3 gap-2">
-                    <Skeleton className="aspect-square rounded-md" />
-                    <Skeleton className="aspect-square rounded-md" />
-                    <Skeleton className="aspect-square rounded-md" />
+          <Card>
+            <CardContent className="p-0">
+              <div className="space-y-0">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-4 p-4 border-b last:border-b-0">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-28" />
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : !hasResults ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-lg font-medium text-muted-foreground">
+                Nenhuma avaria registrada
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {searchTerm.trim()
+                  ? "Nenhum resultado encontrado para a busca"
+                  : "Nenhuma coleta ou transporte possui fotos de avaria"}
+              </p>
+            </CardContent>
+          </Card>
         ) : (
-          <>
-            {(activeTab === "all" || activeTab === "collects") && filteredCollects.length > 0 && (
-              <div className="space-y-3">
-                {activeTab === "all" && filteredCollects.length > 0 && (
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Coletas com Avaria
-                  </h3>
-                )}
-                <div className="grid gap-4 md:grid-cols-2">
-                  {filteredCollects.map((collect) => {
-                    const photos = getDamagePhotos(collect);
-                    const checkinPhotos = (collect.checkinDamagePhotos || []).filter((p) => p && p.trim() !== "");
-                    const checkoutPhotos = (collect.checkoutDamagePhotos || []).filter((p) => p && p.trim() !== "");
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left p-3 font-medium text-muted-foreground">Tipo</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Identificação</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground hidden md:table-cell">Chassi</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground hidden lg:table-cell">Motorista</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground hidden lg:table-cell">Origem / Destino</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground hidden sm:table-cell">Data</th>
+                      <th className="text-center p-3 font-medium text-muted-foreground">Check-in</th>
+                      <th className="text-center p-3 font-medium text-muted-foreground">Check-out</th>
+                      <th className="text-center p-3 font-medium text-muted-foreground">Total</th>
+                      <th className="text-center p-3 font-medium text-muted-foreground">Fotos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {showCollects && filteredCollects.map((collect) => {
+                      const allPhotos = getDamagePhotos(collect);
+                      const checkinPhotos = getCheckinPhotos(collect);
+                      const checkoutPhotos = getCheckoutPhotos(collect);
+                      const isExpanded = expandedRow === `collect-${collect.id}`;
 
-                    return (
-                      <Card key={collect.id} data-testid={`card-damage-collect-${collect.id}`}>
-                        <CardHeader className="pb-2 bg-gradient-to-r from-orange-500/5 to-transparent border-b">
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <div className="flex items-center gap-2">
-                              <Package className="h-4 w-4 text-orange-500" />
-                              <span className="font-mono text-sm font-semibold">{collect.vehicleChassi}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="destructive" className="text-xs">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                {photos.length} {photos.length === 1 ? "foto" : "fotos"}
-                              </Badge>
-                              <Badge variant="secondary" className="text-xs">Coleta</Badge>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="p-4 space-y-3">
-                          <div className="space-y-1.5 text-sm">
-                            {collect.manufacturer && (
-                              <div className="flex items-center gap-2">
-                                <Building className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="text-muted-foreground">Origem:</span>
-                                <span className="font-medium">{collect.manufacturer.name}</span>
-                              </div>
-                            )}
-                            {collect.yard && (
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="text-muted-foreground">Destino:</span>
-                                <span className="font-medium">{collect.yard.name}</span>
-                              </div>
-                            )}
-                            {collect.driver && (
-                              <div className="flex items-center gap-2">
-                                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="text-muted-foreground">Motorista:</span>
-                                <span className="font-medium">{collect.driver.name}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Data:</span>
-                              <span className="font-medium">{formatDate(collect.collectDate)}</span>
-                            </div>
-                          </div>
+                      return (
+                        <CollectRow
+                          key={collect.id}
+                          collect={collect}
+                          allPhotos={allPhotos}
+                          checkinPhotos={checkinPhotos}
+                          checkoutPhotos={checkoutPhotos}
+                          isExpanded={isExpanded}
+                          onToggle={() => setExpandedRow(isExpanded ? null : `collect-${collect.id}`)}
+                          onPhotoClick={(photos, index) => openLightbox(photos, index)}
+                          formatDate={formatDate}
+                        />
+                      );
+                    })}
+                    {showTransports && filteredTransports.map((transport) => {
+                      const allPhotos = getDamagePhotos(transport);
+                      const checkinPhotos = getCheckinPhotos(transport);
+                      const checkoutPhotos = getCheckoutPhotos(transport);
+                      const isExpanded = expandedRow === `transport-${transport.id}`;
 
-                          {checkinPhotos.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                Avarias no Check-in ({checkinPhotos.length})
-                              </p>
-                              <DamagePhotoGallery
-                                photos={checkinPhotos}
-                                onPhotoClick={(photo) => openLightboxSingle(photo, photos)}
-                              />
-                            </div>
-                          )}
-
-                          {checkoutPhotos.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                Avarias no Check-out ({checkoutPhotos.length})
-                              </p>
-                              <DamagePhotoGallery
-                                photos={checkoutPhotos}
-                                onPhotoClick={(photo) => openLightboxSingle(photo, photos)}
-                              />
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                      return (
+                        <TransportRow
+                          key={transport.id}
+                          transport={transport}
+                          allPhotos={allPhotos}
+                          checkinPhotos={checkinPhotos}
+                          checkoutPhotos={checkoutPhotos}
+                          isExpanded={isExpanded}
+                          onToggle={() => setExpandedRow(isExpanded ? null : `transport-${transport.id}`)}
+                          onPhotoClick={(photos, index) => openLightbox(photos, index)}
+                          formatDate={formatDate}
+                        />
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            )}
-
-            {(activeTab === "all" || activeTab === "transports") && filteredTransports.length > 0 && (
-              <div className="space-y-3">
-                {activeTab === "all" && filteredTransports.length > 0 && (
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mt-4">
-                    <Truck className="h-4 w-4" />
-                    Transportes com Avaria
-                  </h3>
-                )}
-                <div className="grid gap-4 md:grid-cols-2">
-                  {filteredTransports.map((transport) => {
-                    const photos = getDamagePhotos(transport);
-                    const checkinPhotos = (transport.checkinDamagePhotos || []).filter((p) => p && p.trim() !== "");
-                    const checkoutPhotos = (transport.checkoutDamagePhotos || []).filter((p) => p && p.trim() !== "");
-                    const driver = (transport as any).driver;
-                    const client = (transport as any).client;
-                    const deliveryLocation = (transport as any).deliveryLocation;
-                    const originYard = (transport as any).originYard;
-
-                    return (
-                      <Card key={transport.id} data-testid={`card-damage-transport-${transport.id}`}>
-                        <CardHeader className="pb-2 bg-gradient-to-r from-red-500/5 to-transparent border-b">
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <div className="flex items-center gap-2">
-                              <Truck className="h-4 w-4 text-red-500" />
-                              <span className="font-mono text-sm font-semibold">{transport.requestNumber}</span>
-                              <span className="text-xs text-muted-foreground font-mono">{transport.vehicleChassi}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="destructive" className="text-xs">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                {photos.length} {photos.length === 1 ? "foto" : "fotos"}
-                              </Badge>
-                              <Badge variant="secondary" className="text-xs">Transporte</Badge>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="p-4 space-y-3">
-                          <div className="space-y-1.5 text-sm">
-                            {originYard && (
-                              <div className="flex items-center gap-2">
-                                <Building className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="text-muted-foreground">Origem:</span>
-                                <span className="font-medium">{originYard.name}</span>
-                              </div>
-                            )}
-                            {client && (
-                              <div className="flex items-center gap-2">
-                                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="text-muted-foreground">Cliente:</span>
-                                <span className="font-medium">{client.name}</span>
-                              </div>
-                            )}
-                            {deliveryLocation && (
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="text-muted-foreground">Destino:</span>
-                                <span className="font-medium">{deliveryLocation.city}/{deliveryLocation.state}</span>
-                              </div>
-                            )}
-                            {driver && (
-                              <div className="flex items-center gap-2">
-                                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="text-muted-foreground">Motorista:</span>
-                                <span className="font-medium">{driver.name}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Data:</span>
-                              <span className="font-medium">{formatDate(transport.checkinDateTime || transport.createdAt)}</span>
-                            </div>
-                          </div>
-
-                          {checkinPhotos.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                Avarias no Check-in ({checkinPhotos.length})
-                              </p>
-                              <DamagePhotoGallery
-                                photos={checkinPhotos}
-                                onPhotoClick={(photo) => openLightboxSingle(photo, photos)}
-                              />
-                            </div>
-                          )}
-
-                          {checkoutPhotos.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                Avarias no Check-out ({checkoutPhotos.length})
-                              </p>
-                              <DamagePhotoGallery
-                                photos={checkoutPhotos}
-                                onPhotoClick={(photo) => openLightboxSingle(photo, photos)}
-                              />
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {((activeTab === "all" && filteredCollects.length === 0 && filteredTransports.length === 0) ||
-              (activeTab === "collects" && filteredCollects.length === 0) ||
-              (activeTab === "transports" && filteredTransports.length === 0)) && (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium text-muted-foreground">
-                    Nenhuma avaria registrada
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {searchTerm.trim()
-                      ? "Nenhum resultado encontrado para a busca"
-                      : "Nenhuma coleta ou transporte possui fotos de avaria"}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </>
+            </CardContent>
+          </Card>
         )}
       </div>
 
@@ -514,6 +364,272 @@ export default function DamageReportPage() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function CollectRow({
+  collect,
+  allPhotos,
+  checkinPhotos,
+  checkoutPhotos,
+  isExpanded,
+  onToggle,
+  onPhotoClick,
+  formatDate,
+}: {
+  collect: CollectWithRelations;
+  allPhotos: string[];
+  checkinPhotos: string[];
+  checkoutPhotos: string[];
+  isExpanded: boolean;
+  onToggle: () => void;
+  onPhotoClick: (photos: string[], index: number) => void;
+  formatDate: (d: string | Date | null | undefined) => string;
+}) {
+  return (
+    <>
+      <tr
+        className="border-b last:border-b-0 hover-elevate cursor-pointer"
+        onClick={onToggle}
+        data-testid={`row-damage-collect-${collect.id}`}
+      >
+        <td className="p-3">
+          <Badge variant="secondary" className="text-xs">
+            <Package className="h-3 w-3 mr-1" />
+            Coleta
+          </Badge>
+        </td>
+        <td className="p-3">
+          <span className="font-mono text-xs font-semibold">{collect.vehicleChassi}</span>
+        </td>
+        <td className="p-3 hidden md:table-cell">
+          <span className="font-mono text-xs">{collect.vehicleChassi}</span>
+        </td>
+        <td className="p-3 hidden lg:table-cell">
+          <span className="text-sm">{collect.driver?.name || "-"}</span>
+        </td>
+        <td className="p-3 hidden lg:table-cell">
+          <div className="text-xs">
+            <span className="text-muted-foreground">{collect.manufacturer?.name || "-"}</span>
+            <span className="mx-1 text-muted-foreground">&rarr;</span>
+            <span>{collect.yard?.name || "-"}</span>
+          </div>
+        </td>
+        <td className="p-3 hidden sm:table-cell">
+          <span className="text-xs">{formatDate(collect.collectDate)}</span>
+        </td>
+        <td className="p-3 text-center">
+          {checkinPhotos.length > 0 ? (
+            <Badge variant="destructive" className="text-xs">{checkinPhotos.length}</Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">-</span>
+          )}
+        </td>
+        <td className="p-3 text-center">
+          {checkoutPhotos.length > 0 ? (
+            <Badge variant="destructive" className="text-xs">{checkoutPhotos.length}</Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">-</span>
+          )}
+        </td>
+        <td className="p-3 text-center">
+          <Badge variant="destructive" className="text-xs">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            {allPhotos.length}
+          </Badge>
+        </td>
+        <td className="p-3 text-center">
+          <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); onToggle(); }} data-testid={`button-expand-collect-${collect.id}`}>
+            <Eye className="h-4 w-4" />
+          </Button>
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr className="border-b last:border-b-0">
+          <td colSpan={10} className="p-4 bg-muted/30">
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground md:hidden">
+                <span>Motorista: <strong className="text-foreground">{collect.driver?.name || "-"}</strong></span>
+                <span>Origem: <strong className="text-foreground">{collect.manufacturer?.name || "-"}</strong></span>
+                <span>Destino: <strong className="text-foreground">{collect.yard?.name || "-"}</strong></span>
+                <span>Data: <strong className="text-foreground">{formatDate(collect.collectDate)}</strong></span>
+              </div>
+              {checkinPhotos.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Avarias no Check-in ({checkinPhotos.length})
+                  </p>
+                  <PhotoThumbnails photos={checkinPhotos} allPhotos={allPhotos} onPhotoClick={onPhotoClick} />
+                </div>
+              )}
+              {checkoutPhotos.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Avarias no Check-out ({checkoutPhotos.length})
+                  </p>
+                  <PhotoThumbnails photos={checkoutPhotos} allPhotos={allPhotos} onPhotoClick={onPhotoClick} />
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function TransportRow({
+  transport,
+  allPhotos,
+  checkinPhotos,
+  checkoutPhotos,
+  isExpanded,
+  onToggle,
+  onPhotoClick,
+  formatDate,
+}: {
+  transport: TransportWithRelations;
+  allPhotos: string[];
+  checkinPhotos: string[];
+  checkoutPhotos: string[];
+  isExpanded: boolean;
+  onToggle: () => void;
+  onPhotoClick: (photos: string[], index: number) => void;
+  formatDate: (d: string | Date | null | undefined) => string;
+}) {
+  const driver = (transport as any).driver;
+  const client = (transport as any).client;
+  const deliveryLocation = (transport as any).deliveryLocation;
+  const originYard = (transport as any).originYard;
+
+  return (
+    <>
+      <tr
+        className="border-b last:border-b-0 hover-elevate cursor-pointer"
+        onClick={onToggle}
+        data-testid={`row-damage-transport-${transport.id}`}
+      >
+        <td className="p-3">
+          <Badge variant="secondary" className="text-xs">
+            <Truck className="h-3 w-3 mr-1" />
+            Transporte
+          </Badge>
+        </td>
+        <td className="p-3">
+          <span className="font-mono text-xs font-semibold">{transport.requestNumber}</span>
+        </td>
+        <td className="p-3 hidden md:table-cell">
+          <span className="font-mono text-xs">{transport.vehicleChassi}</span>
+        </td>
+        <td className="p-3 hidden lg:table-cell">
+          <span className="text-sm">{driver?.name || "-"}</span>
+        </td>
+        <td className="p-3 hidden lg:table-cell">
+          <div className="text-xs">
+            <span className="text-muted-foreground">{originYard?.name || "-"}</span>
+            <span className="mx-1 text-muted-foreground">&rarr;</span>
+            <span>{deliveryLocation ? `${deliveryLocation.city}/${deliveryLocation.state}` : client?.name || "-"}</span>
+          </div>
+        </td>
+        <td className="p-3 hidden sm:table-cell">
+          <span className="text-xs">{formatDate(transport.checkinDateTime || transport.createdAt)}</span>
+        </td>
+        <td className="p-3 text-center">
+          {checkinPhotos.length > 0 ? (
+            <Badge variant="destructive" className="text-xs">{checkinPhotos.length}</Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">-</span>
+          )}
+        </td>
+        <td className="p-3 text-center">
+          {checkoutPhotos.length > 0 ? (
+            <Badge variant="destructive" className="text-xs">{checkoutPhotos.length}</Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">-</span>
+          )}
+        </td>
+        <td className="p-3 text-center">
+          <Badge variant="destructive" className="text-xs">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            {allPhotos.length}
+          </Badge>
+        </td>
+        <td className="p-3 text-center">
+          <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); onToggle(); }} data-testid={`button-expand-transport-${transport.id}`}>
+            <Eye className="h-4 w-4" />
+          </Button>
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr className="border-b last:border-b-0">
+          <td colSpan={10} className="p-4 bg-muted/30">
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground md:hidden">
+                <span>Motorista: <strong className="text-foreground">{driver?.name || "-"}</strong></span>
+                <span>Cliente: <strong className="text-foreground">{client?.name || "-"}</strong></span>
+                <span>Destino: <strong className="text-foreground">{deliveryLocation ? `${deliveryLocation.city}/${deliveryLocation.state}` : "-"}</strong></span>
+                <span>Data: <strong className="text-foreground">{formatDate(transport.checkinDateTime || transport.createdAt)}</strong></span>
+              </div>
+              {checkinPhotos.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Avarias no Check-in ({checkinPhotos.length})
+                  </p>
+                  <PhotoThumbnails photos={checkinPhotos} allPhotos={allPhotos} onPhotoClick={onPhotoClick} />
+                </div>
+              )}
+              {checkoutPhotos.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Avarias no Check-out ({checkoutPhotos.length})
+                  </p>
+                  <PhotoThumbnails photos={checkoutPhotos} allPhotos={allPhotos} onPhotoClick={onPhotoClick} />
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function PhotoThumbnails({
+  photos,
+  allPhotos,
+  onPhotoClick,
+}: {
+  photos: string[];
+  allPhotos: string[];
+  onPhotoClick: (photos: string[], index: number) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {photos.map((photo, index) => {
+        const globalIndex = allPhotos.indexOf(photo);
+        return (
+          <button
+            key={index}
+            type="button"
+            className="relative h-16 w-16 rounded-md overflow-hidden border border-border cursor-pointer hover:ring-2 hover:ring-destructive/50 transition-all group"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPhotoClick(allPhotos, globalIndex >= 0 ? globalIndex : 0);
+            }}
+            data-testid={`button-damage-photo-${index}`}
+          >
+            <img
+              src={normalizeImageUrl(photo)}
+              alt={`Avaria ${index + 1}`}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+              <Image className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
