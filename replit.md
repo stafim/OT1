@@ -164,3 +164,11 @@ Status enums for workflow tracking:
   - **SMTP Configuration Optional** (env vars): `SMTP_PORT` (default 587), `SMTP_FROM` (defaults to SMTP_USER)
 - **Evaluation Criteria Page**: Added route `/criterios-avaliacao` and sidebar link for configuring evaluation criteria
 - **Evaluation System Update**: Replaced 5-star ratings with 0-100 numeric scores using configurable weighted criteria
+- **Portaria New Collect**: Added ability to create new collects directly from the Portaria page when vehicles arrive without pre-existing collect records
+- **Damage Report (Relatório de Avarias)**: New page `/relatorio-avarias` under Operação menu
+  - Automatically lists all collects and transports that have damage photos (checkinDamagePhotos or checkoutDamagePhotos)
+  - Summary cards showing total damage records, total photos, and distribution between collects/transports
+  - Tabs to filter by All, Collects only, or Transports only
+  - Search by chassis, driver, OTD number, or client
+  - Photo gallery with lightbox navigation (prev/next) for viewing damage images
+  - Separates check-in and check-out damage photos within each record

@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   Trophy,
   DollarSign,
+  ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -104,6 +105,11 @@ const operationItems: MenuItem[] = [
     title: "Rotograma (Em dev)",
     url: "/rotograma",
     icon: Route,
+  },
+  {
+    title: "Relatório de Avarias",
+    url: "/relatorio-avarias",
+    icon: ShieldAlert,
   },
   {
     title: "Ranking de Motoristas",
