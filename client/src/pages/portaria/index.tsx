@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,13 +15,45 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { normalizeImageUrl } from "@/lib/utils";
+import { normalizeImageUrl, cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Truck, CheckCircle, Clock, Building, MapPin, User, DoorOpen, Loader2, Search, LogOut, Package, Eye, Shield, History, AlertCircle } from "lucide-react";
+import { Truck, CheckCircle, Clock, Building, MapPin, User, DoorOpen, Loader2, Search, LogOut, Package, Eye, Shield, History, AlertCircle, Plus, ChevronsUpDown, Check as CheckIcon } from "lucide-react";
 import type { Collect, Manufacturer, Yard, Driver, Vehicle, Transport, Client, DeliveryLocation } from "@shared/schema";
+
+const newCollectFormSchema = z.object({
+  vehicleChassi: z.string().min(17, "Chassi deve ter no mínimo 17 caracteres"),
+  manufacturerId: z.string().min(1, "Montadora é obrigatória"),
+  yardId: z.string().min(1, "Pátio de destino é obrigatório"),
+  driverId: z.string().optional(),
+  collectDate: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+type NewCollectFormData = z.infer<typeof newCollectFormSchema>;
 
 interface CollectWithRelations extends Collect {
   manufacturer?: Manufacturer;
@@ -49,6 +84,10 @@ export default function PortariaPage() {
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [confirmExitWithoutCheckin, setConfirmExitWithoutCheckin] = useState<string | null>(null);
   const [exitAuthorizationReason, setExitAuthorizationReason] = useState("");
+  const [showNewCollectDialog, setShowNewCollectDialog] = useState(false);
+  const [openManufacturer, setOpenManufacturer] = useState(false);
+  const [openYard, setOpenYard] = useState(false);
+  const [openDriver, setOpenDriver] = useState(false);
 
   const { data: collects, isLoading: collectsLoading } = useQuery<CollectWithRelations[]>({
     queryKey: ["/api/collects"],
@@ -106,6 +145,51 @@ export default function PortariaPage() {
       toast({ title: "Erro ao autorizar saída", variant: "destructive" });
     },
   });
+
+  const formatDateTimeLocal = (date: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  const newCollectForm = useForm<NewCollectFormData>({
+    resolver: zodResolver(newCollectFormSchema),
+    defaultValues: {
+      vehicleChassi: "",
+      manufacturerId: "",
+      yardId: "",
+      driverId: "",
+      collectDate: formatDateTimeLocal(new Date()),
+      notes: "",
+    },
+  });
+
+  const createCollectMutation = useMutation({
+    mutationFn: async (data: NewCollectFormData) => {
+      return apiRequest("POST", "/api/collects", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+      toast({ title: "Coleta registrada com sucesso!" });
+      setShowNewCollectDialog(false);
+      newCollectForm.reset({
+        vehicleChassi: "",
+        manufacturerId: "",
+        yardId: "",
+        driverId: "",
+        collectDate: formatDateTimeLocal(new Date()),
+        notes: "",
+      });
+    },
+    onError: (error: any) => {
+      const message = error?.message || "Erro ao registrar coleta";
+      toast({ title: message, variant: "destructive" });
+    },
+  });
+
+  const activeDrivers = drivers?.filter((d) => d.isActive === "true" && d.isApto === "true");
+  const activeManufacturers = manufacturers?.filter((m) => m.isActive === "true");
+  const activeYards = yards?.filter((y) => y.isActive === "true");
 
   const getManufacturer = (id: string) => manufacturers?.find((m) => m.id === id);
   const getYard = (id: string) => yards?.find((y) => y.id === id);
@@ -178,12 +262,29 @@ export default function PortariaPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20">
                 <DoorOpen className="h-5 w-5 text-primary" />
               </div>
-              <div>
+              <div className="flex-1">
                 <CardTitle className="text-lg">Controle de Entrada</CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Autorize a entrada de veículos no pátio
                 </p>
               </div>
+              <Button
+                onClick={() => {
+                  newCollectForm.reset({
+                    vehicleChassi: "",
+                    manufacturerId: "",
+                    yardId: "",
+                    driverId: "",
+                    collectDate: formatDateTimeLocal(new Date()),
+                    notes: "",
+                  });
+                  setShowNewCollectDialog(true);
+                }}
+                data-testid="button-new-collect-portaria"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Coleta
+              </Button>
             </div>
           </CardHeader>
         </Card>
@@ -835,6 +936,285 @@ export default function PortariaPage() {
               )}
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showNewCollectDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowNewCollectDialog(false);
+          setOpenManufacturer(false);
+          setOpenYard(false);
+          setOpenDriver(false);
+        }
+      }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Registrar Nova Coleta
+            </DialogTitle>
+            <DialogDescription>
+              Registre uma coleta para um veículo que chegou sem registro prévio.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...newCollectForm}>
+            <form onSubmit={newCollectForm.handleSubmit((data) => createCollectMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={newCollectForm.control}
+                name="vehicleChassi"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Chassi do Veículo *</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="Digite o chassi (17 caracteres)"
+                        maxLength={17}
+                        className="uppercase"
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        data-testid="input-new-collect-chassi"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={newCollectForm.control}
+                name="manufacturerId"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Origem (Montadora) *</FormLabel>
+                    <Popover open={openManufacturer} onOpenChange={setOpenManufacturer}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="select-new-collect-manufacturer"
+                          >
+                            {field.value
+                              ? activeManufacturers?.find((m) => m.id === field.value)?.name
+                              : "Selecione a montadora"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Buscar montadora..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhuma montadora encontrada.</CommandEmpty>
+                            <CommandGroup>
+                              {activeManufacturers?.map((manufacturer) => (
+                                <CommandItem
+                                  key={manufacturer.id}
+                                  value={manufacturer.name}
+                                  onSelect={() => {
+                                    field.onChange(manufacturer.id);
+                                    setOpenManufacturer(false);
+                                  }}
+                                >
+                                  <CheckIcon
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      field.value === manufacturer.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {manufacturer.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={newCollectForm.control}
+                name="yardId"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Destino (Pátio) *</FormLabel>
+                    <Popover open={openYard} onOpenChange={setOpenYard}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="select-new-collect-yard"
+                          >
+                            {field.value
+                              ? activeYards?.find((y) => y.id === field.value)?.name
+                              : "Selecione o pátio"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Buscar pátio..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhum pátio encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {activeYards?.map((yard) => (
+                                <CommandItem
+                                  key={yard.id}
+                                  value={yard.name}
+                                  onSelect={() => {
+                                    field.onChange(yard.id);
+                                    setOpenYard(false);
+                                  }}
+                                >
+                                  <CheckIcon
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      field.value === yard.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {yard.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={newCollectForm.control}
+                name="driverId"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Motorista</FormLabel>
+                    <Popover open={openDriver} onOpenChange={setOpenDriver}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="select-new-collect-driver"
+                          >
+                            {field.value
+                              ? activeDrivers?.find((d) => d.id === field.value)?.name
+                              : "Selecione o motorista"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Buscar motorista..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhum motorista encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {activeDrivers?.map((driver) => (
+                                <CommandItem
+                                  key={driver.id}
+                                  value={driver.name}
+                                  onSelect={() => {
+                                    field.onChange(driver.id);
+                                    setOpenDriver(false);
+                                  }}
+                                >
+                                  <CheckIcon
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      field.value === driver.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {driver.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={newCollectForm.control}
+                name="collectDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data da Coleta</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="datetime-local"
+                        data-testid="input-new-collect-date"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={newCollectForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Observações</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="Observações adicionais..."
+                        rows={3}
+                        data-testid="input-new-collect-notes"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowNewCollectDialog(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createCollectMutation.isPending}
+                  className="flex-1"
+                  data-testid="button-submit-new-collect"
+                >
+                  {createCollectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Registrar Coleta
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
