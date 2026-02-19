@@ -981,3 +981,60 @@ export const insertRouteSchema = createInsertSchema(routes).omit({
 
 export type InsertRoute = z.infer<typeof insertRouteSchema>;
 export type Route = typeof routes.$inferSelect;
+
+// ============== CONTRATOS (Contracts) ==============
+export const contractStatusEnum = pgEnum("contract_status", [
+  "ativo",
+  "suspenso",
+  "expirado",
+  "cancelado"
+]);
+
+export const paymentTypeEnum = pgEnum("payment_type", [
+  "por_km",
+  "fixo_mensal",
+  "por_entrega",
+  "comissao"
+]);
+
+export const contracts = pgTable("contracts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractNumber: varchar("contract_number", { length: 50 }).notNull().unique(),
+  driverId: varchar("driver_id").references(() => drivers.id),
+  contractType: driverModalityEnum("contract_type").notNull(),
+  status: contractStatusEnum("status").default("ativo").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  paymentType: paymentTypeEnum("payment_type").notNull(),
+  paymentValue: numeric("payment_value", { precision: 12, scale: 2 }).notNull(),
+  truckType: text("truck_type"),
+  licensePlate: varchar("license_plate", { length: 10 }),
+  cnhRequired: varchar("cnh_required", { length: 5 }),
+  workRegion: text("work_region"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const contractsRelations = relations(contracts, ({ one }) => ({
+  driver: one(drivers, {
+    fields: [contracts.driverId],
+    references: [drivers.id],
+  }),
+}));
+
+export const insertContractSchema = createInsertSchema(contracts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  contractNumber: z.string().min(1, "Número do contrato é obrigatório"),
+  contractType: z.enum(["pj", "clt", "agregado"]),
+  status: z.enum(["ativo", "suspenso", "expirado", "cancelado"]).optional(),
+  paymentType: z.enum(["por_km", "fixo_mensal", "por_entrega", "comissao"]),
+  paymentValue: z.string().min(1, "Valor é obrigatório"),
+  startDate: z.string().min(1, "Data de início é obrigatória"),
+});
+
+export type InsertContract = z.infer<typeof insertContractSchema>;
+export type Contract = typeof contracts.$inferSelect;

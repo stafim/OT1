@@ -45,6 +45,7 @@ import RoutingPage from "@/pages/routing/index";
 import PrestacaoDeContasPage from "@/pages/prestacao-de-contas/index";
 import DriverEvaluationsPage from "@/pages/driver-evaluations/index";
 import EvaluationCriteriaPage from "@/pages/evaluation/index";
+import ContractsPage from "@/pages/contracts/index";
 import YardReportPage from "@/pages/yard-report/index";
 import FinesControlPage from "@/pages/fines-control/index";
 import CheckpointsPage from "@/pages/checkpoints/index";
@@ -85,6 +86,7 @@ function AuthenticatedRouter() {
       <Route path="/ranking-motoristas" component={DriverRankingPage} />
       <Route path="/dashboard-financeiro" component={FinancialDashboardPage} />
       <Route path="/gestao-rotas" component={RouteManagementPage} />
+      <Route path="/contratos" component={ContractsPage} />
       <Route path="/usuarios" component={UsersPage} />
       <Route path="/usuarios/:id" component={UserFormPage} />
       <Route path="/integracoes" component={IntegrationsPage} />

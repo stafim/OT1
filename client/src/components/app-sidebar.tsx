@@ -166,6 +166,11 @@ const cadastroItems: MenuItem[] = [
     url: "/gestao-rotas",
     icon: Route,
   },
+  {
+    title: "Gestor de Contratos",
+    url: "/contratos",
+    icon: FileBarChart,
+  },
 ];
 
 const configItems: MenuItem[] = [

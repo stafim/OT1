@@ -14,6 +14,7 @@ import {
   expenseSettlements, type ExpenseSettlement, type InsertExpenseSettlement,
   expenseSettlementItems, type ExpenseSettlementItem, type InsertExpenseSettlementItem,
   checkpoints, type Checkpoint, type InsertCheckpoint,
+  contracts, type Contract, type InsertContract,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -126,6 +127,13 @@ export interface IStorage {
   createCheckpoint(checkpoint: InsertCheckpoint): Promise<Checkpoint>;
   updateCheckpoint(id: string, checkpoint: Partial<InsertCheckpoint>): Promise<Checkpoint | undefined>;
   deleteCheckpoint(id: string): Promise<void>;
+
+  // Contracts
+  getContracts(): Promise<Contract[]>;
+  getContract(id: string): Promise<Contract | undefined>;
+  createContract(contract: InsertContract): Promise<Contract>;
+  updateContract(id: string, contract: Partial<InsertContract>): Promise<Contract | undefined>;
+  deleteContract(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -559,6 +567,30 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCheckpoint(id: string): Promise<void> {
     await db.delete(checkpoints).where(eq(checkpoints.id, id));
+  }
+
+  // Contracts
+  async getContracts(): Promise<Contract[]> {
+    return db.select().from(contracts).orderBy(desc(contracts.createdAt));
+  }
+
+  async getContract(id: string): Promise<Contract | undefined> {
+    const [contract] = await db.select().from(contracts).where(eq(contracts.id, id));
+    return contract;
+  }
+
+  async createContract(contract: InsertContract): Promise<Contract> {
+    const [created] = await db.insert(contracts).values(contract).returning();
+    return created;
+  }
+
+  async updateContract(id: string, contract: Partial<InsertContract>): Promise<Contract | undefined> {
+    const [updated] = await db.update(contracts).set({ ...contract, updatedAt: new Date() }).where(eq(contracts.id, id)).returning();
+    return updated;
+  }
+
+  async deleteContract(id: string): Promise<void> {
+    await db.delete(contracts).where(eq(contracts.id, id));
   }
 }
 
