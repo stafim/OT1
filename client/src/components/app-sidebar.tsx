@@ -62,7 +62,7 @@ const operationItems: MenuItem[] = [
     icon: Route,
   },
   {
-    title: "Tráfego Agora (Em dev)",
+    title: "Tráfego Agora",
     url: "/trafego-agora",
     icon: Radio,
   },
