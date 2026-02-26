@@ -47,7 +47,6 @@ import DriverEvaluationsPage from "@/pages/driver-evaluations/index";
 import EvaluationCriteriaPage from "@/pages/evaluation/index";
 import ContractsPage from "@/pages/contracts/index";
 import YardReportPage from "@/pages/yard-report/index";
-import FinesControlPage from "@/pages/fines-control/index";
 import CheckpointsPage from "@/pages/checkpoints/index";
 import TimelineCheckpointsPage from "@/pages/timeline-checkpoints/index";
 import DriverRankingPage from "@/pages/driver-ranking/index";
@@ -78,7 +77,6 @@ function AuthenticatedRouter() {
       <Route path="/portaria" component={PortariaPage} />
       <Route path="/avaliacao" component={DriverEvaluationsPage} />
       <Route path="/criterios-avaliacao" component={EvaluationCriteriaPage} />
-      <Route path="/controle-multas" component={FinesControlPage} />
       <Route path="/rotograma" component={RoutingPage} />
       <Route path="/prestacao-de-contas" component={PrestacaoDeContasPage} />
       <Route path="/relatorio-patio" component={YardReportPage} />

@@ -97,11 +97,6 @@ const operationItems: MenuItem[] = [
     icon: FileBarChart,
   },
   {
-    title: "Controle de Multas (Em dev)",
-    url: "/controle-multas",
-    icon: AlertTriangle,
-  },
-  {
     title: "Rotograma (Em dev)",
     url: "/rotograma",
     icon: Route,
