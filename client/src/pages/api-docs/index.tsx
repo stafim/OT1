@@ -309,7 +309,7 @@ function EndpointCard({ endpoint }: { endpoint: EndpointDoc }) {
 
 export default function ApiDocsPage() {
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="h-full overflow-auto p-6 max-w-5xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Documentação da API</h1>
         <p className="text-muted-foreground mt-1">
