@@ -115,65 +115,76 @@ const endpoints: { category: string; items: EndpointDoc[] }[] = [
     ]
   },
   {
-    category: "Check-in / Check-out",
+    category: "Autenticação Externa",
     items: [
       {
         method: "POST",
-        path: "/api/collects/:id/checkin",
-        description: "Realiza o check-in de uma coleta (início da operação)",
+        path: "/api/external/auth/token",
+        description: "Gera um par de tokens (access + refresh) para autenticação externa. O access_token deve ser enviado no header Authorization de todas as requisições protegidas.",
         headers: [
           { name: "Content-Type", value: "application/json", description: "Tipo do conteúdo" },
         ],
         body: [
-          { field: "latitude", type: "number", required: true, description: "Latitude da localização" },
-          { field: "longitude", type: "number", required: true, description: "Longitude da localização" },
-          { field: "photoUrl", type: "string", required: false, description: "URL da foto do check-in" },
-          { field: "notes", type: "string", required: false, description: "Observações do check-in" },
+          { field: "username", type: "string", required: true, description: "Nome de usuário cadastrado no sistema" },
+          { field: "password", type: "string", required: true, description: "Senha do usuário" },
         ],
         example: {
-          latitude: -23.5505,
-          longitude: -46.6333,
-          photoUrl: "https://storage.example.com/checkin-photo.jpg",
-          notes: "Chegada no local"
+          username: "admin",
+          password: "admin123"
         },
         response: {
-          success: true,
-          collect: {
-            id: 1,
-            status: "em_andamento",
-            checkinAt: "2026-01-15T08:30:00Z",
-            checkinLatitude: -23.5505,
-            checkinLongitude: -46.6333
+          access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          token_type: "Bearer",
+          expires_in: 900,
+          user: {
+            id: "uuid-do-usuario",
+            username: "admin",
+            email: "admin@otdentregas.com",
+            role: "admin",
+            firstName: "Administrador",
+            lastName: "Sistema"
           }
         }
       },
       {
         method: "POST",
-        path: "/api/collects/:id/checkout",
-        description: "Realiza o check-out de uma coleta (conclusão da operação)",
+        path: "/api/external/auth/refresh",
+        description: "Renova o access_token usando um refresh_token válido. Use quando o access_token expirar (após 15 minutos).",
         headers: [
           { name: "Content-Type", value: "application/json", description: "Tipo do conteúdo" },
         ],
         body: [
-          { field: "latitude", type: "number", required: true, description: "Latitude da localização" },
-          { field: "longitude", type: "number", required: true, description: "Longitude da localização" },
-          { field: "photoUrl", type: "string", required: false, description: "URL da foto do check-out" },
-          { field: "notes", type: "string", required: false, description: "Observações do check-out" },
+          { field: "refresh_token", type: "string", required: true, description: "Refresh token obtido no login" },
         ],
         example: {
-          latitude: -23.5489,
-          longitude: -46.6388,
-          photoUrl: "https://storage.example.com/checkout-photo.jpg",
-          notes: "Veículos carregados com sucesso"
+          refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
         },
         response: {
-          success: true,
-          collect: {
-            id: 1,
-            status: "concluida",
-            checkoutAt: "2026-01-15T10:45:00Z",
-            checkoutLatitude: -23.5489,
-            checkoutLongitude: -46.6388
+          access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          token_type: "Bearer",
+          expires_in: 900
+        }
+      },
+      {
+        method: "GET",
+        path: "/api/external/auth/validate",
+        description: "Valida se um access_token ainda é válido e retorna os dados do usuário autenticado. Envie o token no header Authorization.",
+        headers: [
+          { name: "Authorization", value: "Bearer <access_token>", description: "Token de acesso obtido no login" },
+        ],
+        body: [],
+        example: {},
+        response: {
+          valid: true,
+          user: {
+            id: "uuid-do-usuario",
+            username: "admin",
+            email: "admin@otdentregas.com",
+            role: "admin",
+            firstName: "Administrador",
+            lastName: "Sistema"
           }
         }
       }
