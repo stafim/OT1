@@ -8,3 +8,4 @@
 [x] 8. Verificação do bucket de armazenamento de imagens (Object Storage já configurado)
 [x] 9. Movido "Ranking de Motoristas" para submenu Operação, abaixo de Rotograma
 [x] 10. Dump do banco de dados restaurado com sucesso
+[x] 11. Botão de download PDF nas cotações salvas com logo OTD, dados do cliente e valor final

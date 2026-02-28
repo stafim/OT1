@@ -45,6 +45,7 @@ import {
   Trash2,
   Eye,
   Search,
+  FileDown,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { useToast } from "@/hooks/use-toast";
@@ -286,6 +287,161 @@ export default function CotacaoFreteProPage() {
   const isExpired = (dateStr: string | null) => {
     if (!dateStr) return false;
     return new Date(dateStr + "T23:59:59") < new Date();
+  };
+
+  const handleDownloadPDF = async (quote: FreightQuote) => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    const pageW = 210;
+    const pageH = 297;
+    const margin = 20;
+    const contentW = pageW - margin * 2;
+
+    const orange = [234, 88, 12] as [number, number, number];
+    const darkGray = [30, 30, 30] as [number, number, number];
+    const medGray = [100, 100, 100] as [number, number, number];
+    const lightGray = [240, 240, 240] as [number, number, number];
+    const white = [255, 255, 255] as [number, number, number];
+
+    doc.setFillColor(...orange);
+    doc.rect(0, 0, pageW, 45, "F");
+
+    try {
+      const logoImg = new Image();
+      logoImg.crossOrigin = "anonymous";
+      await new Promise<void>((resolve) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = () => resolve();
+        logoImg.src = "/logo-otd.png";
+      });
+      if (logoImg.complete && logoImg.naturalWidth > 0) {
+        const canvas = document.createElement("canvas");
+        canvas.width = logoImg.naturalWidth;
+        canvas.height = logoImg.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(logoImg, 0, 0);
+          const dataUrl = canvas.toDataURL("image/png");
+          const aspectRatio = logoImg.naturalWidth / logoImg.naturalHeight;
+          const logoH = 28;
+          const logoW = logoH * aspectRatio;
+          doc.addImage(dataUrl, "PNG", margin, 8, logoW, logoH);
+        }
+      }
+    } catch {}
+
+    doc.setFontSize(11);
+    doc.setTextColor(...white);
+    doc.setFont("helvetica", "normal");
+    doc.text("COTAÇÃO DE FRETE", pageW - margin, 18, { align: "right" });
+    doc.setFontSize(9);
+    doc.text(`Emitida em: ${new Date().toLocaleDateString("pt-BR")}`, pageW - margin, 25, { align: "right" });
+
+    let y = 60;
+
+    doc.setFillColor(...lightGray);
+    doc.roundedRect(margin, y - 7, contentW, 28, 3, 3, "F");
+    doc.setFontSize(14);
+    doc.setTextColor(...darkGray);
+    doc.setFont("helvetica", "bold");
+    doc.text(quote.clientName, margin + 5, y + 2);
+    if (quote.clientPhone || quote.clientEmail) {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...medGray);
+      const contactLine = [quote.clientPhone, quote.clientEmail].filter(Boolean).join("   |   ");
+      doc.text(contactLine, margin + 5, y + 10);
+    }
+
+    y += 35;
+
+    const drawSectionTitle = (title: string, yPos: number) => {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...orange);
+      doc.text(title.toUpperCase(), margin, yPos);
+      doc.setDrawColor(...orange);
+      doc.setLineWidth(0.5);
+      doc.line(margin, yPos + 2, margin + contentW, yPos + 2);
+    };
+
+    drawSectionTitle("Informações da Cotação", y);
+    y += 10;
+
+    const infoRows: [string, string][] = [
+      ["Distância da Rota", `${parseFloat(quote.distanciaKm).toLocaleString("pt-BR")} km`],
+      ["Data de Emissão", new Date(quote.createdAt!).toLocaleDateString("pt-BR")],
+      ...(quote.validUntil ? [["Validade da Cotação", formatDate(quote.validUntil)] as [string, string]] : []),
+    ];
+
+    doc.setFontSize(10);
+    for (const [label, value] of infoRows) {
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...medGray);
+      doc.text(label, margin, y);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...darkGray);
+      doc.text(value, pageW - margin, y, { align: "right" });
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.2);
+      doc.line(margin, y + 2, pageW - margin, y + 2);
+      y += 10;
+    }
+
+    y += 8;
+
+    doc.setFillColor(...orange);
+    doc.roundedRect(margin, y, contentW, 28, 3, 3, "F");
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...white);
+    doc.text("VALOR TOTAL DO FRETE", margin + contentW / 2, y + 9, { align: "center" });
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text(
+      parseFloat(quote.valorTotalCte).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+      margin + contentW / 2,
+      y + 22,
+      { align: "center" }
+    );
+
+    y += 40;
+
+    if (quote.validUntil && !isExpired(quote.validUntil)) {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(...medGray);
+      doc.text(
+        `Esta cotação é válida até ${formatDate(quote.validUntil)}.`,
+        margin + contentW / 2,
+        y,
+        { align: "center" }
+      );
+      y += 7;
+    }
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...medGray);
+    doc.text(
+      "O valor apresentado é uma estimativa de frete sujeita a confirmação.",
+      margin + contentW / 2,
+      y,
+      { align: "center" }
+    );
+
+    doc.setFillColor(...orange);
+    doc.rect(0, pageH - 18, pageW, 18, "F");
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...white);
+    doc.text("OTD LOGISTICS", margin, pageH - 7);
+    doc.setFont("helvetica", "normal");
+    doc.text("www.otdlogistics.com.br", pageW - margin, pageH - 7, { align: "right" });
+
+    const filename = `cotacao-frete-${quote.clientName.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().split("T")[0]}.pdf`;
+    doc.save(filename);
   };
 
   return (
@@ -750,6 +906,16 @@ export default function CotacaoFreteProPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-primary hover:text-primary"
+                              onClick={() => handleDownloadPDF(quote)}
+                              title="Baixar PDF da cotação"
+                              data-testid={`button-download-pdf-${quote.id}`}
+                            >
+                              <FileDown className="h-3.5 w-3.5" />
+                            </Button>
                             <Button
                               size="icon"
                               variant="ghost"
