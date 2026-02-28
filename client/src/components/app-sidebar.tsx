@@ -242,19 +242,12 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center">
           <img
             src={otdLogoPath}
             alt="OTD Logistics"
-            className="h-10 w-10 shrink-0 object-contain rounded-md"
+            className="h-12 object-contain"
           />
-          <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
-            <img
-              src={otdLogoPath}
-              alt="OTD Logistics"
-              className="h-8 object-contain object-left"
-            />
-          </div>
         </div>
       </SidebarHeader>
 
