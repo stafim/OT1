@@ -108,26 +108,25 @@ const emptyForm: FormState = {
 };
 
 function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
-  const { data: quote, isLoading } = useQuery<FreightQuote>({
+  const { data: quote, isLoading, isError } = useQuery<FreightQuote>({
     queryKey: ["/api/freight-quotes", quoteId],
+    retry: false,
   });
 
   if (isLoading) {
     return (
-      <div className="space-y-2">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-8 rounded bg-muted animate-pulse" />
-        ))}
-      </div>
+      <Card className="border-amber-200 dark:border-amber-900">
+        <CardContent className="p-4 space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-8 rounded bg-muted animate-pulse" />
+          ))}
+        </CardContent>
+      </Card>
     );
   }
 
-  if (!quote) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Cotação original não encontrada ou foi removida.
-      </p>
-    );
+  if (isError || !quote) {
+    return null;
   }
 
   const dist = parseFloat(quote.distanciaKm) || 0;
@@ -153,68 +152,79 @@ function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-        <div className="space-y-0.5">
-          <p className="text-xs text-muted-foreground">Distância</p>
-          <p className="font-medium">{dist.toLocaleString("pt-BR")} km</p>
-        </div>
-        <div className="space-y-0.5">
-          <p className="text-xs text-muted-foreground">Consumo veículo</p>
-          <p className="font-medium">{consumo} km/l</p>
-        </div>
-        <div className="space-y-0.5">
-          <p className="text-xs text-muted-foreground">Preço do Diesel</p>
-          <p className="font-medium">R$ {parseFloat(quote.precoDiesel).toFixed(2)}/L</p>
-        </div>
-        <div className="space-y-0.5">
-          <p className="text-xs text-muted-foreground">Valor do Bem</p>
-          <p className="font-medium">{formatCurrency(quote.valorBem)}</p>
-        </div>
-        {quote.validUntil && (
+    <Card className="border-amber-200 dark:border-amber-900">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Calculator className="h-4 w-4 text-amber-600" />
+          Cotação de Frete Original
+          <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+            Dados da cotação que originou este contrato
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
           <div className="space-y-0.5">
-            <p className="text-xs text-muted-foreground">Validade da Cotação</p>
-            <p className="font-medium">{formatDate(quote.validUntil)}</p>
+            <p className="text-xs text-muted-foreground">Distância</p>
+            <p className="font-medium">{dist.toLocaleString("pt-BR")} km</p>
           </div>
-        )}
-        <div className="space-y-0.5">
-          <p className="text-xs text-muted-foreground">Emitida em</p>
-          <p className="font-medium">{quote.createdAt ? new Date(quote.createdAt).toLocaleDateString("pt-BR") : "—"}</p>
-        </div>
-      </div>
-
-      <Separator />
-
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Detalhamento dos Custos</p>
-        <div className="border rounded-md divide-y text-sm">
-          {rows.map(({ label, value, color, detail }) => (
-            <div key={label} className="flex items-center justify-between p-2.5 gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${color}`} />
-                <div>
-                  <span>{label}</span>
-                  {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
-                </div>
-              </div>
-              <span className="font-medium shrink-0">{formatCurrency(value)}</span>
+          <div className="space-y-0.5">
+            <p className="text-xs text-muted-foreground">Consumo veículo</p>
+            <p className="font-medium">{consumo} km/l</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-xs text-muted-foreground">Preço do Diesel</p>
+            <p className="font-medium">R$ {parseFloat(quote.precoDiesel).toFixed(2)}/L</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-xs text-muted-foreground">Valor do Bem</p>
+            <p className="font-medium">{formatCurrency(quote.valorBem)}</p>
+          </div>
+          {quote.validUntil && (
+            <div className="space-y-0.5">
+              <p className="text-xs text-muted-foreground">Validade da Cotação</p>
+              <p className="font-medium">{formatDate(quote.validUntil)}</p>
             </div>
-          ))}
-          <div className="flex items-center justify-between p-2.5 bg-muted/50">
-            <span className="font-medium">Valor Base</span>
-            <span className="font-semibold">{formatCurrency(valorBase)}</span>
-          </div>
-          <div className="flex items-center justify-between p-2.5">
-            <span className="text-red-600">Impostos (21,25%)</span>
-            <span className="font-medium text-red-600">{formatCurrency(impostos)}</span>
-          </div>
-          <div className="flex items-center justify-between p-2.5 bg-primary/5">
-            <span className="font-bold">Valor Total CTe</span>
-            <span className="font-bold text-primary text-base">{formatCurrency(valorTotalCte)}</span>
+          )}
+          <div className="space-y-0.5">
+            <p className="text-xs text-muted-foreground">Emitida em</p>
+            <p className="font-medium">{quote.createdAt ? new Date(quote.createdAt).toLocaleDateString("pt-BR") : "—"}</p>
           </div>
         </div>
-      </div>
-    </div>
+
+        <Separator />
+
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Detalhamento dos Custos</p>
+          <div className="border rounded-md divide-y text-sm">
+            {rows.map(({ label, value, color, detail }) => (
+              <div key={label} className="flex items-center justify-between p-2.5 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${color}`} />
+                  <div>
+                    <span>{label}</span>
+                    {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+                  </div>
+                </div>
+                <span className="font-medium shrink-0">{formatCurrency(value)}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between p-2.5 bg-muted/50">
+              <span className="font-medium">Valor Base</span>
+              <span className="font-semibold">{formatCurrency(valorBase)}</span>
+            </div>
+            <div className="flex items-center justify-between p-2.5">
+              <span className="text-red-600">Impostos (21,25%)</span>
+              <span className="font-medium text-red-600">{formatCurrency(impostos)}</span>
+            </div>
+            <div className="flex items-center justify-between p-2.5 bg-primary/5">
+              <span className="font-bold">Valor Total CTe</span>
+              <span className="font-bold text-primary text-base">{formatCurrency(valorTotalCte)}</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -528,20 +538,7 @@ export default function ContratosFreteePage() {
 
             {/* Quote details if originated from a quote */}
             {contract.quoteId && (
-              <Card className="border-amber-200 dark:border-amber-900">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Calculator className="h-4 w-4 text-amber-600" />
-                    Cotação de Frete Original
-                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30">
-                      Dados da cotação que originou este contrato
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <QuoteDetailPanel quoteId={contract.quoteId} />
-                </CardContent>
-              </Card>
+              <QuoteDetailPanel quoteId={contract.quoteId} />
             )}
 
             {/* Delete */}
