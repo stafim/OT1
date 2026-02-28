@@ -230,7 +230,7 @@ export default function CotacaoFreteProPage() {
     mutationFn: async (quote: FreightQuote) => {
       const numberRes = await apiRequest("GET", "/api/freight-contracts/next-number");
       const { contractNumber } = await numberRes.json();
-      return apiRequest("POST", "/api/freight-contracts", {
+      await apiRequest("POST", "/api/freight-contracts", {
         contractNumber,
         quoteId: quote.id,
         clientId: quote.clientId || null,
@@ -245,8 +245,10 @@ export default function CotacaoFreteProPage() {
         notes: null,
         content: null,
       });
+      await apiRequest("DELETE", `/api/freight-quotes/${quote.id}`);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/freight-quotes"] });
       toast({
         title: "Contrato de Frete criado com sucesso!",
         description: "Redirecionando para Contratos de Frete...",
