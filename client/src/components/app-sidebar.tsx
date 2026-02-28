@@ -221,13 +221,13 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary">
             <Truck className="h-6 w-6 text-primary-foreground" />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-semibold">OTD Entregas</span>
             <span className="text-xs text-muted-foreground">Gestão de Veículos</span>
           </div>
@@ -335,11 +335,11 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9">
+          <Avatar className="h-9 w-9 shrink-0">
             <AvatarImage src={user?.profileImageUrl || undefined} />
             <AvatarFallback className="text-xs">{getInitials()}</AvatarFallback>
           </Avatar>
-          <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex flex-1 flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
             <span className="truncate text-sm font-medium">
               {user?.firstName || user?.email || "Usuário"}
             </span>
@@ -355,6 +355,7 @@ export function AppSidebar() {
             onClick={() => logout()}
             disabled={isLoggingOut}
             data-testid="button-logout"
+            className="group-data-[collapsible=icon]:hidden"
           >
             <LogOut className="h-4 w-4" />
           </Button>
