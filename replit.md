@@ -176,6 +176,7 @@ Status enums for workflow tracking:
   - Frontend page with search, grouped display by brand, and add/edit/delete dialogs
   - Axle options: 2 to 9 eixos
   - Average consumption in km/l
+  - Vehicle value (valor do veículo) - optional, stored as numeric(12,2)
   - Added to Cadastros menu in sidebar with CarFront icon
 - **Cotação de Frete**: Freight quote calculator page (`/cotacao-frete`) under Operação menu
   - Input fields: Valor do Bem, Distância km, Frete OTD, Retorno Motorista, Pedágio, Consumo do Veículo, Preço do Diesel

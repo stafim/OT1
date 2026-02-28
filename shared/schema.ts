@@ -930,6 +930,7 @@ export const truckModels = pgTable("truck_models", {
   model: text("model").notNull(),
   axleConfig: text("axle_config").notNull(),
   averageConsumption: numeric("average_consumption", { precision: 5, scale: 2 }).notNull(),
+  vehicleValue: numeric("vehicle_value", { precision: 12, scale: 2 }),
   isActive: text("is_active").default("true"),
   createdAt: timestamp("created_at").defaultNow(),
 });

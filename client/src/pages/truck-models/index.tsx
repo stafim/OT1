@@ -41,6 +41,7 @@ import {
   Truck,
   Fuel,
   Settings2,
+  DollarSign,
 } from "lucide-react";
 import type { TruckModel } from "@shared/schema";
 
@@ -69,6 +70,7 @@ export default function TruckModelsPage() {
   const [formModel, setFormModel] = useState("");
   const [formAxle, setFormAxle] = useState("");
   const [formConsumption, setFormConsumption] = useState("");
+  const [formVehicleValue, setFormVehicleValue] = useState("");
 
   const { data: models, isLoading } = useQuery<TruckModel[]>({
     queryKey: ["/api/truck-models"],
@@ -123,6 +125,7 @@ export default function TruckModelsPage() {
     setFormModel("");
     setFormAxle("");
     setFormConsumption("");
+    setFormVehicleValue("");
   };
 
   const openAddDialog = () => {
@@ -131,6 +134,7 @@ export default function TruckModelsPage() {
     setFormModel("");
     setFormAxle("");
     setFormConsumption("");
+    setFormVehicleValue("");
     setShowDialog(true);
   };
 
@@ -140,6 +144,7 @@ export default function TruckModelsPage() {
     setFormModel(model.model);
     setFormAxle(model.axleConfig);
     setFormConsumption(model.averageConsumption);
+    setFormVehicleValue(model.vehicleValue || "");
     setShowDialog(true);
   };
 
@@ -162,11 +167,14 @@ export default function TruckModelsPage() {
       return;
     }
 
-    const data = {
+    const vehicleVal = formVehicleValue ? parseFloat(formVehicleValue) : null;
+
+    const data: any = {
       brand: formBrand.trim().toUpperCase(),
       model: formModel.trim().toUpperCase(),
       axleConfig: formAxle,
       averageConsumption: consumption.toFixed(2),
+      vehicleValue: vehicleVal !== null ? vehicleVal.toFixed(2) : null,
     };
 
     if (editingModel) {
@@ -281,6 +289,14 @@ export default function TruckModelsPage() {
                           <Fuel className="h-3.5 w-3.5" />
                           <span>{parseFloat(model.averageConsumption).toFixed(1)} km/l</span>
                         </div>
+                        {model.vehicleValue && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <DollarSign className="h-3.5 w-3.5" />
+                            <span data-testid={`text-model-value-${model.id}`}>
+                              {parseFloat(model.vehicleValue).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         <Button
@@ -365,6 +381,19 @@ export default function TruckModelsPage() {
                 data-testid="input-model-consumption"
               />
               <p className="text-xs text-muted-foreground">Quantos quilômetros o caminhão roda com 1 litro de diesel</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Valor do Veículo (R$)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="1000"
+                value={formVehicleValue}
+                onChange={(e) => setFormVehicleValue(e.target.value)}
+                placeholder="Ex: 350000"
+                data-testid="input-model-vehicle-value"
+              />
+              <p className="text-xs text-muted-foreground">Valor médio do veículo deste modelo (opcional)</p>
             </div>
           </div>
           <DialogFooter>
