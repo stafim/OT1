@@ -26,6 +26,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Calculator,
   CarFront,
   DollarSign,
@@ -92,6 +100,8 @@ export default function CotacaoFreteProPage() {
   const [searchQuotes, setSearchQuotes] = useState("");
   const [viewingQuote, setViewingQuote] = useState<FreightQuote | null>(null);
   const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [quoteName, setQuoteName] = useState("");
 
   const { data: truckModels } = useQuery<TruckModel[]>({
     queryKey: ["/api/truck-models"],
@@ -253,8 +263,17 @@ export default function CotacaoFreteProPage() {
       toast({ title: "Nome do cliente é obrigatório", variant: "destructive" });
       return;
     }
+    setQuoteName("");
+    setSaveDialogOpen(true);
+  };
 
+  const handleConfirmSave = () => {
+    if (!quoteName.trim()) {
+      toast({ title: "Nome da cotação é obrigatório", variant: "destructive" });
+      return;
+    }
     saveMutation.mutate({
+      quoteName: quoteName.trim(),
       clientId: selectedClientId && selectedClientId !== "__new__" ? selectedClientId : null,
       clientName: clientName.trim(),
       clientPhone: clientPhone.trim() || null,
@@ -272,6 +291,7 @@ export default function CotacaoFreteProPage() {
       valorTotalCte: calc.valorTotalCte.toFixed(2),
       impostos: calc.impostos.toFixed(2),
     });
+    setSaveDialogOpen(false);
   };
 
   const handleLoadQuote = (quote: FreightQuote) => {
@@ -315,6 +335,7 @@ export default function CotacaoFreteProPage() {
     const term = searchQuotes.toLowerCase();
     return savedQuotes.filter(q =>
       q.clientName.toLowerCase().includes(term) ||
+      q.quoteName?.toLowerCase().includes(term) ||
       q.clientEmail?.toLowerCase().includes(term) ||
       q.clientPhone?.toLowerCase().includes(term)
     );
@@ -902,9 +923,14 @@ export default function CotacaoFreteProPage() {
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-sm truncate" data-testid={`text-quote-client-${quote.id}`}>
-                                {quote.clientName}
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {quote.quoteName && (
+                                <span className="font-semibold text-sm truncate" data-testid={`text-quote-name-${quote.id}`}>
+                                  {quote.quoteName}
+                                </span>
+                              )}
+                              <h3 className={`text-sm truncate ${quote.quoteName ? "text-muted-foreground" : "font-semibold"}`} data-testid={`text-quote-client-${quote.id}`}>
+                                {quote.quoteName ? `— ${quote.clientName}` : quote.clientName}
                               </h3>
                               {quote.validUntil && (
                                 <Badge
@@ -993,6 +1019,41 @@ export default function CotacaoFreteProPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={saveDialogOpen} onOpenChange={(open) => { if (!open) setSaveDialogOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Salvar Cotação de Frete</DialogTitle>
+            <DialogDescription>
+              Digite um nome para identificar esta cotação. Ex: "Entrega SP → RJ – Março 2026"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="quote-name-input">Nome da Cotação *</Label>
+            <Input
+              id="quote-name-input"
+              placeholder="Ex: Entrega SP → RJ – Março 2026"
+              value={quoteName}
+              onChange={(e) => setQuoteName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleConfirmSave(); }}
+              autoFocus
+              data-testid="input-quote-name"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmSave}
+              disabled={saveMutation.isPending || !quoteName.trim()}
+              data-testid="button-confirm-save-quote"
+            >
+              {saveMutation.isPending ? "Salvando..." : "Salvar Cotação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deletingQuoteId} onOpenChange={(open) => { if (!open) setDeletingQuoteId(null); }}>
         <AlertDialogContent>

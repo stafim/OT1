@@ -946,6 +946,7 @@ export type TruckModel = typeof truckModels.$inferSelect;
 // ============== COTAÇÕES DE FRETE (Freight Quotes) ==============
 export const freightQuotes = pgTable("freight_quotes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quoteName: text("quote_name"),
   clientId: varchar("client_id"),
   clientName: text("client_name").notNull(),
   clientPhone: varchar("client_phone", { length: 20 }),

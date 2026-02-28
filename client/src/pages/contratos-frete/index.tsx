@@ -110,11 +110,6 @@ const emptyForm: FormState = {
 function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
   const { data: quote, isLoading } = useQuery<FreightQuote>({
     queryKey: ["/api/freight-quotes", quoteId],
-    queryFn: async () => {
-      const res = await fetch(`/api/freight-quotes/${quoteId}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Cotação não encontrada");
-      return res.json();
-    },
   });
 
   if (isLoading) {
