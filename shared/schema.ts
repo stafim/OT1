@@ -943,6 +943,36 @@ export const insertTruckModelSchema = createInsertSchema(truckModels).omit({
 export type InsertTruckModel = z.infer<typeof insertTruckModelSchema>;
 export type TruckModel = typeof truckModels.$inferSelect;
 
+// ============== COTAÇÕES DE FRETE (Freight Quotes) ==============
+export const freightQuotes = pgTable("freight_quotes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id"),
+  clientName: text("client_name").notNull(),
+  clientPhone: varchar("client_phone", { length: 20 }),
+  clientEmail: varchar("client_email", { length: 255 }),
+  validUntil: date("valid_until"),
+  truckModelId: varchar("truck_model_id"),
+  valorBem: numeric("valor_bem", { precision: 12, scale: 2 }).notNull(),
+  distanciaKm: numeric("distancia_km", { precision: 10, scale: 2 }).notNull(),
+  freteOtd: numeric("frete_otd", { precision: 10, scale: 2 }).notNull(),
+  retornoMotorista: numeric("retorno_motorista", { precision: 10, scale: 2 }).notNull(),
+  pedagio: numeric("pedagio", { precision: 10, scale: 2 }).notNull(),
+  consumoVeiculo: numeric("consumo_veiculo", { precision: 5, scale: 2 }).notNull(),
+  precoDiesel: numeric("preco_diesel", { precision: 6, scale: 2 }).notNull(),
+  valorBase: numeric("valor_base", { precision: 12, scale: 2 }).notNull(),
+  valorTotalCte: numeric("valor_total_cte", { precision: 12, scale: 2 }).notNull(),
+  impostos: numeric("impostos", { precision: 12, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFreightQuoteSchema = createInsertSchema(freightQuotes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertFreightQuote = z.infer<typeof insertFreightQuoteSchema>;
+export type FreightQuote = typeof freightQuotes.$inferSelect;
+
 // ============== TIPOS DE CAMINHÃO (Truck Types for Toll Calculation) ==============
 export const truckTypeEnum = pgEnum("truck_type", [
   "2_eixos",

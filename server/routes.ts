@@ -46,10 +46,12 @@ import {
   routes,
   truckModels,
   insertTruckModelSchema,
+  freightQuotes,
+  insertFreightQuoteSchema,
   type FeatureKey,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { users } from "@shared/models/auth";
 
 async function createDefaultAdmin() {
@@ -3474,6 +3476,49 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting truck model:", error);
       res.status(500).json({ message: "Failed to delete truck model" });
+    }
+  });
+
+  // ==================== FREIGHT QUOTES ====================
+  app.get("/api/freight-quotes", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const quotes = await db.select().from(freightQuotes).orderBy(desc(freightQuotes.createdAt));
+      res.json(quotes);
+    } catch (error) {
+      console.error("Error fetching freight quotes:", error);
+      res.status(500).json({ message: "Failed to fetch freight quotes" });
+    }
+  });
+
+  app.get("/api/freight-quotes/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const [quote] = await db.select().from(freightQuotes).where(eq(freightQuotes.id, req.params.id));
+      if (!quote) return res.status(404).json({ message: "Quote not found" });
+      res.json(quote);
+    } catch (error) {
+      console.error("Error fetching freight quote:", error);
+      res.status(500).json({ message: "Failed to fetch freight quote" });
+    }
+  });
+
+  app.post("/api/freight-quotes", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const data = insertFreightQuoteSchema.parse(req.body);
+      const [quote] = await db.insert(freightQuotes).values(data).returning();
+      res.status(201).json(quote);
+    } catch (error) {
+      console.error("Error creating freight quote:", error);
+      res.status(500).json({ message: "Failed to create freight quote" });
+    }
+  });
+
+  app.delete("/api/freight-quotes/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      await db.delete(freightQuotes).where(eq(freightQuotes.id, req.params.id));
+      res.json({ message: "Quote deleted" });
+    } catch (error) {
+      console.error("Error deleting freight quote:", error);
+      res.status(500).json({ message: "Failed to delete freight quote" });
     }
   });
 
