@@ -930,25 +930,6 @@ export default function CollectsPage() {
                 )}
               />
 
-              <FormField
-                control={newCollectForm.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Observações</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Observações adicionais..."
-                        rows={3}
-                        data-testid="input-notes"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <DialogFooter className="gap-2 pt-4">
                 <Button
                   type="button"
