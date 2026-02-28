@@ -71,6 +71,7 @@ const driverFormSchema = z.object({
   state: z.string().optional(),
   latitude: z.string().optional(),
   longitude: z.string().optional(),
+  driverType: z.enum(["coleta", "transporte"]).optional().or(z.literal("")),
   modality: z.enum(["pj", "clt", "agregado"]).optional().or(z.literal("")),
   cnhType: z.enum(cnhTypes, { required_error: "Tipo de CNH é obrigatório" }),
   cnhFrontPhoto: z.string().optional(),
@@ -117,6 +118,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
       state: "",
       latitude: "",
       longitude: "",
+      driverType: undefined,
       modality: undefined,
       cnhType: undefined,
       cnhFrontPhoto: "",
@@ -145,7 +147,8 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
         state: driver.state || "",
         latitude: driver.latitude || "",
         longitude: driver.longitude || "",
-        modality: driver.modality,
+        driverType: driver.driverType || undefined,
+        modality: driver.modality || undefined,
         cnhType: driver.cnhType as typeof cnhTypes[number],
         cnhFrontPhoto: driver.cnhFrontPhoto || "",
         cnhBackPhoto: driver.cnhBackPhoto || "",
@@ -170,6 +173,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
         state: "",
         latitude: "",
         longitude: "",
+        driverType: undefined,
         modality: undefined,
         cnhType: undefined,
         cnhFrontPhoto: "",
@@ -408,11 +412,32 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <FormField
                       control={form.control}
+                      name="driverType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tipo de Motorista</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-driver-type">
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="coleta">Coleta</SelectItem>
+                              <SelectItem value="transporte">Transporte</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
                       name="modality"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Modalidade</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
                             <FormControl>
                               <SelectTrigger data-testid="select-driver-modality">
                                 <SelectValue placeholder="Selecione" />

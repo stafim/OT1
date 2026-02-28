@@ -29,6 +29,11 @@ export const collectStatusEnum = pgEnum("collect_status", [
   "finalizada"
 ]);
 
+export const driverTypeEnum = pgEnum("driver_type", [
+  "coleta",
+  "transporte",
+]);
+
 export const driverModalityEnum = pgEnum("driver_modality", [
   "pj",
   "clt",
@@ -68,6 +73,7 @@ export const drivers = pgTable("drivers", {
   state: varchar("state", { length: 2 }),
   latitude: text("latitude"),
   longitude: text("longitude"),
+  driverType: driverTypeEnum("driver_type"),
   modality: driverModalityEnum("modality"),
   cnhType: varchar("cnh_type", { length: 5 }).notNull(),
   cnhFrontPhoto: text("cnh_front_photo"),
