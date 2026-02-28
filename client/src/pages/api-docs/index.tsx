@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Code, Server, Key, FileText, Download } from "lucide-react";
+import { Code, Server, Key, FileText, Download, FileDown } from "lucide-react";
 import { jsPDF } from "jspdf";
 
 interface EndpointDoc {
@@ -485,6 +485,59 @@ function generatePdf() {
   doc.save("OTD_Entregas_API_Documentacao.pdf");
 }
 
+function generateMarkdown() {
+  let md = `# OTD Entregas - Documentação da API\n\n`;
+  md += `**Base URL:** \`${window.location.origin}\`\n\n`;
+  md += `**Gerado em:** ${new Date().toLocaleString("pt-BR")}\n\n`;
+  md += `---\n\n`;
+
+  for (const category of endpoints) {
+    md += `## ${category.category}\n\n`;
+
+    for (const ep of category.items) {
+      md += `### \`${ep.method}\` ${ep.path}\n\n`;
+      md += `${ep.description}\n\n`;
+
+      if (ep.headers.length > 0) {
+        md += `**Headers:**\n\n`;
+        md += `| Nome | Valor | Descrição |\n`;
+        md += `|------|-------|-----------|\n`;
+        for (const h of ep.headers) {
+          md += `| \`${h.name}\` | \`${h.value}\` | ${h.description} |\n`;
+        }
+        md += `\n`;
+      }
+
+      if (ep.body.length > 0) {
+        md += `**Parâmetros (Body):**\n\n`;
+        md += `| Campo | Tipo | Obrigatório | Descrição |\n`;
+        md += `|-------|------|-------------|-----------|\n`;
+        for (const field of ep.body) {
+          md += `| \`${field.field}\` | \`${field.type}\` | ${field.required ? "Sim" : "Não"} | ${field.description} |\n`;
+        }
+        md += `\n`;
+      }
+
+      if (Object.keys(ep.example).length > 0) {
+        md += `**Exemplo de Requisição:**\n\n`;
+        md += `\`\`\`json\n${JSON.stringify(ep.example, null, 2)}\n\`\`\`\n\n`;
+      }
+
+      md += `**Exemplo de Resposta:**\n\n`;
+      md += `\`\`\`json\n${JSON.stringify(ep.response, null, 2)}\n\`\`\`\n\n`;
+      md += `---\n\n`;
+    }
+  }
+
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "OTD_Entregas_API_Documentacao.md";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ApiDocsPage() {
   return (
     <div className="h-full overflow-auto p-6 max-w-5xl mx-auto">
@@ -495,10 +548,16 @@ export default function ApiDocsPage() {
             Endpoints disponíveis para integração com sistemas externos
           </p>
         </div>
-        <Button onClick={generatePdf} data-testid="button-generate-pdf">
-          <Download className="w-4 h-4 mr-2" />
-          Gerar PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={generateMarkdown} variant="outline" data-testid="button-generate-md">
+            <FileDown className="w-4 h-4 mr-2" />
+            Gerar MD
+          </Button>
+          <Button onClick={generatePdf} data-testid="button-generate-pdf">
+            <Download className="w-4 h-4 mr-2" />
+            Gerar PDF
+          </Button>
+        </div>
       </div>
 
       <Card className="mb-6">
