@@ -1112,3 +1112,40 @@ export const insertContractSchema = createInsertSchema(contracts).omit({
 
 export type InsertContract = z.infer<typeof insertContractSchema>;
 export type Contract = typeof contracts.$inferSelect;
+
+// ============== CONTRATOS DE FRETE (Freight Contracts) ==============
+export const freightContracts = pgTable("freight_contracts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractNumber: varchar("contract_number", { length: 50 }).notNull().unique(),
+  quoteId: varchar("quote_id"),
+  clientId: varchar("client_id"),
+  clientName: text("client_name").notNull(),
+  clientPhone: varchar("client_phone", { length: 20 }),
+  clientEmail: varchar("client_email", { length: 255 }),
+  distanciaKm: numeric("distancia_km", { precision: 10, scale: 2 }),
+  valorTotalCte: numeric("valor_total_cte", { precision: 12, scale: 2 }),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  status: contractStatusEnum("status").default("ativo").notNull(),
+  notes: text("notes"),
+  content: text("content"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFreightContractSchema = createInsertSchema(freightContracts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  contractNumber: z.string().min(1, "Número do contrato é obrigatório"),
+  clientName: z.string().min(1, "Nome do cliente é obrigatório"),
+  status: z.enum(["ativo", "suspenso", "expirado", "cancelado"]).optional(),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  distanciaKm: z.string().optional().nullable(),
+  valorTotalCte: z.string().optional().nullable(),
+});
+
+export type InsertFreightContract = z.infer<typeof insertFreightContractSchema>;
+export type FreightContract = typeof freightContracts.$inferSelect;

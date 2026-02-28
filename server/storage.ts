@@ -15,6 +15,7 @@ import {
   expenseSettlementItems, type ExpenseSettlementItem, type InsertExpenseSettlementItem,
   checkpoints, type Checkpoint, type InsertCheckpoint,
   contracts, type Contract, type InsertContract,
+  freightContracts, type FreightContract, type InsertFreightContract,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -134,6 +135,14 @@ export interface IStorage {
   createContract(contract: InsertContract): Promise<Contract>;
   updateContract(id: string, contract: Partial<InsertContract>): Promise<Contract | undefined>;
   deleteContract(id: string): Promise<void>;
+
+  // Freight Contracts
+  getFreightContracts(): Promise<FreightContract[]>;
+  getFreightContract(id: string): Promise<FreightContract | undefined>;
+  createFreightContract(contract: InsertFreightContract): Promise<FreightContract>;
+  updateFreightContract(id: string, contract: Partial<InsertFreightContract>): Promise<FreightContract | undefined>;
+  deleteFreightContract(id: string): Promise<void>;
+  getNextFreightContractNumber(): Promise<string>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -591,6 +600,38 @@ export class DatabaseStorage implements IStorage {
 
   async deleteContract(id: string): Promise<void> {
     await db.delete(contracts).where(eq(contracts.id, id));
+  }
+
+  // Freight Contracts
+  async getFreightContracts(): Promise<FreightContract[]> {
+    return db.select().from(freightContracts).orderBy(desc(freightContracts.createdAt));
+  }
+
+  async getFreightContract(id: string): Promise<FreightContract | undefined> {
+    const [contract] = await db.select().from(freightContracts).where(eq(freightContracts.id, id));
+    return contract;
+  }
+
+  async createFreightContract(contract: InsertFreightContract): Promise<FreightContract> {
+    const [created] = await db.insert(freightContracts).values(contract).returning();
+    return created;
+  }
+
+  async updateFreightContract(id: string, contract: Partial<InsertFreightContract>): Promise<FreightContract | undefined> {
+    const [updated] = await db.update(freightContracts).set({ ...contract, updatedAt: new Date() }).where(eq(freightContracts.id, id)).returning();
+    return updated;
+  }
+
+  async deleteFreightContract(id: string): Promise<void> {
+    await db.delete(freightContracts).where(eq(freightContracts.id, id));
+  }
+
+  async getNextFreightContractNumber(): Promise<string> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(freightContracts);
+    const next = (Number(result?.count ?? 0) + 1).toString().padStart(4, "0");
+    return `CTF-${next}`;
   }
 }
 

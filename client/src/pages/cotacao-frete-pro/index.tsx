@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +47,7 @@ import {
   Eye,
   Search,
   FileDown,
+  FilePlus2,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { useToast } from "@/hooks/use-toast";
@@ -209,6 +211,40 @@ export default function CotacaoFreteProPage() {
     },
     onError: () => {
       toast({ title: "Erro ao remover cotação", variant: "destructive" });
+    },
+  });
+
+  const [, setLocation] = useLocation();
+
+  const convertToContractMutation = useMutation({
+    mutationFn: async (quote: FreightQuote) => {
+      const numberRes = await apiRequest("GET", "/api/freight-contracts/next-number");
+      const { contractNumber } = await numberRes.json();
+      return apiRequest("POST", "/api/freight-contracts", {
+        contractNumber,
+        quoteId: quote.id,
+        clientId: quote.clientId || null,
+        clientName: quote.clientName,
+        clientPhone: quote.clientPhone || null,
+        clientEmail: quote.clientEmail || null,
+        distanciaKm: quote.distanciaKm,
+        valorTotalCte: quote.valorTotalCte,
+        startDate: new Date().toISOString().split("T")[0],
+        endDate: quote.validUntil || null,
+        status: "ativo",
+        notes: null,
+        content: null,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Contrato de Frete criado com sucesso!",
+        description: "Redirecionando para Contratos de Frete...",
+      });
+      setTimeout(() => setLocation("/contratos-frete"), 1200);
+    },
+    onError: () => {
+      toast({ title: "Erro ao criar contrato de frete", variant: "destructive" });
     },
   });
 
@@ -906,6 +942,17 @@ export default function CotacaoFreteProPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              onClick={() => convertToContractMutation.mutate(quote)}
+                              disabled={convertToContractMutation.isPending}
+                              title="Converter em Contrato de Frete"
+                              data-testid={`button-convert-contract-${quote.id}`}
+                            >
+                              <FilePlus2 className="h-3.5 w-3.5" />
+                            </Button>
                             <Button
                               size="icon"
                               variant="ghost"

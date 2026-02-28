@@ -48,6 +48,8 @@ import {
   insertTruckModelSchema,
   freightQuotes,
   insertFreightQuoteSchema,
+  freightContracts,
+  insertFreightContractSchema,
   type FeatureKey,
 } from "@shared/schema";
 import { db } from "./db";
@@ -3519,6 +3521,69 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting freight quote:", error);
       res.status(500).json({ message: "Failed to delete freight quote" });
+    }
+  });
+
+  // ==================== FREIGHT CONTRACTS ====================
+  app.get("/api/freight-contracts", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const contracts = await storage.getFreightContracts();
+      res.json(contracts);
+    } catch (error) {
+      console.error("Error fetching freight contracts:", error);
+      res.status(500).json({ message: "Failed to fetch freight contracts" });
+    }
+  });
+
+  app.get("/api/freight-contracts/next-number", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const number = await storage.getNextFreightContractNumber();
+      res.json({ contractNumber: number });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get next contract number" });
+    }
+  });
+
+  app.get("/api/freight-contracts/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const contract = await storage.getFreightContract(req.params.id);
+      if (!contract) return res.status(404).json({ message: "Contract not found" });
+      res.json(contract);
+    } catch (error) {
+      console.error("Error fetching freight contract:", error);
+      res.status(500).json({ message: "Failed to fetch freight contract" });
+    }
+  });
+
+  app.post("/api/freight-contracts", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const data = insertFreightContractSchema.parse(req.body);
+      const contract = await storage.createFreightContract(data);
+      res.status(201).json(contract);
+    } catch (error) {
+      console.error("Error creating freight contract:", error);
+      res.status(500).json({ message: "Failed to create freight contract" });
+    }
+  });
+
+  app.patch("/api/freight-contracts/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const contract = await storage.updateFreightContract(req.params.id, req.body);
+      if (!contract) return res.status(404).json({ message: "Contract not found" });
+      res.json(contract);
+    } catch (error) {
+      console.error("Error updating freight contract:", error);
+      res.status(500).json({ message: "Failed to update freight contract" });
+    }
+  });
+
+  app.delete("/api/freight-contracts/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      await storage.deleteFreightContract(req.params.id);
+      res.json({ message: "Contract deleted" });
+    } catch (error) {
+      console.error("Error deleting freight contract:", error);
+      res.status(500).json({ message: "Failed to delete freight contract" });
     }
   });
 

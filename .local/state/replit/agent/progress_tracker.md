@@ -9,3 +9,4 @@
 [x] 9. Movido "Ranking de Motoristas" para submenu Operação, abaixo de Rotograma
 [x] 10. Dump do banco de dados restaurado com sucesso
 [x] 11. Botão de download PDF nas cotações salvas com logo OTD, dados do cliente e valor final
+[x] 12. Nova funcionalidade: Contratos de Frete - cotações podem ser convertidas em contratos
