@@ -37,6 +37,7 @@ import {
   ShieldAlert,
   CarFront,
   Calculator,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -112,6 +113,11 @@ const operationItems: MenuItem[] = [
     title: "Cotação de Frete",
     url: "/cotacao-frete",
     icon: Calculator,
+  },
+  {
+    title: "Cotação de Frete PRO",
+    url: "/cotacao-frete-pro",
+    icon: Sparkles,
   },
   {
     title: "Ranking de Motoristas",

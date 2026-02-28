@@ -183,6 +183,10 @@ Status enums for workflow tracking:
   - Pie chart showing cost distribution (recharts)
   - Summary card with highlighted CTe value
   - All calculations are frontend-only (no backend needed)
+- **Cotação de Frete PRO**: Advanced version of freight quote calculator (`/cotacao-frete-pro`) under Operação menu
+  - Duplicated from Cotação de Frete as a separate page for future advanced features
+  - Same base functionality with "Versão Avançada" badge indicator
+  - Sparkles icon in sidebar to differentiate from standard version
 - **Portaria New Collect**: Added ability to create new collects directly from the Portaria page when vehicles arrive without pre-existing collect records
 - **Damage Report (Relatório de Avarias)**: New page `/relatorio-avarias` under Operação menu
   - Automatically lists all collects and transports that have damage photos (checkinDamagePhotos or checkoutDamagePhotos)

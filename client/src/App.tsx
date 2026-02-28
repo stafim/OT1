@@ -55,6 +55,7 @@ import RouteManagementPage from "@/pages/route-management/index";
 import DamageReportPage from "@/pages/damage-report/index";
 import TruckModelsPage from "@/pages/truck-models/index";
 import CotacaoFretePage from "@/pages/cotacao-frete/index";
+import CotacaoFreteProPage from "@/pages/cotacao-frete-pro/index";
 
 function AuthenticatedRouter() {
   return (
@@ -90,6 +91,7 @@ function AuthenticatedRouter() {
       <Route path="/relatorio-avarias" component={DamageReportPage} />
       <Route path="/modelos" component={TruckModelsPage} />
       <Route path="/cotacao-frete" component={CotacaoFretePage} />
+      <Route path="/cotacao-frete-pro" component={CotacaoFreteProPage} />
       <Route path="/contratos" component={ContractsPage} />
       <Route path="/usuarios" component={UsersPage} />
       <Route path="/usuarios/:id" component={UserFormPage} />
