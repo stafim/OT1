@@ -90,7 +90,7 @@ function AuthenticatedRouter() {
       <Route path="/usuarios" component={UsersPage} />
       <Route path="/usuarios/:id" component={UserFormPage} />
       <Route path="/integracoes" component={IntegrationsPage} />
-      <Route path="/api-docs" component={ApiDocsPage} />
+      <Route path="/lista-endpoints" component={ApiDocsPage} />
       <Route component={NotFound} />
     </Switch>
   );

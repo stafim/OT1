@@ -186,8 +186,8 @@ const configItems: MenuItem[] = [
     icon: Link2,
   },
   {
-    title: "API",
-    url: "/api-docs",
+    title: "Lista de Endpoints",
+    url: "/lista-endpoints",
     icon: Code,
   },
 ];
