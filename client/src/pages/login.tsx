@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import otdLogoPath from "@assets/logo_OTD_1772310881404.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,11 +66,9 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary">
-              <Truck className="h-7 w-7 text-primary-foreground" />
-            </div>
+            <img src={otdLogoPath} alt="OTD Logistics" className="h-16 object-contain" />
           </div>
-          <CardTitle className="text-2xl">OTD Entregas</CardTitle>
+          <CardTitle className="text-2xl">OTD Logistics</CardTitle>
           <CardDescription>
             Entre com suas credenciais para acessar o sistema
           </CardDescription>

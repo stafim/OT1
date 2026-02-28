@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import otdLogoPath from "@assets/logo_OTD_1772310881404.png";
 import { useQuery } from "@tanstack/react-query";
 import {
   Sidebar,
@@ -242,12 +243,17 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary">
-            <Truck className="h-6 w-6 text-primary-foreground" />
-          </div>
+          <img
+            src={otdLogoPath}
+            alt="OTD Logistics"
+            className="h-10 w-10 shrink-0 object-contain rounded-md"
+          />
           <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-semibold">OTD Entregas</span>
-            <span className="text-xs text-muted-foreground">Gestão de Veículos</span>
+            <img
+              src={otdLogoPath}
+              alt="OTD Logistics"
+              className="h-8 object-contain object-left"
+            />
           </div>
         </div>
       </SidebarHeader>

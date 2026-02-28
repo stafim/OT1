@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck, Package, Users, MapPin, Shield, Zap } from "lucide-react";
+import otdLogoPath from "@assets/logo_OTD_1772310881404.png";
 
 export default function LandingPage() {
   return (
@@ -8,10 +9,7 @@ export default function LandingPage() {
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary">
-              <Truck className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold">OTD Entregas</span>
+            <img src={otdLogoPath} alt="OTD Logistics" className="h-10 object-contain" />
           </div>
           <Button asChild data-testid="button-login">
             <a href="/login">Entrar</a>
