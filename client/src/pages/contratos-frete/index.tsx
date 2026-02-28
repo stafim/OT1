@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -41,14 +42,22 @@ import {
   XCircle,
   Clock,
   Ban,
+  Eye,
+  Calculator,
+  Fuel,
+  Shield,
+  Receipt,
+  Truck,
+  TrendingUp,
+  LinkIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { FreightContract } from "@shared/schema";
+import type { FreightContract, FreightQuote } from "@shared/schema";
 
-function formatCurrency(value: string | null | undefined): string {
-  if (!value) return "—";
-  return parseFloat(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function formatCurrency(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "—";
+  return parseFloat(String(value)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -64,7 +73,7 @@ const statusConfig = {
   cancelado: { label: "Cancelado", icon: Ban, className: "text-gray-600 border-gray-200 bg-gray-50 dark:bg-gray-950/30" },
 };
 
-type ViewMode = "list" | "form";
+type ViewMode = "list" | "form" | "view";
 
 interface FormState {
   contractNumber: string;
@@ -98,10 +107,127 @@ const emptyForm: FormState = {
   clientId: "",
 };
 
+function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
+  const { data: quote, isLoading } = useQuery<FreightQuote>({
+    queryKey: ["/api/freight-quotes", quoteId],
+    queryFn: async () => {
+      const res = await fetch(`/api/freight-quotes/${quoteId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Cotação não encontrada");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-8 rounded bg-muted animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!quote) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Cotação original não encontrada ou foi removida.
+      </p>
+    );
+  }
+
+  const dist = parseFloat(quote.distanciaKm) || 0;
+  const consumo = parseFloat(quote.consumoVeiculo) || 1;
+  const diesel = parseFloat(quote.precoDiesel) || 0;
+  const comissaoMotorista = 0.5 * dist;
+  const custoDiesel = (dist / consumo) * diesel;
+  const seguro = parseFloat(quote.valorBem) * 0.0003;
+  const retorno = parseFloat(quote.retornoMotorista) || 0;
+  const pedagio = parseFloat(quote.pedagio) || 0;
+  const freteOtd = parseFloat(quote.freteOtd) || 0;
+  const valorBase = parseFloat(quote.valorBase) || 0;
+  const valorTotalCte = parseFloat(quote.valorTotalCte) || 0;
+  const impostos = parseFloat(quote.impostos) || 0;
+
+  const rows = [
+    { label: "Frete OTD", value: freteOtd, color: "bg-orange-500" },
+    { label: "Comissão Motorista (R$ 0,50/km)", value: comissaoMotorista, color: "bg-blue-500" },
+    { label: "Diesel", value: custoDiesel, color: "bg-yellow-500", detail: `${dist.toLocaleString("pt-BR")} km / ${consumo} km/l × R$ ${diesel}` },
+    { label: "Retorno Motorista", value: retorno, color: "bg-purple-500" },
+    { label: "Seguro (0,03% s/ valor do bem)", value: seguro, color: "bg-cyan-500", detail: `Valor do bem: ${formatCurrency(quote.valorBem)}` },
+    { label: "Pedágio", value: pedagio, color: "bg-green-500" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+        <div className="space-y-0.5">
+          <p className="text-xs text-muted-foreground">Distância</p>
+          <p className="font-medium">{dist.toLocaleString("pt-BR")} km</p>
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-xs text-muted-foreground">Consumo veículo</p>
+          <p className="font-medium">{consumo} km/l</p>
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-xs text-muted-foreground">Preço do Diesel</p>
+          <p className="font-medium">R$ {parseFloat(quote.precoDiesel).toFixed(2)}/L</p>
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-xs text-muted-foreground">Valor do Bem</p>
+          <p className="font-medium">{formatCurrency(quote.valorBem)}</p>
+        </div>
+        {quote.validUntil && (
+          <div className="space-y-0.5">
+            <p className="text-xs text-muted-foreground">Validade da Cotação</p>
+            <p className="font-medium">{formatDate(quote.validUntil)}</p>
+          </div>
+        )}
+        <div className="space-y-0.5">
+          <p className="text-xs text-muted-foreground">Emitida em</p>
+          <p className="font-medium">{quote.createdAt ? new Date(quote.createdAt).toLocaleDateString("pt-BR") : "—"}</p>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Detalhamento dos Custos</p>
+        <div className="border rounded-md divide-y text-sm">
+          {rows.map(({ label, value, color, detail }) => (
+            <div key={label} className="flex items-center justify-between p-2.5 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${color}`} />
+                <div>
+                  <span>{label}</span>
+                  {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+                </div>
+              </div>
+              <span className="font-medium shrink-0">{formatCurrency(value)}</span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between p-2.5 bg-muted/50">
+            <span className="font-medium">Valor Base</span>
+            <span className="font-semibold">{formatCurrency(valorBase)}</span>
+          </div>
+          <div className="flex items-center justify-between p-2.5">
+            <span className="text-red-600">Impostos (21,25%)</span>
+            <span className="font-medium text-red-600">{formatCurrency(impostos)}</span>
+          </div>
+          <div className="flex items-center justify-between p-2.5 bg-primary/5">
+            <span className="font-bold">Valor Total CTe</span>
+            <span className="font-bold text-primary text-base">{formatCurrency(valorTotalCte)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ContratosFreteePage() {
   const { toast } = useToast();
   const [view, setView] = useState<ViewMode>("list");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewingContract, setViewingContract] = useState<FreightContract | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -149,6 +275,10 @@ export default function ContratosFreteePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/freight-contracts"] });
       setDeletingId(null);
+      if (view === "view") {
+        setView("list");
+        setViewingContract(null);
+      }
       toast({ title: "Contrato removido" });
     },
     onError: () => toast({ title: "Erro ao remover contrato", variant: "destructive" }),
@@ -178,6 +308,12 @@ export default function ContratosFreteePage() {
       clientId: contract.clientId || "",
     });
     setView("form");
+    setViewingContract(null);
+  };
+
+  const handleView = (contract: FreightContract) => {
+    setViewingContract(contract);
+    setView("view");
   };
 
   const handleSubmit = () => {
@@ -234,6 +370,225 @@ export default function ContratosFreteePage() {
     };
   }, [contracts]);
 
+  // ─── VIEW MODE ─────────────────────────────────────────────
+  if (view === "view" && viewingContract) {
+    const contract = viewingContract;
+    const st = statusConfig[contract.status as keyof typeof statusConfig] ?? statusConfig.ativo;
+    const StatusIcon = st.icon;
+    return (
+      <div className="flex flex-col h-full">
+        <PageHeader
+          title="Detalhes do Contrato"
+          breadcrumbs={[
+            { label: "Contratos de Frete", href: "/contratos-frete" },
+            { label: contract.contractNumber },
+          ]}
+        />
+        <div className="flex-1 overflow-auto p-4 md:p-6">
+          <div className="max-w-3xl space-y-6">
+            {/* Header card */}
+            <Card className="border-primary/20">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-mono text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                        {contract.contractNumber}
+                      </span>
+                      <Badge variant="outline" className={`text-xs ${st.className}`}>
+                        <StatusIcon className="h-3 w-3 mr-1" />
+                        {st.label}
+                      </Badge>
+                      {contract.quoteId && (
+                        <Badge variant="secondary" className="text-xs">
+                          <LinkIcon className="h-3 w-3 mr-1" />
+                          Originado de Cotação
+                        </Badge>
+                      )}
+                    </div>
+                    <h2 className="text-xl font-bold">{contract.clientName}</h2>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(contract)}
+                      data-testid="button-view-edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setView("list"); setViewingContract(null); }}
+                      data-testid="button-view-back"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+                      Voltar
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Client info */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" />
+                  Dados do Cliente
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-0.5">
+                  <p className="text-xs text-muted-foreground">Nome</p>
+                  <p className="font-medium">{contract.clientName}</p>
+                </div>
+                {contract.clientPhone && (
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Phone className="h-3 w-3" /> Telefone
+                    </p>
+                    <p className="font-medium">{contract.clientPhone}</p>
+                  </div>
+                )}
+                {contract.clientEmail && (
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Mail className="h-3 w-3" /> Email
+                    </p>
+                    <p className="font-medium">{contract.clientEmail}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Contract details */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  Detalhes do Contrato
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                <div className="space-y-0.5">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" /> Início
+                  </p>
+                  <p className="font-medium">{formatDate(contract.startDate)}</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" /> Encerramento
+                  </p>
+                  <p className="font-medium">{formatDate(contract.endDate)}</p>
+                </div>
+                {contract.distanciaKm && (
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Route className="h-3 w-3" /> Distância
+                    </p>
+                    <p className="font-medium">{parseFloat(contract.distanciaKm).toLocaleString("pt-BR")} km</p>
+                  </div>
+                )}
+                {contract.valorTotalCte && (
+                  <div className="space-y-0.5 sm:col-span-2">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <DollarSign className="h-3 w-3" /> Valor Total do Frete
+                    </p>
+                    <p className="text-xl font-bold text-primary">{formatCurrency(contract.valorTotalCte)}</p>
+                  </div>
+                )}
+                <div className="space-y-0.5">
+                  <p className="text-xs text-muted-foreground">Criado em</p>
+                  <p className="font-medium">{contract.createdAt ? new Date(contract.createdAt).toLocaleDateString("pt-BR") : "—"}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Notes and content */}
+            {(contract.notes || contract.content) && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Observações e Condições</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                  {contract.notes && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Observações Gerais</p>
+                      <p className="whitespace-pre-wrap">{contract.notes}</p>
+                    </div>
+                  )}
+                  {contract.content && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Termos e Condições</p>
+                      <p className="whitespace-pre-wrap">{contract.content}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quote details if originated from a quote */}
+            {contract.quoteId && (
+              <Card className="border-amber-200 dark:border-amber-900">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Calculator className="h-4 w-4 text-amber-600" />
+                    Cotação de Frete Original
+                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+                      Dados da cotação que originou este contrato
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <QuoteDetailPanel quoteId={contract.quoteId} />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Delete */}
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
+                onClick={() => setDeletingId(contract.id)}
+                data-testid="button-view-delete"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Remover Contrato
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remover Contrato de Frete</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja remover este contrato? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deletingId && deleteMutation.mutate(deletingId)}
+                data-testid="button-confirm-delete"
+              >
+                Remover
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
+
+  // ─── FORM MODE ─────────────────────────────────────────────
   if (view === "form") {
     const autoNumber = nextNumber?.contractNumber || "";
     if (!editingId && form.contractNumber === "" && autoNumber) {
@@ -439,7 +794,11 @@ export default function ContratosFreteePage() {
                 disabled={createMutation.isPending || updateMutation.isPending}
                 data-testid="button-save"
               >
-                {createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingId ? "Salvar Alterações" : "Criar Contrato"}
+                {createMutation.isPending || updateMutation.isPending
+                  ? "Salvando..."
+                  : editingId
+                  ? "Salvar Alterações"
+                  : "Criar Contrato"}
               </Button>
             </div>
           </div>
@@ -448,6 +807,7 @@ export default function ContratosFreteePage() {
     );
   }
 
+  // ─── LIST MODE ─────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
       <PageHeader
@@ -525,7 +885,12 @@ export default function ContratosFreteePage() {
               const st = statusConfig[contract.status as keyof typeof statusConfig] ?? statusConfig.ativo;
               const StatusIcon = st.icon;
               return (
-                <Card key={contract.id} data-testid={`card-contract-${contract.id}`}>
+                <Card
+                  key={contract.id}
+                  className="cursor-pointer hover:border-primary/30 transition-colors"
+                  onClick={() => handleView(contract)}
+                  data-testid={`card-contract-${contract.id}`}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
@@ -542,6 +907,7 @@ export default function ContratosFreteePage() {
                           </Badge>
                           {contract.quoteId && (
                             <Badge variant="secondary" className="text-xs">
+                              <LinkIcon className="h-3 w-3 mr-1" />
                               Cotação
                             </Badge>
                           )}
@@ -582,7 +948,17 @@ export default function ContratosFreteePage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() => handleView(contract)}
+                          title="Visualizar contrato"
+                          data-testid={`button-view-${contract.id}`}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
