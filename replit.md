@@ -170,6 +170,13 @@ Status enums for workflow tracking:
   - Score = 100 - penalty%, weighted by criterion weight for final score
   - Schema fields: `penaltyLeve`, `penaltyMedio`, `penaltyGrave` on `evaluationCriteria` table
   - `evaluationScores` table now stores `severity` enum alongside calculated `score`
+- **Truck Models (Modelos)**: New module under Cadastros for managing truck brands and models (`/modelos`)
+  - Database table `truck_models` with brand, model, axle configuration, and average fuel consumption
+  - Full CRUD API endpoints at `/api/truck-models`
+  - Frontend page with search, grouped display by brand, and add/edit/delete dialogs
+  - Axle options: 2 to 9 eixos
+  - Average consumption in km/l
+  - Added to Cadastros menu in sidebar with CarFront icon
 - **Portaria New Collect**: Added ability to create new collects directly from the Portaria page when vehicles arrive without pre-existing collect records
 - **Damage Report (Relatório de Avarias)**: New page `/relatorio-avarias` under Operação menu
   - Automatically lists all collects and transports that have damage photos (checkinDamagePhotos or checkoutDamagePhotos)

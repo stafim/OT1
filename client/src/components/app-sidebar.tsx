@@ -35,6 +35,7 @@ import {
   Trophy,
   DollarSign,
   ShieldAlert,
+  CarFront,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -161,6 +162,11 @@ const cadastroItems: MenuItem[] = [
     title: "Estoque",
     url: "/estoque",
     icon: Package,
+  },
+  {
+    title: "Modelos",
+    url: "/modelos",
+    icon: CarFront,
   },
   {
     title: "Gestão de Rotas (Em dev)",

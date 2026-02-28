@@ -44,6 +44,8 @@ import {
   expenseSettlements,
   expenseSettlementItems,
   routes,
+  truckModels,
+  insertTruckModelSchema,
   type FeatureKey,
 } from "@shared/schema";
 import { db } from "./db";
@@ -3423,6 +3425,55 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error sending contract email:", error);
       res.status(500).json({ message: "Erro ao enviar email: " + (error.message || "Falha no envio") });
+    }
+  });
+
+  // ============== MODELOS DE CAMINHÃO (Truck Models) ==============
+
+  app.get("/api/truck-models", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const models = await db.select().from(truckModels).orderBy(truckModels.brand);
+      res.json(models);
+    } catch (error) {
+      console.error("Error fetching truck models:", error);
+      res.status(500).json({ message: "Failed to fetch truck models" });
+    }
+  });
+
+  app.post("/api/truck-models", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const data = insertTruckModelSchema.parse(req.body);
+      const [model] = await db.insert(truckModels).values(data).returning();
+      res.status(201).json(model);
+    } catch (error) {
+      console.error("Error creating truck model:", error);
+      res.status(500).json({ message: "Failed to create truck model" });
+    }
+  });
+
+  app.patch("/api/truck-models/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [updated] = await db.update(truckModels)
+        .set(req.body)
+        .where(eq(truckModels.id, id))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Model not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating truck model:", error);
+      res.status(500).json({ message: "Failed to update truck model" });
+    }
+  });
+
+  app.delete("/api/truck-models/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(truckModels).where(eq(truckModels.id, id));
+      res.json({ message: "Model deleted" });
+    } catch (error) {
+      console.error("Error deleting truck model:", error);
+      res.status(500).json({ message: "Failed to delete truck model" });
     }
   });
 

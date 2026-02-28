@@ -53,6 +53,7 @@ import DriverRankingPage from "@/pages/driver-ranking/index";
 import FinancialDashboardPage from "@/pages/financial-dashboard/index";
 import RouteManagementPage from "@/pages/route-management/index";
 import DamageReportPage from "@/pages/damage-report/index";
+import TruckModelsPage from "@/pages/truck-models/index";
 
 function AuthenticatedRouter() {
   return (
@@ -86,6 +87,7 @@ function AuthenticatedRouter() {
       <Route path="/dashboard-financeiro" component={FinancialDashboardPage} />
       <Route path="/gestao-rotas" component={RouteManagementPage} />
       <Route path="/relatorio-avarias" component={DamageReportPage} />
+      <Route path="/modelos" component={TruckModelsPage} />
       <Route path="/contratos" component={ContractsPage} />
       <Route path="/usuarios" component={UsersPage} />
       <Route path="/usuarios/:id" component={UserFormPage} />

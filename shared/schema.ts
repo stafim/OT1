@@ -923,6 +923,25 @@ export type DriverEvaluation = typeof driverEvaluations.$inferSelect;
 export type InsertEvaluationScore = z.infer<typeof insertEvaluationScoreSchema>;
 export type EvaluationScore = typeof evaluationScores.$inferSelect;
 
+// ============== MODELOS DE CAMINHÃO (Truck Models) ==============
+export const truckModels = pgTable("truck_models", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  brand: text("brand").notNull(),
+  model: text("model").notNull(),
+  axleConfig: text("axle_config").notNull(),
+  averageConsumption: numeric("average_consumption", { precision: 5, scale: 2 }).notNull(),
+  isActive: text("is_active").default("true"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTruckModelSchema = createInsertSchema(truckModels).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTruckModel = z.infer<typeof insertTruckModelSchema>;
+export type TruckModel = typeof truckModels.$inferSelect;
+
 // ============== TIPOS DE CAMINHÃO (Truck Types for Toll Calculation) ==============
 export const truckTypeEnum = pgEnum("truck_type", [
   "2_eixos",
