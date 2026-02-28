@@ -34,6 +34,9 @@ import {
   Scale,
   AlertTriangle,
   GripVertical,
+  ShieldAlert,
+  ShieldCheck,
+  Shield,
 } from "lucide-react";
 import type { EvaluationCriteria } from "@shared/schema";
 
@@ -44,7 +47,11 @@ export default function EvaluationPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newWeight, setNewWeight] = useState("");
+  const [newPenaltyLeve, setNewPenaltyLeve] = useState("10");
+  const [newPenaltyMedio, setNewPenaltyMedio] = useState("50");
+  const [newPenaltyGrave, setNewPenaltyGrave] = useState("100");
   const [editedWeights, setEditedWeights] = useState<Record<string, string>>({});
+  const [editedPenalties, setEditedPenalties] = useState<Record<string, { leve: string; medio: string; grave: string }>>({});
   const [isEditingWeights, setIsEditingWeights] = useState(false);
 
   const { data: criteria, isLoading } = useQuery<EvaluationCriteria[]>({
@@ -58,7 +65,7 @@ export default function EvaluationPage() {
   }, 0);
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; weight: string; order: number }) => {
+    mutationFn: async (data: { name: string; weight: string; penaltyLeve: string; penaltyMedio: string; penaltyGrave: string; order: number }) => {
       await apiRequest("POST", "/api/evaluation-criteria", data);
     },
     onSuccess: () => {
@@ -66,10 +73,13 @@ export default function EvaluationPage() {
       setShowAddDialog(false);
       setNewName("");
       setNewWeight("");
-      toast({ title: "Criterio adicionado com sucesso" });
+      setNewPenaltyLeve("10");
+      setNewPenaltyMedio("50");
+      setNewPenaltyGrave("100");
+      toast({ title: "Critério adicionado com sucesso" });
     },
     onError: () => {
-      toast({ title: "Erro ao adicionar criterio", variant: "destructive" });
+      toast({ title: "Erro ao adicionar critério", variant: "destructive" });
     },
   });
 
@@ -80,10 +90,10 @@ export default function EvaluationPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/evaluation-criteria"] });
       setEditingCriteria(null);
-      toast({ title: "Criterio atualizado com sucesso" });
+      toast({ title: "Critério atualizado com sucesso" });
     },
     onError: () => {
-      toast({ title: "Erro ao atualizar criterio", variant: "destructive" });
+      toast({ title: "Erro ao atualizar critério", variant: "destructive" });
     },
   });
 
@@ -94,41 +104,52 @@ export default function EvaluationPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/evaluation-criteria"] });
       setDeletingId(null);
-      toast({ title: "Criterio removido com sucesso" });
+      toast({ title: "Critério removido com sucesso" });
     },
     onError: () => {
-      toast({ title: "Erro ao remover criterio", variant: "destructive" });
+      toast({ title: "Erro ao remover critério", variant: "destructive" });
     },
   });
 
   const bulkUpdateMutation = useMutation({
-    mutationFn: async (criteriaUpdates: { id: string; weight: string; order: number }[]) => {
+    mutationFn: async (criteriaUpdates: { id: string; weight: string; order: number; penaltyLeve: string; penaltyMedio: string; penaltyGrave: string }[]) => {
       await apiRequest("PUT", "/api/evaluation-criteria/bulk-update", { criteria: criteriaUpdates });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/evaluation-criteria"] });
       setIsEditingWeights(false);
       setEditedWeights({});
-      toast({ title: "Pesos atualizados com sucesso" });
+      setEditedPenalties({});
+      toast({ title: "Configurações atualizadas com sucesso" });
     },
     onError: () => {
-      toast({ title: "Erro ao atualizar pesos", variant: "destructive" });
+      toast({ title: "Erro ao atualizar configurações", variant: "destructive" });
     },
   });
 
   const handleAddCriteria = () => {
     const weight = parseFloat(newWeight);
     if (!newName.trim()) {
-      toast({ title: "Nome e obrigatorio", variant: "destructive" });
+      toast({ title: "Nome é obrigatório", variant: "destructive" });
       return;
     }
     if (isNaN(weight) || weight <= 0 || weight > 100) {
       toast({ title: "Peso deve ser entre 0.01 e 100", variant: "destructive" });
       return;
     }
+    const pLeve = parseFloat(newPenaltyLeve);
+    const pMedio = parseFloat(newPenaltyMedio);
+    const pGrave = parseFloat(newPenaltyGrave);
+    if (isNaN(pLeve) || pLeve < 0 || pLeve > 100 || isNaN(pMedio) || pMedio < 0 || pMedio > 100 || isNaN(pGrave) || pGrave < 0 || pGrave > 100) {
+      toast({ title: "Penalidades devem ser entre 0 e 100%", variant: "destructive" });
+      return;
+    }
     createMutation.mutate({
       name: newName.trim(),
       weight: weight.toFixed(2),
+      penaltyLeve: pLeve.toFixed(2),
+      penaltyMedio: pMedio.toFixed(2),
+      penaltyGrave: pGrave.toFixed(2),
       order: activeCriteria.length,
     });
   };
@@ -137,25 +158,45 @@ export default function EvaluationPage() {
     if (!editingCriteria) return;
     const weight = parseFloat(newWeight);
     if (!newName.trim()) {
-      toast({ title: "Nome e obrigatorio", variant: "destructive" });
+      toast({ title: "Nome é obrigatório", variant: "destructive" });
       return;
     }
     if (isNaN(weight) || weight <= 0 || weight > 100) {
       toast({ title: "Peso deve ser entre 0.01 e 100", variant: "destructive" });
       return;
     }
+    const pLeve = parseFloat(newPenaltyLeve);
+    const pMedio = parseFloat(newPenaltyMedio);
+    const pGrave = parseFloat(newPenaltyGrave);
+    if (isNaN(pLeve) || pLeve < 0 || pLeve > 100 || isNaN(pMedio) || pMedio < 0 || pMedio > 100 || isNaN(pGrave) || pGrave < 0 || pGrave > 100) {
+      toast({ title: "Penalidades devem ser entre 0 e 100%", variant: "destructive" });
+      return;
+    }
     updateMutation.mutate({
       id: editingCriteria.id,
-      data: { name: newName.trim(), weight: weight.toFixed(2) },
+      data: {
+        name: newName.trim(),
+        weight: weight.toFixed(2),
+        penaltyLeve: pLeve.toFixed(2),
+        penaltyMedio: pMedio.toFixed(2),
+        penaltyGrave: pGrave.toFixed(2),
+      },
     });
   };
 
   const handleStartEditWeights = () => {
     const weights: Record<string, string> = {};
+    const penalties: Record<string, { leve: string; medio: string; grave: string }> = {};
     activeCriteria.forEach(c => {
       weights[c.id] = c.weight;
+      penalties[c.id] = {
+        leve: c.penaltyLeve || "10",
+        medio: c.penaltyMedio || "50",
+        grave: c.penaltyGrave || "100",
+      };
     });
     setEditedWeights(weights);
+    setEditedPenalties(penalties);
     setIsEditingWeights(true);
   };
 
@@ -177,6 +218,9 @@ export default function EvaluationPage() {
       id: c.id,
       weight: parseFloat(editedWeights[c.id] || c.weight).toFixed(2),
       order: i,
+      penaltyLeve: parseFloat(editedPenalties[c.id]?.leve || c.penaltyLeve || "10").toFixed(2),
+      penaltyMedio: parseFloat(editedPenalties[c.id]?.medio || c.penaltyMedio || "50").toFixed(2),
+      penaltyGrave: parseFloat(editedPenalties[c.id]?.grave || c.penaltyGrave || "100").toFixed(2),
     }));
 
     bulkUpdateMutation.mutate(updates);
@@ -186,6 +230,9 @@ export default function EvaluationPage() {
     setEditingCriteria(c);
     setNewName(c.name);
     setNewWeight(c.weight);
+    setNewPenaltyLeve(c.penaltyLeve || "10");
+    setNewPenaltyMedio(c.penaltyMedio || "50");
+    setNewPenaltyGrave(c.penaltyGrave || "100");
   };
 
   const getWeightColor = () => {
@@ -196,7 +243,7 @@ export default function EvaluationPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col h-full">
-        <PageHeader title="Criterios de Avaliacao" />
+        <PageHeader title="Critérios de Avaliação" />
         <div className="flex-1 overflow-auto p-4 md:p-6">
           <div className="space-y-4">
             {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full" />)}
@@ -209,10 +256,10 @@ export default function EvaluationPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Criterios de Avaliacao"
+        title="Critérios de Avaliação"
         breadcrumbs={[
-          { label: "Operacao", href: "/" },
-          { label: "Avaliacao" },
+          { label: "Operação", href: "/" },
+          { label: "Avaliação" },
         ]}
       />
       <div className="flex-1 overflow-auto p-4 md:p-6">
@@ -238,12 +285,12 @@ export default function EvaluationPage() {
           <div className="flex items-center gap-2">
             {isEditingWeights ? (
               <>
-                <Button variant="outline" onClick={() => { setIsEditingWeights(false); setEditedWeights({}); }} data-testid="button-cancel-weights">
+                <Button variant="outline" onClick={() => { setIsEditingWeights(false); setEditedWeights({}); setEditedPenalties({}); }} data-testid="button-cancel-weights">
                   Cancelar
                 </Button>
                 <Button onClick={handleSaveWeights} disabled={bulkUpdateMutation.isPending} data-testid="button-save-weights">
                   <Save className="h-4 w-4 mr-1" />
-                  Salvar Pesos
+                  Salvar
                 </Button>
               </>
             ) : (
@@ -251,12 +298,12 @@ export default function EvaluationPage() {
                 {activeCriteria.length > 0 && (
                   <Button variant="outline" onClick={handleStartEditWeights} data-testid="button-edit-weights">
                     <Pencil className="h-4 w-4 mr-1" />
-                    Editar Pesos
+                    Editar Configurações
                   </Button>
                 )}
-                <Button onClick={() => { setShowAddDialog(true); setNewName(""); setNewWeight(""); }} data-testid="button-add-criteria">
+                <Button onClick={() => { setShowAddDialog(true); setNewName(""); setNewWeight(""); setNewPenaltyLeve("10"); setNewPenaltyMedio("50"); setNewPenaltyGrave("100"); }} data-testid="button-add-criteria">
                   <Plus className="h-4 w-4 mr-1" />
-                  Novo Criterio
+                  Novo Critério
                 </Button>
               </>
             )}
@@ -267,13 +314,13 @@ export default function EvaluationPage() {
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
               <Scale className="h-16 w-16 mx-auto mb-4 opacity-20" />
-              <h3 className="text-lg font-medium mb-2">Nenhum criterio cadastrado</h3>
+              <h3 className="text-lg font-medium mb-2">Nenhum critério cadastrado</h3>
               <p className="max-w-md mx-auto mb-4">
-                Adicione criterios de avaliacao para os motoristas. Cada criterio tera um peso que deve totalizar 100 pontos.
+                Adicione critérios de avaliação para os motoristas. Cada critério possui um peso e penalidades configuráveis por nível de severidade.
               </p>
-              <Button onClick={() => { setShowAddDialog(true); setNewName(""); setNewWeight(""); }} data-testid="button-add-criteria-empty">
+              <Button onClick={() => { setShowAddDialog(true); setNewName(""); setNewWeight(""); setNewPenaltyLeve("10"); setNewPenaltyMedio("50"); setNewPenaltyGrave("100"); }} data-testid="button-add-criteria-empty">
                 <Plus className="h-4 w-4 mr-1" />
-                Adicionar Primeiro Criterio
+                Adicionar Primeiro Critério
               </Button>
             </CardContent>
           </Card>
@@ -289,21 +336,90 @@ export default function EvaluationPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate" data-testid={`text-criteria-name-${c.id}`}>{c.name}</p>
+                      {!isEditingWeights && (
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-xs text-yellow-600 flex items-center gap-1">
+                            <Shield className="h-3 w-3" />
+                            Leve: -{parseFloat(c.penaltyLeve || "10").toFixed(0)}%
+                          </span>
+                          <span className="text-xs text-orange-600 flex items-center gap-1">
+                            <ShieldAlert className="h-3 w-3" />
+                            Médio: -{parseFloat(c.penaltyMedio || "50").toFixed(0)}%
+                          </span>
+                          <span className="text-xs text-red-600 flex items-center gap-1">
+                            <ShieldAlert className="h-3 w-3" />
+                            Grave: -{parseFloat(c.penaltyGrave || "100").toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       {isEditingWeights ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="0.01"
-                            max="100"
-                            step="0.01"
-                            value={editedWeights[c.id] || ""}
-                            onChange={(e) => setEditedWeights(prev => ({ ...prev, [c.id]: e.target.value }))}
-                            className="w-24 text-right"
-                            data-testid={`input-weight-${c.id}`}
-                          />
-                          <span className="text-sm text-muted-foreground">pts</span>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs w-12 text-right">Peso:</Label>
+                            <Input
+                              type="number"
+                              min="0.01"
+                              max="100"
+                              step="0.01"
+                              value={editedWeights[c.id] || ""}
+                              onChange={(e) => setEditedWeights(prev => ({ ...prev, [c.id]: e.target.value }))}
+                              className="w-20 text-right h-8 text-sm"
+                              data-testid={`input-weight-${c.id}`}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs w-12 text-right text-yellow-600">Leve:</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={editedPenalties[c.id]?.leve || ""}
+                              onChange={(e) => setEditedPenalties(prev => ({
+                                ...prev,
+                                [c.id]: { ...prev[c.id], leve: e.target.value }
+                              }))}
+                              className="w-20 text-right h-8 text-sm"
+                              data-testid={`input-penalty-leve-${c.id}`}
+                            />
+                            <span className="text-xs text-muted-foreground">%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs w-12 text-right text-orange-600">Médio:</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={editedPenalties[c.id]?.medio || ""}
+                              onChange={(e) => setEditedPenalties(prev => ({
+                                ...prev,
+                                [c.id]: { ...prev[c.id], medio: e.target.value }
+                              }))}
+                              className="w-20 text-right h-8 text-sm"
+                              data-testid={`input-penalty-medio-${c.id}`}
+                            />
+                            <span className="text-xs text-muted-foreground">%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs w-12 text-right text-red-600">Grave:</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={editedPenalties[c.id]?.grave || ""}
+                              onChange={(e) => setEditedPenalties(prev => ({
+                                ...prev,
+                                [c.id]: { ...prev[c.id], grave: e.target.value }
+                              }))}
+                              className="w-20 text-right h-8 text-sm"
+                              data-testid={`input-penalty-grave-${c.id}`}
+                            />
+                            <span className="text-xs text-muted-foreground">%</span>
+                          </div>
                         </div>
                       ) : (
                         <Badge variant="secondary" data-testid={`badge-weight-${c.id}`}>
@@ -344,10 +460,11 @@ export default function EvaluationPage() {
           </CardHeader>
           <CardContent>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>Cada criterio recebe uma nota de 0 a 100 pontos durante a avaliacao do motorista.</li>
-              <li>O peso determina a importancia relativa de cada criterio na nota final.</li>
-              <li>A soma dos pesos de todos os criterios deve ser exatamente 100.</li>
-              <li>A nota final ponderada e calculada: (nota1 x peso1 + nota2 x peso2 + ...) / 100.</li>
+              <li>Cada critério começa com 100 pontos e é avaliado por severidade: <strong>Sem Ocorrência</strong>, <strong>Leve</strong>, <strong>Médio</strong> ou <strong>Grave</strong>.</li>
+              <li>Cada nível de severidade aplica uma penalidade configurável em % sobre os 100 pontos do critério.</li>
+              <li>Exemplo: se "Leve" = 10%, o critério perde 10 pontos e fica com 90 pontos.</li>
+              <li>O peso determina a importância relativa de cada critério na nota final ponderada.</li>
+              <li>A soma dos pesos de todos os critérios deve ser exatamente 100.</li>
             </ul>
           </CardContent>
         </Card>
@@ -356,11 +473,11 @@ export default function EvaluationPage() {
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo Criterio de Avaliacao</DialogTitle>
+            <DialogTitle>Novo Critério de Avaliação</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Nome do Criterio</Label>
+              <Label>Nome do Critério</Label>
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -384,6 +501,66 @@ export default function EvaluationPage() {
                 Peso atual utilizado: {totalWeight.toFixed(2)} / 100
               </p>
             </div>
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium">Penalidades por Severidade (% de perda)</Label>
+              <p className="text-xs text-muted-foreground mb-3">Quanto % dos 100 pontos será perdido em cada nível</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-yellow-600 flex items-center gap-1">
+                    <Shield className="h-3 w-3" /> Leve
+                  </Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={newPenaltyLeve}
+                      onChange={(e) => setNewPenaltyLeve(e.target.value)}
+                      className="text-center"
+                      data-testid="input-penalty-leve"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-orange-600 flex items-center gap-1">
+                    <ShieldAlert className="h-3 w-3" /> Médio
+                  </Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={newPenaltyMedio}
+                      onChange={(e) => setNewPenaltyMedio(e.target.value)}
+                      className="text-center"
+                      data-testid="input-penalty-medio"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-red-600 flex items-center gap-1">
+                    <ShieldAlert className="h-3 w-3" /> Grave
+                  </Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={newPenaltyGrave}
+                      onChange={(e) => setNewPenaltyGrave(e.target.value)}
+                      className="text-center"
+                      data-testid="input-penalty-grave"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancelar</Button>
@@ -397,11 +574,11 @@ export default function EvaluationPage() {
       <Dialog open={!!editingCriteria} onOpenChange={(open) => { if (!open) setEditingCriteria(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar Criterio</DialogTitle>
+            <DialogTitle>Editar Critério</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Nome do Criterio</Label>
+              <Label>Nome do Critério</Label>
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -420,6 +597,66 @@ export default function EvaluationPage() {
                 data-testid="input-edit-criteria-weight"
               />
             </div>
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium">Penalidades por Severidade (% de perda)</Label>
+              <p className="text-xs text-muted-foreground mb-3">Quanto % dos 100 pontos será perdido em cada nível</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-yellow-600 flex items-center gap-1">
+                    <Shield className="h-3 w-3" /> Leve
+                  </Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={newPenaltyLeve}
+                      onChange={(e) => setNewPenaltyLeve(e.target.value)}
+                      className="text-center"
+                      data-testid="input-edit-penalty-leve"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-orange-600 flex items-center gap-1">
+                    <ShieldAlert className="h-3 w-3" /> Médio
+                  </Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={newPenaltyMedio}
+                      onChange={(e) => setNewPenaltyMedio(e.target.value)}
+                      className="text-center"
+                      data-testid="input-edit-penalty-medio"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-red-600 flex items-center gap-1">
+                    <ShieldAlert className="h-3 w-3" /> Grave
+                  </Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={newPenaltyGrave}
+                      onChange={(e) => setNewPenaltyGrave(e.target.value)}
+                      className="text-center"
+                      data-testid="input-edit-penalty-grave"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingCriteria(null)}>Cancelar</Button>
@@ -433,9 +670,9 @@ export default function EvaluationPage() {
       <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover Criterio</AlertDialogTitle>
+            <AlertDialogTitle>Remover Critério</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover este criterio? Se ja houver avaliacoes usando-o, ele sera apenas desativado.
+              Tem certeza que deseja remover este critério? Se já houver avaliações usando-o, ele será apenas desativado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

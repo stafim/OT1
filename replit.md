@@ -163,7 +163,13 @@ Status enums for workflow tracking:
   - **SMTP Configuration Required** (secrets): `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`
   - **SMTP Configuration Optional** (env vars): `SMTP_PORT` (default 587), `SMTP_FROM` (defaults to SMTP_USER)
 - **Evaluation Criteria Page**: Added route `/criterios-avaliacao` and sidebar link for configuring evaluation criteria
-- **Evaluation System Update**: Replaced 5-star ratings with 0-100 numeric scores using configurable weighted criteria
+- **Evaluation System Update**: Severity-based evaluation (Leve/Médio/Grave)
+  - Each criterion starts with 100 points and is evaluated by severity level
+  - Severity levels: Sem Ocorrência (no penalty), Leve, Médio, Grave
+  - Each severity has a configurable % penalty (default: Leve=10%, Médio=50%, Grave=100%)
+  - Score = 100 - penalty%, weighted by criterion weight for final score
+  - Schema fields: `penaltyLeve`, `penaltyMedio`, `penaltyGrave` on `evaluationCriteria` table
+  - `evaluationScores` table now stores `severity` enum alongside calculated `score`
 - **Portaria New Collect**: Added ability to create new collects directly from the Portaria page when vehicles arrive without pre-existing collect records
 - **Damage Report (Relatório de Avarias)**: New page `/relatorio-avarias` under Operação menu
   - Automatically lists all collects and transports that have damage photos (checkinDamagePhotos or checkoutDamagePhotos)

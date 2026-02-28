@@ -8,7 +8,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +25,9 @@ import {
   Send,
   Scale,
   Award,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import type { Transport, Driver, Vehicle, Client, DeliveryLocation, DriverEvaluation, EvaluationCriteria, EvaluationScore } from "@shared/schema";
 
@@ -46,6 +48,8 @@ interface EvaluationWithDetails extends DriverEvaluation {
   scores?: ScoreWithCriteria[];
 }
 
+type SeverityLevel = "sem_ocorrencia" | "leve" | "medio" | "grave";
+
 const formatDate = (date: string | Date | null | undefined) => {
   if (!date) return "-";
   return new Date(date).toLocaleDateString("pt-BR", {
@@ -53,6 +57,27 @@ const formatDate = (date: string | Date | null | undefined) => {
     month: "2-digit",
     year: "numeric",
   });
+};
+
+const severityLabels: Record<SeverityLevel, string> = {
+  sem_ocorrencia: "Sem Ocorrência",
+  leve: "Leve",
+  medio: "Médio",
+  grave: "Grave",
+};
+
+const severityColors: Record<SeverityLevel, string> = {
+  sem_ocorrencia: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700",
+  leve: "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700",
+  medio: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700",
+  grave: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700",
+};
+
+const severityIcons: Record<SeverityLevel, typeof ShieldCheck> = {
+  sem_ocorrencia: ShieldCheck,
+  leve: Shield,
+  medio: ShieldAlert,
+  grave: ShieldAlert,
 };
 
 function ScoreDisplay({ score, label }: { score: number; label?: string }) {
@@ -80,21 +105,25 @@ function ScoreDisplay({ score, label }: { score: number; label?: string }) {
   );
 }
 
-function CriteriaScoreInput({
+function SeveritySelector({
   criteria,
-  score,
+  severity,
   onChange,
 }: {
   criteria: EvaluationCriteria;
-  score: number;
-  onChange: (score: number) => void;
+  severity: SeverityLevel;
+  onChange: (severity: SeverityLevel) => void;
 }) {
-  const getColor = (s: number) => {
-    if (s >= 80) return "text-green-600";
-    if (s >= 60) return "text-yellow-600";
-    if (s >= 40) return "text-orange-600";
-    return "text-red-600";
+  const getPenalty = (sev: SeverityLevel) => {
+    if (sev === "sem_ocorrencia") return 0;
+    if (sev === "leve") return parseFloat(criteria.penaltyLeve || "10");
+    if (sev === "medio") return parseFloat(criteria.penaltyMedio || "50");
+    if (sev === "grave") return parseFloat(criteria.penaltyGrave || "100");
+    return 0;
   };
+
+  const currentPenalty = getPenalty(severity);
+  const currentScore = 100 - currentPenalty;
 
   return (
     <div className="space-y-2 p-3 rounded-lg border">
@@ -104,30 +133,38 @@ function CriteriaScoreInput({
           <p className="text-xs text-muted-foreground">Peso: {parseFloat(criteria.weight).toFixed(0)}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            min="0"
-            max="100"
-            value={score}
-            onChange={(e) => {
-              const val = parseInt(e.target.value);
-              if (!isNaN(val) && val >= 0 && val <= 100) onChange(val);
-              else if (e.target.value === "") onChange(0);
-            }}
-            className="w-20 text-center font-bold"
-            data-testid={`input-score-${criteria.id}`}
-          />
-          <span className={`text-sm font-bold w-6 ${getColor(score)}`}>pts</span>
+          <span className={`text-lg font-bold ${currentScore >= 80 ? "text-green-600" : currentScore >= 50 ? "text-orange-600" : "text-red-600"}`}>
+            {currentScore.toFixed(0)}
+          </span>
+          <span className="text-xs text-muted-foreground">pts</span>
         </div>
       </div>
-      <Slider
-        value={[score]}
-        min={0}
-        max={100}
-        step={1}
-        onValueChange={([val]) => onChange(val)}
-        data-testid={`slider-score-${criteria.id}`}
-      />
+      <div className="grid grid-cols-4 gap-2">
+        {(["sem_ocorrencia", "leve", "medio", "grave"] as SeverityLevel[]).map((sev) => {
+          const Icon = severityIcons[sev];
+          const isSelected = severity === sev;
+          const penalty = getPenalty(sev);
+          return (
+            <button
+              key={sev}
+              type="button"
+              onClick={() => onChange(sev)}
+              className={`flex flex-col items-center gap-1 p-2 rounded-md border-2 transition-all text-xs ${
+                isSelected
+                  ? `${severityColors[sev]} border-current font-semibold ring-2 ring-offset-1 ring-current/30`
+                  : "bg-muted/30 border-transparent hover:border-muted-foreground/20 text-muted-foreground"
+              }`}
+              data-testid={`button-severity-${sev}-${criteria.id}`}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{severityLabels[sev]}</span>
+              {sev !== "sem_ocorrencia" && (
+                <span className="text-[10px] opacity-70">-{penalty}%</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -141,8 +178,8 @@ export default function DriverEvaluationsPage() {
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationWithDetails | null>(null);
   const [hadIncident, setHadIncident] = useState(false);
   const [incidentDescription, setIncidentDescription] = useState("");
-  const [criteriaScores, setCriteriaScores] = useState<Record<string, number>>({});
-  const [manualScore, setManualScore] = useState("80");
+  const [criteriaSeverities, setCriteriaSeverities] = useState<Record<string, SeverityLevel>>({});
+  const [manualScore, setManualScore] = useState("100");
   const { toast } = useToast();
 
   const { data: pendingTransports, isLoading: loadingPending } = useQuery<TransportWithDetails[]>({
@@ -169,45 +206,54 @@ export default function DriverEvaluationsPage() {
       setShowEvaluationDialog(false);
       resetForm();
       toast({
-        title: "Avaliacao enviada",
-        description: "A avaliacao do motorista foi registrada com sucesso.",
+        title: "Avaliação enviada",
+        description: "A avaliação do motorista foi registrada com sucesso.",
       });
     },
     onError: () => {
       toast({
         title: "Erro",
-        description: "Nao foi possivel enviar a avaliacao.",
+        description: "Não foi possível enviar a avaliação.",
         variant: "destructive",
       });
     },
   });
 
   const resetForm = () => {
-    setCriteriaScores({});
+    setCriteriaSeverities({});
     setHadIncident(false);
     setIncidentDescription("");
-    setManualScore("80");
+    setManualScore("100");
     setSelectedTransport(null);
   };
 
   const handleOpenEvaluation = (transport: TransportWithDetails) => {
     setSelectedTransport(transport);
-    const defaultScores: Record<string, number> = {};
+    const defaultSeverities: Record<string, SeverityLevel> = {};
     activeCriteria.forEach(c => {
-      defaultScores[c.id] = 80;
+      defaultSeverities[c.id] = "sem_ocorrencia";
     });
-    setCriteriaScores(defaultScores);
+    setCriteriaSeverities(defaultSeverities);
     setHadIncident(false);
     setIncidentDescription("");
-    setManualScore("80");
+    setManualScore("100");
     setShowEvaluationDialog(true);
+  };
+
+  const getScoreForCriteria = (criteriaItem: EvaluationCriteria, severity: SeverityLevel) => {
+    let penalty = 0;
+    if (severity === "leve") penalty = parseFloat(criteriaItem.penaltyLeve || "10");
+    else if (severity === "medio") penalty = parseFloat(criteriaItem.penaltyMedio || "50");
+    else if (severity === "grave") penalty = parseFloat(criteriaItem.penaltyGrave || "100");
+    return 100 - penalty;
   };
 
   const calculateWeightedScore = () => {
     if (activeCriteria.length === 0) return 0;
     let weightedSum = 0;
     for (const c of activeCriteria) {
-      const score = criteriaScores[c.id] || 0;
+      const severity = criteriaSeverities[c.id] || "sem_ocorrencia";
+      const score = getScoreForCriteria(c, severity);
       const weight = parseFloat(c.weight);
       weightedSum += score * (weight / 100);
     }
@@ -216,7 +262,10 @@ export default function DriverEvaluationsPage() {
 
   const calculateSimpleAverage = () => {
     if (activeCriteria.length === 0) return 0;
-    const total = activeCriteria.reduce((sum, c) => sum + (criteriaScores[c.id] || 0), 0);
+    const total = activeCriteria.reduce((sum, c) => {
+      const severity = criteriaSeverities[c.id] || "sem_ocorrencia";
+      return sum + getScoreForCriteria(c, severity);
+    }, 0);
     return total / activeCriteria.length;
   };
 
@@ -225,8 +274,8 @@ export default function DriverEvaluationsPage() {
 
     if (activeCriteria.length === 0) {
       toast({
-        title: "Sem criterios",
-        description: "Configure os criterios de avaliacao antes de avaliar.",
+        title: "Sem critérios",
+        description: "Configure os critérios de avaliação antes de avaliar.",
         variant: "destructive",
       });
       return;
@@ -243,7 +292,7 @@ export default function DriverEvaluationsPage() {
 
     const scoresToSubmit = activeCriteria.map(c => ({
       criteriaId: c.id,
-      score: criteriaScores[c.id] || 0,
+      severity: criteriaSeverities[c.id] || "sem_ocorrencia",
     }));
 
     const finalWeightedScore = hadIncident ? parseFloat(manualScore) : calculateWeightedScore();
@@ -273,7 +322,7 @@ export default function DriverEvaluationsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Avaliacao de Motoristas" />
+      <PageHeader title="Avaliação de Motoristas" />
 
       <div className="flex-1 overflow-auto p-4 md:p-6">
         <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -378,7 +427,7 @@ export default function DriverEvaluationsPage() {
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Award className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground text-center">
-                    Nenhuma avaliacao registrada ainda
+                    Nenhuma avaliação registrada ainda
                   </p>
                 </CardContent>
               </Card>
@@ -482,21 +531,21 @@ export default function DriverEvaluationsPage() {
                 <Card className="border-destructive">
                   <CardContent className="p-4 text-center">
                     <Scale className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm font-medium">Nenhum criterio configurado</p>
+                    <p className="text-sm font-medium">Nenhum critério configurado</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Configure os criterios de avaliacao na pagina de Avaliacao antes de avaliar motoristas.
+                      Configure os critérios de avaliação na página de Avaliação antes de avaliar motoristas.
                     </p>
                   </CardContent>
                 </Card>
               ) : (
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium">Criterios (0 a 100 pontos)</Label>
+                  <Label className="text-sm font-medium">Avalie cada critério por severidade</Label>
                   {activeCriteria.map((c) => (
-                    <CriteriaScoreInput
+                    <SeveritySelector
                       key={c.id}
                       criteria={c}
-                      score={criteriaScores[c.id] || 0}
-                      onChange={(score) => setCriteriaScores(prev => ({ ...prev, [c.id]: score }))}
+                      severity={criteriaSeverities[c.id] || "sem_ocorrencia"}
+                      onChange={(sev) => setCriteriaSeverities(prev => ({ ...prev, [c.id]: sev }))}
                     />
                   ))}
                 </div>
@@ -507,7 +556,7 @@ export default function DriverEvaluationsPage() {
                   <Card className="bg-yellow-500/10 border-yellow-500/30">
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">Nota Final (editavel):</span>
+                        <span className="font-medium text-sm">Nota Final (editável):</span>
                         <div className="flex items-center gap-2">
                           <Input
                             type="number"
@@ -523,7 +572,7 @@ export default function DriverEvaluationsPage() {
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Como houve imprevisto, voce pode ajustar a nota final ponderada manualmente.
+                        Como houve imprevisto, você pode ajustar a nota final ponderada manualmente.
                       </p>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>Nota calculada seria:</span>
@@ -537,7 +586,7 @@ export default function DriverEvaluationsPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-sm">Nota Final Ponderada</p>
-                          <p className="text-xs text-muted-foreground">Media simples: {calculateSimpleAverage().toFixed(1)}</p>
+                          <p className="text-xs text-muted-foreground">Média simples: {calculateSimpleAverage().toFixed(1)}</p>
                         </div>
                         <ScoreDisplay score={calculateWeightedScore()} label="pts" />
                       </div>
@@ -558,7 +607,7 @@ export default function DriverEvaluationsPage() {
               data-testid="button-submit-evaluation"
             >
               <Send className="h-4 w-4 mr-2" />
-              Enviar Avaliacao
+              Enviar Avaliação
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -568,116 +617,84 @@ export default function DriverEvaluationsPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Detalhes da Avaliacao
+              <Award className="h-5 w-5 text-primary" />
+              Detalhes da Avaliação
             </DialogTitle>
           </DialogHeader>
 
           {selectedEvaluation && (
-            <div className="space-y-6">
-              <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                  <User className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold">{selectedEvaluation.driver?.name}</h3>
-                  <p className="text-sm text-muted-foreground">{selectedEvaluation.driver?.cpf}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="outline">{selectedEvaluation.driver?.modality}</Badge>
-                    <ScoreDisplay score={parseFloat(selectedEvaluation.weightedScore || selectedEvaluation.averageScore || "0")} label="pts" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="p-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Truck className="h-4 w-4" />
-                      Transporte
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 pt-0 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Requisicao:</span>
-                      <span className="font-medium">{selectedEvaluation.transport?.requestNumber}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Veiculo:</span>
-                      <span>{selectedEvaluation.transport?.vehicleChassi}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Status:</span>
-                      <Badge variant="secondary">{selectedEvaluation.transport?.status}</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="p-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Scale className="h-4 w-4" />
-                      Resultado
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 pt-0 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Nota Ponderada:</span>
-                      <span className="font-bold">{parseFloat(selectedEvaluation.weightedScore || "0").toFixed(1)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Media Simples:</span>
-                      <span>{parseFloat(selectedEvaluation.averageScore || "0").toFixed(1)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Data:</span>
-                      <span>{formatDate(selectedEvaluation.createdAt)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {selectedEvaluation.scores && selectedEvaluation.scores.length > 0 && (
-                <Card>
-                  <CardHeader className="p-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Award className="h-4 w-4 text-primary" />
-                      Notas por Criterio
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 pt-0 space-y-2">
-                    {selectedEvaluation.scores.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between p-2 rounded bg-muted/50">
-                        <div className="flex-1 min-w-0">
-                          <span className="text-sm">{s.criteria?.name || "Criterio"}</span>
-                          {s.criteria?.weight && (
-                            <span className="text-xs text-muted-foreground ml-2">(peso: {parseFloat(s.criteria.weight).toFixed(0)})</span>
-                          )}
-                        </div>
-                        <ScoreDisplay score={parseFloat(s.score)} />
+            <div className="space-y-4">
+              <Card className="bg-muted/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-primary/10">
+                        <User className="h-5 w-5 text-primary" />
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
+                      <div>
+                        <p className="font-semibold">{selectedEvaluation.driver?.name}</p>
+                        <p className="text-sm text-muted-foreground">{selectedEvaluation.transport?.requestNumber}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Data</p>
+                      <p className="text-sm">{formatDate(selectedEvaluation.createdAt)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               {selectedEvaluation.hadIncident === "true" && (
-                <div className="p-3 rounded bg-red-500/10 border border-red-500/20">
-                  <div className="flex items-center gap-2 text-red-600 font-medium text-sm">
-                    <AlertTriangle className="h-4 w-4" />
-                    Houve imprevisto
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">{selectedEvaluation.incidentDescription}</p>
+                <Card className="border-yellow-500/30 bg-yellow-500/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                      <span className="font-medium text-sm text-yellow-700 dark:text-yellow-400">Imprevisto Registrado</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{selectedEvaluation.incidentDescription}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {selectedEvaluation.scores && selectedEvaluation.scores.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Critérios Avaliados</Label>
+                  {selectedEvaluation.scores.map((score) => {
+                    const severityValue = (score.severity || "sem_ocorrencia") as SeverityLevel;
+                    const scoreNum = parseFloat(score.score);
+                    return (
+                      <div key={score.id} className="flex items-center justify-between p-3 rounded-lg border">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{score.criteria?.name || "Critério"}</p>
+                          <Badge className={`mt-1 text-xs ${severityColors[severityValue]}`} variant="outline">
+                            {severityLabels[severityValue]}
+                          </Badge>
+                        </div>
+                        <ScoreDisplay score={scoreNum} label="pts" />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
+
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">Nota Final Ponderada</p>
+                      <p className="text-xs text-muted-foreground">
+                        Média simples: {parseFloat(selectedEvaluation.averageScore || "0").toFixed(1)}
+                      </p>
+                    </div>
+                    <ScoreDisplay
+                      score={parseFloat(selectedEvaluation.weightedScore || selectedEvaluation.averageScore || "0")}
+                      label="pts"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>
-              Fechar
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

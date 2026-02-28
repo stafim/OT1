@@ -821,6 +821,9 @@ export const evaluationCriteria = pgTable("evaluation_criteria", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   weight: numeric("weight", { precision: 5, scale: 2 }).notNull(),
+  penaltyLeve: numeric("penalty_leve", { precision: 5, scale: 2 }).default("10"),
+  penaltyMedio: numeric("penalty_medio", { precision: 5, scale: 2 }).default("50"),
+  penaltyGrave: numeric("penalty_grave", { precision: 5, scale: 2 }).default("100"),
   order: integer("sort_order").default(0),
   isActive: text("is_active").default("true"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -866,11 +869,19 @@ export const driverEvaluations = pgTable("driver_evaluations", {
 });
 
 // ============== NOTAS POR CRITÉRIO (Evaluation Scores) ==============
+export const evaluationSeverityEnum = pgEnum("evaluation_severity", [
+  "sem_ocorrencia",
+  "leve",
+  "medio",
+  "grave",
+]);
+
 export const evaluationScores = pgTable("evaluation_scores", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   evaluationId: varchar("evaluation_id").notNull().references(() => driverEvaluations.id),
   criteriaId: varchar("criteria_id").notNull().references(() => evaluationCriteria.id),
   score: numeric("score", { precision: 5, scale: 2 }).notNull(),
+  severity: evaluationSeverityEnum("severity").default("sem_ocorrencia"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

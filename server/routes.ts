@@ -2422,10 +2422,14 @@ export async function registerRoutes(
 
   app.put("/api/evaluation-criteria/bulk-update", isAuthenticatedJWT, async (req, res) => {
     try {
-      const { criteria } = req.body as { criteria: { id: string; weight: string; order: number }[] };
+      const { criteria } = req.body as { criteria: { id: string; weight: string; order: number; penaltyLeve?: string; penaltyMedio?: string; penaltyGrave?: string }[] };
       for (const c of criteria) {
+        const updateData: any = { weight: c.weight, order: c.order };
+        if (c.penaltyLeve !== undefined) updateData.penaltyLeve = c.penaltyLeve;
+        if (c.penaltyMedio !== undefined) updateData.penaltyMedio = c.penaltyMedio;
+        if (c.penaltyGrave !== undefined) updateData.penaltyGrave = c.penaltyGrave;
         await db.update(evaluationCriteria)
-          .set({ weight: c.weight, order: c.order })
+          .set(updateData)
           .where(eq(evaluationCriteria.id, c.id));
       }
       const updated = await db.select().from(evaluationCriteria).orderBy(evaluationCriteria.order);
@@ -2792,7 +2796,13 @@ export async function registerRoutes(
           const criteria = activeCriteria.find(c => c.id === cs.criteriaId);
           if (criteria) {
             const weight = parseFloat(criteria.weight);
-            const score = parseFloat(cs.score);
+            const severity = cs.severity || "sem_ocorrencia";
+            let penaltyPercent = 0;
+            if (severity === "leve") penaltyPercent = parseFloat(criteria.penaltyLeve || "10");
+            else if (severity === "medio") penaltyPercent = parseFloat(criteria.penaltyMedio || "50");
+            else if (severity === "grave") penaltyPercent = parseFloat(criteria.penaltyGrave || "100");
+            const score = 100 - penaltyPercent;
+            cs.calculatedScore = score;
             weightedSum += score * (weight / 100);
             totalWeight += weight;
             simpleSum += score;
@@ -2814,7 +2824,8 @@ export async function registerRoutes(
           await db.insert(evaluationScores).values({
             evaluationId: evaluation.id,
             criteriaId: cs.criteriaId,
-            score: cs.score.toString(),
+            score: (cs.calculatedScore ?? cs.score ?? 100).toString(),
+            severity: cs.severity || "sem_ocorrencia",
           });
         }
 
