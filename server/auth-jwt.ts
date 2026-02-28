@@ -290,4 +290,144 @@ export function registerJWTAuthRoutes(app: Express) {
     const { passwordHash: _, ...userWithoutPassword } = req.user;
     res.json(userWithoutPassword);
   });
+
+  app.post("/api/external/auth/token", async (req: Request, res: Response) => {
+    try {
+      const externalAuthSchema = z.object({
+        username: z.string().min(1, "Username é obrigatório"),
+        password: z.string().min(1, "Senha é obrigatória"),
+      });
+
+      const data = externalAuthSchema.parse(req.body);
+
+      const [user] = await db.select().from(users)
+        .where(eq(users.username, data.username.toLowerCase()))
+        .limit(1);
+
+      if (!user) {
+        return res.status(401).json({ error: "invalid_credentials", message: "Credenciais inválidas" });
+      }
+
+      if (user.isActive !== "true") {
+        return res.status(403).json({ error: "user_inactive", message: "Usuário inativo" });
+      }
+
+      if (!user.passwordHash) {
+        return res.status(401).json({ error: "no_password", message: "Usuário sem senha configurada" });
+      }
+
+      const isValidPassword = await verifyPassword(data.password, user.passwordHash);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "invalid_credentials", message: "Credenciais inválidas" });
+      }
+
+      await db.update(users)
+        .set({ lastLogin: new Date() })
+        .where(eq(users.id, user.id));
+
+      const payload: JwtPayload = {
+        userId: user.id,
+        username: user.username!,
+        role: user.role as UserRole,
+        tokenVersion: user.refreshTokenVersion || undefined,
+      };
+
+      const accessToken = generateAccessToken(payload);
+      const refreshToken = generateRefreshToken(payload);
+
+      res.json({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: "Bearer",
+        expires_in: 900,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "validation_error", message: error.errors[0].message });
+      }
+      console.error("Error in external auth:", error);
+      res.status(500).json({ error: "server_error", message: "Erro interno do servidor" });
+    }
+  });
+
+  app.post("/api/external/auth/refresh", async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        refresh_token: z.string().min(1, "Refresh token é obrigatório"),
+      });
+
+      const data = schema.parse(req.body);
+      const payload = verifyRefreshToken(data.refresh_token);
+
+      if (!payload) {
+        return res.status(401).json({ error: "invalid_token", message: "Refresh token inválido ou expirado" });
+      }
+
+      const [user] = await db.select().from(users)
+        .where(eq(users.id, payload.userId))
+        .limit(1);
+
+      if (!user || user.isActive !== "true") {
+        return res.status(401).json({ error: "user_invalid", message: "Usuário não encontrado ou inativo" });
+      }
+
+      if (user.refreshTokenVersion) {
+        const storedVersion = new Date(user.refreshTokenVersion).getTime();
+        const tokenVersion = payload.tokenVersion ? new Date(payload.tokenVersion).getTime() : 0;
+        if (tokenVersion < storedVersion) {
+          return res.status(401).json({ error: "token_revoked", message: "Token revogado" });
+        }
+      }
+
+      const newTokenVersion = new Date();
+      await db.update(users)
+        .set({ refreshTokenVersion: newTokenVersion })
+        .where(eq(users.id, user.id));
+
+      const newPayload: JwtPayload = {
+        userId: user.id,
+        username: user.username!,
+        role: user.role as UserRole,
+        tokenVersion: newTokenVersion,
+      };
+
+      res.json({
+        access_token: generateAccessToken(newPayload),
+        refresh_token: generateRefreshToken(newPayload),
+        token_type: "Bearer",
+        expires_in: 900,
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "validation_error", message: error.errors[0].message });
+      }
+      console.error("Error refreshing external token:", error);
+      res.status(500).json({ error: "server_error", message: "Erro interno do servidor" });
+    }
+  });
+
+  app.get("/api/external/auth/validate", isAuthenticatedJWT, async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.user) {
+      return res.status(401).json({ valid: false, error: "invalid_token" });
+    }
+    res.json({
+      valid: true,
+      user: {
+        id: req.user.id,
+        username: req.user.username,
+        email: req.user.email,
+        role: req.user.role,
+        firstName: req.user.firstName,
+        lastName: req.user.lastName,
+      },
+    });
+  });
 }
