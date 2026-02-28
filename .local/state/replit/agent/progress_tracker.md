@@ -7,3 +7,4 @@
 [x] 7. Cadastro de 10 motoristas com dados brasileiros completos
 [x] 8. Verificação do bucket de armazenamento de imagens (Object Storage já configurado)
 [x] 9. Movido "Ranking de Motoristas" para submenu Operação, abaixo de Rotograma
+[x] 10. Dump do banco de dados restaurado com sucesso
