@@ -45,13 +45,13 @@ const driverFormSchema = z.object({
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   birthDate: z.string().min(1, "Data de nascimento é obrigatória"),
   cep: z.string().min(8, "CEP é obrigatório"),
-  address: z.string().min(5, "Endereço é obrigatório"),
+  address: z.string().optional().or(z.literal("")),
   addressNumber: z.string().min(1, "Número é obrigatório"),
   complement: z.string().optional(),
   neighborhood: z.string().min(2, "Bairro é obrigatório"),
   city: z.string().min(2, "Município é obrigatório"),
   state: z.enum(brazilianStates, { required_error: "UF é obrigatória" }),
-  modality: z.enum(["pj", "clt", "agregado"], { required_error: "Modalidade é obrigatória" }),
+  modality: z.enum(["pj", "clt", "agregado"]).optional().or(z.literal("")),
   cnhType: z.enum(cnhTypes, { required_error: "Tipo de CNH é obrigatório" }),
   cnhFrontPhoto: z.string().optional(),
   cnhBackPhoto: z.string().optional(),
@@ -336,7 +336,7 @@ export default function DriverFormPage() {
                   name="address"
                   render={({ field }) => (
                     <FormItem className="md:col-span-2">
-                      <FormLabel>Endereço *</FormLabel>
+                      <FormLabel>Endereço</FormLabel>
                       <FormControl>
                         <Input {...field} data-testid="input-driver-address" />
                       </FormControl>
@@ -433,7 +433,7 @@ export default function DriverFormPage() {
                   name="modality"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Modalidade *</FormLabel>
+                      <FormLabel>Modalidade</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-driver-modality">

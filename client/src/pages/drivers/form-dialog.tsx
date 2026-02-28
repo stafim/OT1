@@ -61,7 +61,7 @@ const driverFormSchema = z.object({
   phone: z.string().min(10, "Telefone é obrigatório"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   birthDate: z.string().min(1, "Data de nascimento é obrigatória"),
-  fullAddress: z.string().min(1, "Endereço é obrigatório"),
+  fullAddress: z.string().optional().or(z.literal("")),
   cep: z.string().optional(),
   address: z.string().optional(),
   addressNumber: z.string().optional(),
@@ -71,7 +71,7 @@ const driverFormSchema = z.object({
   state: z.string().optional(),
   latitude: z.string().optional(),
   longitude: z.string().optional(),
-  modality: z.enum(["pj", "clt", "agregado"], { required_error: "Modalidade é obrigatória" }),
+  modality: z.enum(["pj", "clt", "agregado"]).optional().or(z.literal("")),
   cnhType: z.enum(cnhTypes, { required_error: "Tipo de CNH é obrigatório" }),
   cnhFrontPhoto: z.string().optional(),
   cnhBackPhoto: z.string().optional(),
@@ -373,7 +373,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
                       name="fullAddress"
                       render={({ field }) => (
                         <FormItem className="md:col-span-2">
-                          <FormLabel>Endereço *</FormLabel>
+                          <FormLabel>Endereço</FormLabel>
                           <FormControl>
                             <AddressAutocomplete
                               value={field.value || ""}
@@ -411,7 +411,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
                       name="modality"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Modalidade *</FormLabel>
+                          <FormLabel>Modalidade</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger data-testid="select-driver-modality">

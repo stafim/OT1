@@ -68,7 +68,7 @@ export const drivers = pgTable("drivers", {
   state: varchar("state", { length: 2 }),
   latitude: text("latitude"),
   longitude: text("longitude"),
-  modality: driverModalityEnum("modality").notNull(),
+  modality: driverModalityEnum("modality"),
   cnhType: varchar("cnh_type", { length: 5 }).notNull(),
   cnhFrontPhoto: text("cnh_front_photo"),
   cnhBackPhoto: text("cnh_back_photo"),
