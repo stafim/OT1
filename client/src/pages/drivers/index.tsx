@@ -5,7 +5,7 @@ import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Driver } from "@shared/schema";
@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DriverFormDialog } from "./form-dialog";
+import { DriverDetailDialog } from "./detail-dialog";
 
 const modalityLabels: Record<string, string> = {
   pj: "PJ",
@@ -30,8 +31,10 @@ const modalityLabels: Record<string, string> = {
 export default function DriversPage() {
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
+  const [viewingDriverId, setViewingDriverId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: drivers, isLoading } = useQuery<Driver[]>({
@@ -61,12 +64,18 @@ export default function DriversPage() {
 
   const handleNewDriver = () => {
     setEditingDriverId(null);
-    setDialogOpen(true);
+    setFormOpen(true);
   };
 
-  const handleEditDriver = (driver: Driver) => {
-    setEditingDriverId(driver.id);
-    setDialogOpen(true);
+  const handleEditDriver = (driverId: string) => {
+    setDetailOpen(false);
+    setEditingDriverId(driverId);
+    setFormOpen(true);
+  };
+
+  const handleViewDriver = (driver: Driver) => {
+    setViewingDriverId(driver.id);
+    setDetailOpen(true);
   };
 
   const columns = [
@@ -104,7 +113,7 @@ export default function DriversPage() {
     {
       key: "actions",
       label: "",
-      className: "w-24",
+      className: "w-32",
       render: (driver: Driver) => (
         <div className="flex items-center gap-1">
           <Button
@@ -112,8 +121,21 @@ export default function DriversPage() {
             variant="ghost"
             onClick={(e) => {
               e.stopPropagation();
-              handleEditDriver(driver);
+              handleViewDriver(driver);
             }}
+            title="Ver ficha"
+            data-testid={`button-view-${driver.id}`}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditDriver(driver.id);
+            }}
+            title="Editar"
             data-testid={`button-edit-${driver.id}`}
           >
             <Pencil className="h-4 w-4" />
@@ -125,6 +147,7 @@ export default function DriversPage() {
               e.stopPropagation();
               setDeleteId(driver.id);
             }}
+            title="Excluir"
             data-testid={`button-delete-${driver.id}`}
           >
             <Trash2 className="h-4 w-4" />
@@ -166,14 +189,21 @@ export default function DriversPage() {
           data={filteredDrivers ?? []}
           isLoading={isLoading}
           keyField="id"
-          onRowClick={handleEditDriver}
+          onRowClick={handleViewDriver}
           emptyMessage="Nenhum motorista cadastrado"
         />
       </div>
 
+      <DriverDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        driverId={viewingDriverId}
+        onEdit={handleEditDriver}
+      />
+
       <DriverFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        open={formOpen}
+        onOpenChange={setFormOpen}
         driverId={editingDriverId}
       />
 

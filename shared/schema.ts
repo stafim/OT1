@@ -84,6 +84,7 @@ export const drivers = pgTable("drivers", {
   documentsApproved: text("documents_approved").default("pendente"),
   documentsApprovedAt: timestamp("documents_approved_at"),
   documentsApprovedBy: text("documents_approved_by"),
+  freightContractId: varchar("freight_contract_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

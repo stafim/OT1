@@ -79,6 +79,7 @@ const driverFormSchema = z.object({
   profilePhoto: z.string().optional(),
   isApto: z.string().default("false"),
   isActive: z.string().default("true"),
+  freightContractId: z.string().optional().or(z.literal("")),
 });
 
 type DriverFormData = z.infer<typeof driverFormSchema>;
@@ -126,7 +127,13 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
       profilePhoto: "",
       isApto: "false",
       isActive: "true",
+      freightContractId: "",
     },
+  });
+
+  const { data: freightContracts } = useQuery<import("@shared/schema").FreightContract[]>({
+    queryKey: ["/api/freight-contracts"],
+    enabled: open,
   });
 
   useEffect(() => {
@@ -155,6 +162,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
         profilePhoto: driver.profilePhoto || "",
         isApto: driver.isApto || "false",
         isActive: driver.isActive || "true",
+        freightContractId: driver.freightContractId || "",
       });
     } else if (!isEditing && open) {
       form.reset({
@@ -181,6 +189,7 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
         profilePhoto: "",
         isApto: "false",
         isActive: "true",
+        freightContractId: "",
       });
     }
   }, [driver, form, isEditing, open]);
@@ -245,7 +254,11 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
   });
 
   const onSubmit = (data: DriverFormData) => {
-    mutation.mutate(data);
+    const payload = {
+      ...data,
+      freightContractId: data.freightContractId === "__none__" ? "" : (data.freightContractId || ""),
+    };
+    mutation.mutate(payload);
   };
 
   const handleAddressSelect = (addressData: {
@@ -673,6 +686,35 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
                       )}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium text-sm text-muted-foreground">Contrato de Frete</h3>
+                  <FormField
+                    control={form.control}
+                    name="freightContractId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contrato vinculado</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-driver-freight-contract">
+                              <SelectValue placeholder="Selecione um contrato de frete (opcional)" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="__none__">Nenhum</SelectItem>
+                            {freightContracts?.filter(c => c.status === "ativo").map((contract) => (
+                              <SelectItem key={contract.id} value={contract.id}>
+                                {contract.contractNumber} — {contract.clientName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
                 <div className="flex justify-end gap-4 pt-4 border-t">
