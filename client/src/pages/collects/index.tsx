@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Trash2, LogIn, LogOut, Loader2, Truck, MapPin, Calendar, User, Building, Clock, Camera, ImageIcon, ExternalLink, FileText, ChevronsUpDown, Check } from "lucide-react";
+import { Plus, Search, Trash2, Loader2, Truck, MapPin, Calendar, User, Building, Clock, Camera, ImageIcon, ExternalLink, FileText, ChevronsUpDown, Check, CheckCircle } from "lucide-react";
 import jsPDF from "jspdf";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { normalizeImageUrl } from "@/lib/utils";
@@ -33,7 +33,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
 import type { Collect, Manufacturer, Yard, Driver } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,7 +59,6 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { Textarea } from "@/components/ui/textarea";
 import { DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -151,9 +149,8 @@ export default function CollectsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("em_transito");
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [checkinCollect, setCheckinCollect] = useState<CollectWithRelations | null>(null);
-  const [checkoutCollect, setCheckoutCollect] = useState<CollectWithRelations | null>(null);
   const [viewingCollect, setViewingCollect] = useState<CollectWithRelations | null>(null);
+  const [finalizeId, setFinalizeId] = useState<string | null>(null);
   const [showNewCollectDialog, setShowNewCollectDialog] = useState(false);
   const [openManufacturer, setOpenManufacturer] = useState(false);
   const [openYard, setOpenYard] = useState(false);
@@ -224,6 +221,21 @@ export default function CollectsPage() {
     },
     onError: () => {
       toast({ title: "Erro ao excluir coleta", variant: "destructive" });
+    },
+  });
+
+  const finalizeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("PATCH", `/api/collects/${id}`, { status: "finalizada" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+      toast({ title: "Coleta finalizada com sucesso" });
+      setFinalizeId(null);
+    },
+    onError: () => {
+      toast({ title: "Erro ao finalizar coleta", variant: "destructive" });
     },
   });
 
@@ -563,44 +575,40 @@ export default function CollectsPage() {
       className: "w-40",
       render: (c: CollectWithRelations) => (
         <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant={c.checkinDateTime ? "default" : "outline"}
-                className={c.checkinDateTime ? "bg-green-600 hover:bg-green-700" : ""}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCheckinCollect(c);
-                }}
-                data-testid={`button-checkin-${c.id}`}
-              >
-                <LogIn className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {c.checkinDateTime ? "Check-in Realizado" : "Fazer Check-in"}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant={c.checkoutDateTime ? "default" : "outline"}
-                className={c.checkoutDateTime ? "bg-green-600 hover:bg-green-700" : ""}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCheckoutCollect(c);
-                }}
-                data-testid={`button-checkout-${c.id}`}
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {c.checkoutDateTime ? "Check-out Realizado" : "Fazer Check-out"}
-            </TooltipContent>
-          </Tooltip>
+          {c.status !== "finalizada" ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="text-green-600 hover:bg-green-50 hover:text-green-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFinalizeId(c.id);
+                  }}
+                  data-testid={`button-finalize-${c.id}`}
+                >
+                  <CheckCircle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Finalizar Coleta</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="default"
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled
+                  data-testid={`button-finalized-${c.id}`}
+                >
+                  <CheckCircle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Coleta Finalizada</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -952,21 +960,25 @@ export default function CollectsPage() {
         </DialogContent>
       </Dialog>
 
-      {checkinCollect && (
-        <CheckInOutModal
-          collect={checkinCollect}
-          type="checkin"
-          onClose={() => setCheckinCollect(null)}
-        />
-      )}
-
-      {checkoutCollect && (
-        <CheckInOutModal
-          collect={checkoutCollect}
-          type="checkout"
-          onClose={() => setCheckoutCollect(null)}
-        />
-      )}
+      <AlertDialog open={!!finalizeId} onOpenChange={() => setFinalizeId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finalizar Coleta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja finalizar esta coleta? O status será alterado para "Finalizada".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => finalizeId && finalizeMutation.mutate(finalizeId)}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Finalizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {viewingCollect && (
         <CollectDetailDialog
@@ -978,452 +990,6 @@ export default function CollectsPage() {
   );
 }
 
-interface SinglePhotoUploadProps {
-  label: string;
-  photo: string;
-  setPhoto: (val: string) => void;
-  onView: (photo: string) => void;
-  isCompleted: boolean;
-  isUploading: boolean;
-  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-}
-
-function SinglePhotoUpload({ label, photo, setPhoto, onView, isCompleted, isUploading, onUpload }: SinglePhotoUploadProps) {
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <label className="text-sm font-medium text-center">{label}</label>
-      {photo ? (
-        <div className="relative">
-          <img 
-            src={photo} 
-            alt={label} 
-            className="h-20 w-20 rounded-lg object-cover border-2 cursor-pointer hover:opacity-80 transition-opacity shadow-sm" 
-            onClick={() => onView(photo)}
-          />
-          {!isCompleted && (
-            <Button
-              size="icon"
-              variant="destructive"
-              className="absolute -right-2 -top-2 h-5 w-5 rounded-full"
-              onClick={() => setPhoto("")}
-            >
-              <span className="text-[10px]">X</span>
-            </Button>
-          )}
-        </div>
-      ) : (
-        <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all">
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={onUpload}
-            disabled={isUploading || isCompleted}
-          />
-          {isUploading ? <Loader2 className="h-6 w-6 animate-spin text-primary" /> : <Plus className="h-6 w-6 text-primary/50" />}
-        </label>
-      )}
-    </div>
-  );
-}
-
-interface CheckInOutModalProps {
-  collect: CollectWithRelations;
-  type: "checkin" | "checkout";
-  onClose: () => void;
-}
-
-function CheckInOutModal({ collect, type, onClose }: CheckInOutModalProps) {
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const [frontalPhoto, setFrontalPhoto] = useState(
-    type === "checkin" ? collect.checkinFrontalPhoto || "" : collect.checkoutFrontalPhoto || ""
-  );
-  const [lateral1Photo, setLateral1Photo] = useState(
-    type === "checkin" ? collect.checkinLateral1Photo || "" : collect.checkoutLateral1Photo || ""
-  );
-  const [lateral2Photo, setLateral2Photo] = useState(
-    type === "checkin" ? collect.checkinLateral2Photo || "" : collect.checkoutLateral2Photo || ""
-  );
-  const [traseiraPhoto, setTraseiraPhoto] = useState(
-    type === "checkin" ? collect.checkinTraseiraPhoto || "" : collect.checkoutTraseiraPhoto || ""
-  );
-  const [odometerPhoto, setOdometerPhoto] = useState(
-    type === "checkin" ? collect.checkinOdometerPhoto || "" : collect.checkoutOdometerPhoto || ""
-  );
-  const [fuelLevelPhoto, setFuelLevelPhoto] = useState(
-    type === "checkin" ? collect.checkinFuelLevelPhoto || "" : collect.checkoutFuelLevelPhoto || ""
-  );
-  const [damagePhotos, setDamagePhotos] = useState<string[]>(
-    type === "checkin" ? collect.checkinDamagePhotos || [] : collect.checkoutDamagePhotos || []
-  );
-  const [selfiePhoto, setSelfiePhoto] = useState(
-    type === "checkin" ? collect.checkinSelfiePhoto || "" : collect.checkoutSelfiePhoto || ""
-  );
-  const [notes, setNotes] = useState(
-    type === "checkin" ? collect.checkinNotes || "" : collect.checkoutNotes || ""
-  );
-  const [latitude, setLatitude] = useState(
-    type === "checkin" ? collect.checkinLatitude || "" : collect.checkoutLatitude || ""
-  );
-  const [longitude, setLongitude] = useState(
-    type === "checkin" ? collect.checkinLongitude || "" : collect.checkoutLongitude || ""
-  );
-  const [isUploading, setIsUploading] = useState(false);
-  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
-
-  const isCompleted = type === "checkin" ? !!collect.checkinDateTime : !!collect.checkoutDateTime;
-  const title = type === "checkin" ? "Check-in (Retirada)" : "Check-out (Entrega)";
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const data = type === "checkin" ? {
-        checkinDateTime: new Date().toISOString(),
-        checkinLatitude: latitude,
-        checkinLongitude: longitude,
-        checkinFrontalPhoto: frontalPhoto,
-        checkinLateral1Photo: lateral1Photo,
-        checkinLateral2Photo: lateral2Photo,
-        checkinTraseiraPhoto: traseiraPhoto,
-        checkinOdometerPhoto: odometerPhoto,
-        checkinFuelLevelPhoto: fuelLevelPhoto,
-        checkinDamagePhotos: damagePhotos,
-        checkinSelfiePhoto: selfiePhoto,
-        checkinNotes: notes,
-      } : {
-        checkoutDateTime: new Date().toISOString(),
-        checkoutLatitude: latitude,
-        checkoutLongitude: longitude,
-        checkoutApprovedById: user?.id,
-        checkoutFrontalPhoto: frontalPhoto,
-        checkoutLateral1Photo: lateral1Photo,
-        checkoutLateral2Photo: lateral2Photo,
-        checkoutTraseiraPhoto: traseiraPhoto,
-        checkoutOdometerPhoto: odometerPhoto,
-        checkoutFuelLevelPhoto: fuelLevelPhoto,
-        checkoutDamagePhotos: damagePhotos,
-        checkoutSelfiePhoto: selfiePhoto,
-        checkoutNotes: notes,
-      };
-      return apiRequest("PATCH", `/api/collects/${collect.id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/collects"] });
-      toast({ title: `${type === "checkin" ? "Check-in" : "Check-out"} realizado com sucesso` });
-      onClose();
-    },
-    onError: () => {
-      toast({ title: `Erro ao realizar ${type === "checkin" ? "check-in" : "check-out"}`, variant: "destructive" });
-    },
-  });
-
-  const uploadPhoto = async (file: File): Promise<string> => {
-    try {
-      // Try Object Storage first
-      const response = await fetch("/api/uploads/request-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: file.name,
-          size: file.size,
-          contentType: file.type,
-        }),
-      });
-      if (!response.ok) throw new Error("Object Storage unavailable");
-      const { uploadURL, objectPath } = await response.json();
-      await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
-      return objectPath;
-    } catch {
-      // Fallback to local upload
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const token = localStorage.getItem("accessToken");
-      const localResponse = await fetch("/api/uploads/local", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          data: base64,
-          filename: file.name,
-          contentType: file.type,
-        }),
-      });
-      if (!localResponse.ok) throw new Error("Failed to upload locally");
-      const { objectPath } = await localResponse.json();
-      return objectPath;
-    }
-  };
-
-  const handleSingleUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setter: (val: string) => void
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
-    try {
-      const path = await uploadPhoto(file);
-      setter(path);
-      toast({ title: "Foto enviada" });
-    } catch {
-      toast({ title: "Erro ao enviar foto", variant: "destructive" });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleMultiUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    current: string[],
-    setter: (val: string[]) => void,
-    max: number
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file || current.length >= max) return;
-    setIsUploading(true);
-    try {
-      const path = await uploadPhoto(file);
-      setter([...current, path]);
-      toast({ title: "Foto enviada" });
-    } catch {
-      toast({ title: "Erro ao enviar foto", variant: "destructive" });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  return (
-    <>
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 p-6 pb-4 border-b">
-          <DialogTitle className="text-xl">{title}</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Chassi: <span className="font-medium">{collect.vehicleChassi}</span> | 
-            Motorista: <span className="font-medium">{collect.driver?.name || "-"}</span>
-          </p>
-        </DialogHeader>
-        
-        <div className="flex-1 overflow-y-auto px-6 min-h-0">
-          {isCompleted && (
-            <div className="rounded-md bg-green-50 dark:bg-green-950 p-3 text-sm text-green-700 dark:text-green-300 my-4">
-              {type === "checkin" ? "Check-in" : "Check-out"} já foi realizado para esta coleta.
-            </div>
-          )}
-
-          <div className="space-y-6 py-4">
-            {/* Seção: Localização */}
-            <div className="rounded-lg border p-4">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Localização</h3>
-              <div className="grid gap-4 grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Latitude</label>
-                  <input
-                    type="text"
-                    value={latitude}
-                    onChange={(e) => setLatitude(e.target.value)}
-                    placeholder="-25.4284"
-                    className="w-full rounded-md border p-2 bg-background text-sm"
-                    disabled={isCompleted}
-                    data-testid="input-modal-latitude"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Longitude</label>
-                  <input
-                    type="text"
-                    value={longitude}
-                    onChange={(e) => setLongitude(e.target.value)}
-                    placeholder="-49.2733"
-                    className="w-full rounded-md border p-2 bg-background text-sm"
-                    disabled={isCompleted}
-                    data-testid="input-modal-longitude"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Seção: Fotos do Veículo */}
-            <div className="rounded-lg border p-4">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Veículo</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {/* Foto Frontal */}
-                <SinglePhotoUpload
-                  label="Frontal"
-                  photo={frontalPhoto}
-                  setPhoto={setFrontalPhoto}
-                  onView={setViewingPhoto}
-                  isCompleted={isCompleted}
-                  isUploading={isUploading}
-                  onUpload={(e) => handleSingleUpload(e, setFrontalPhoto)}
-                />
-                {/* Foto Lateral 1 */}
-                <SinglePhotoUpload
-                  label="Lateral 1"
-                  photo={lateral1Photo}
-                  setPhoto={setLateral1Photo}
-                  onView={setViewingPhoto}
-                  isCompleted={isCompleted}
-                  isUploading={isUploading}
-                  onUpload={(e) => handleSingleUpload(e, setLateral1Photo)}
-                />
-                {/* Foto Lateral 2 */}
-                <SinglePhotoUpload
-                  label="Lateral 2"
-                  photo={lateral2Photo}
-                  setPhoto={setLateral2Photo}
-                  onView={setViewingPhoto}
-                  isCompleted={isCompleted}
-                  isUploading={isUploading}
-                  onUpload={(e) => handleSingleUpload(e, setLateral2Photo)}
-                />
-                {/* Foto Traseira */}
-                <SinglePhotoUpload
-                  label="Traseira"
-                  photo={traseiraPhoto}
-                  setPhoto={setTraseiraPhoto}
-                  onView={setViewingPhoto}
-                  isCompleted={isCompleted}
-                  isUploading={isUploading}
-                  onUpload={(e) => handleSingleUpload(e, setTraseiraPhoto)}
-                />
-              </div>
-            </div>
-
-            {/* Seção: Fotos do Painel */}
-            <div className="rounded-lg border p-4">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Fotos do Painel</h3>
-              <div className="grid grid-cols-2 gap-4 justify-items-center">
-                <SinglePhotoUpload
-                  label="Foto do Odômetro"
-                  photo={odometerPhoto}
-                  setPhoto={setOdometerPhoto}
-                  onView={setViewingPhoto}
-                  isCompleted={isCompleted}
-                  isUploading={isUploading}
-                  onUpload={(e) => handleSingleUpload(e, setOdometerPhoto)}
-                />
-                <SinglePhotoUpload
-                  label="Nível de Combustível"
-                  photo={fuelLevelPhoto}
-                  setPhoto={setFuelLevelPhoto}
-                  onView={setViewingPhoto}
-                  isCompleted={isCompleted}
-                  isUploading={isUploading}
-                  onUpload={(e) => handleSingleUpload(e, setFuelLevelPhoto)}
-                />
-              </div>
-            </div>
-
-            {/* Seção: Avarias */}
-            <div className="rounded-lg border p-4">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Avarias <span className="text-muted-foreground font-normal">({damagePhotos.length}/10)</span></h3>
-              <div className="flex flex-wrap gap-3">
-                {damagePhotos.map((photo, i) => (
-                  <div key={i} className="relative">
-                    <img 
-                      src={photo} 
-                      alt={`Avaria ${i + 1}`} 
-                      className="h-20 w-20 rounded-lg object-cover border-2 border-orange-200 cursor-pointer hover:opacity-80 transition-opacity shadow-sm" 
-                      onClick={() => setViewingPhoto(photo)}
-                    />
-                    {!isCompleted && (
-                      <Button
-                        size="icon"
-                        variant="destructive"
-                        className="absolute -right-2 -top-2 h-5 w-5 rounded-full"
-                        onClick={() => setDamagePhotos(damagePhotos.filter((_, idx) => idx !== i))}
-                      >
-                        <span className="text-[10px]">X</span>
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                {damagePhotos.length < 10 && !isCompleted && (
-                  <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-orange-300/50 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950 transition-all">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleMultiUpload(e, damagePhotos, setDamagePhotos, 10)}
-                      disabled={isUploading}
-                    />
-                    {isUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Plus className="h-6 w-6 text-orange-400" />}
-                  </label>
-                )}
-              </div>
-            </div>
-
-            {/* Seção: Selfie */}
-            <div className="rounded-lg border p-4">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Selfie do Motorista</h3>
-              <div className="flex justify-center">
-                <SinglePhotoUpload
-                  label="Selfie"
-                  photo={selfiePhoto}
-                  setPhoto={setSelfiePhoto}
-                  onView={setViewingPhoto}
-                  isCompleted={isCompleted}
-                  isUploading={isUploading}
-                  onUpload={(e) => handleSingleUpload(e, setSelfiePhoto)}
-                />
-              </div>
-            </div>
-
-            {/* Seção: Observações */}
-            <div className="rounded-lg border p-4">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Observações</h3>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Descreva avarias ou observações..."
-                className="w-full rounded-md border p-2 min-h-[80px] bg-background text-sm"
-                disabled={isCompleted}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-shrink-0 flex justify-end gap-2 p-6 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
-            {isCompleted ? "Fechar" : "Cancelar"}
-          </Button>
-          {!isCompleted && (
-            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-              {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Realizar {type === "checkin" ? "Check-in" : "Check-out"}
-            </Button>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {viewingPhoto && (
-      <Dialog open onOpenChange={() => setViewingPhoto(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-2">
-          <div className="flex items-center justify-center">
-            <img 
-              src={viewingPhoto} 
-              alt="Foto em tamanho real" 
-              className="max-w-full max-h-[90vh] object-contain"
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    )}
-    </>
-  );
-}
 
 interface CollectDetailDialogProps {
   collect: CollectWithRelations;
