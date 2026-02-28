@@ -131,8 +131,8 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
     },
   });
 
-  const { data: freightContracts } = useQuery<import("@shared/schema").FreightContract[]>({
-    queryKey: ["/api/freight-contracts"],
+  const { data: gestorContracts } = useQuery<import("@shared/schema").Contract[]>({
+    queryKey: ["/api/contracts"],
     enabled: open,
   });
 
@@ -699,14 +699,14 @@ export function DriverFormDialog({ open, onOpenChange, driverId }: DriverFormDia
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-driver-freight-contract">
-                              <SelectValue placeholder="Selecione um contrato de frete (opcional)" />
+                              <SelectValue placeholder="Selecione um contrato (opcional)" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="__none__">Nenhum</SelectItem>
-                            {freightContracts?.filter(c => c.status === "ativo").map((contract) => (
+                            {gestorContracts?.filter(c => c.status === "ativo").map((contract) => (
                               <SelectItem key={contract.id} value={contract.id}>
-                                {contract.contractNumber} — {contract.clientName}
+                                {contract.contractNumber} — {contract.title}
                               </SelectItem>
                             ))}
                           </SelectContent>

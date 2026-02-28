@@ -27,7 +27,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
-import type { Driver, FreightContract } from "@shared/schema";
+import type { Driver, Contract } from "@shared/schema";
 
 const modalityLabels: Record<string, string> = {
   pj: "Pessoa Jurídica (PJ)",
@@ -78,8 +78,8 @@ export function DriverDetailDialog({ open, onOpenChange, driverId, onEdit }: Dri
     enabled: !!driverId && open,
   });
 
-  const { data: freightContract, isLoading: contractLoading } = useQuery<FreightContract>({
-    queryKey: ["/api/freight-contracts", driver?.freightContractId],
+  const { data: contract, isLoading: contractLoading } = useQuery<Contract>({
+    queryKey: ["/api/contracts", driver?.freightContractId],
     enabled: !!driver?.freightContractId && open,
     retry: false,
   });
@@ -280,11 +280,11 @@ export function DriverDetailDialog({ open, onOpenChange, driverId, onEdit }: Dri
 
             <Separator />
 
-            {/* Linked freight contract */}
+            {/* Linked contract (Gestor de Contratos) */}
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <FileText className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Contrato de Frete Vinculado</h3>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Contrato Vinculado</h3>
               </div>
 
               {!driver.freightContractId ? (
@@ -294,16 +294,16 @@ export function DriverDetailDialog({ open, onOpenChange, driverId, onEdit }: Dri
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Carregando contrato...
                 </div>
-              ) : freightContract ? (
+              ) : contract ? (
                 <Card className="border-primary/20" data-testid="card-linked-contract">
                   <CardHeader className="pb-2 pt-4 px-4">
                     <CardTitle className="text-sm flex items-center justify-between gap-2">
                       <span className="flex items-center gap-2">
                         <BadgeCheck className="h-4 w-4 text-primary" />
-                        {freightContract.contractNumber}
+                        {contract.contractNumber} — {contract.title}
                       </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${contractStatusColors[freightContract.status] || ""}`}>
-                        {freightContract.status.charAt(0).toUpperCase() + freightContract.status.slice(1)}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${contractStatusColors[contract.status] || ""}`}>
+                        {contract.status.charAt(0).toUpperCase() + contract.status.slice(1)}
                       </span>
                     </CardTitle>
                   </CardHeader>
@@ -311,32 +311,40 @@ export function DriverDetailDialog({ open, onOpenChange, driverId, onEdit }: Dri
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Building2 className="h-3 w-3" /> Cliente
+                          <Truck className="h-3 w-3" /> Tipo
                         </p>
-                        <p className="font-medium">{freightContract.clientName}</p>
+                        <p className="font-medium">{modalityLabels[contract.contractType] || contract.contractType}</p>
                       </div>
-                      {freightContract.distanciaKm && (
+                      {contract.paymentType && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Pagamento</p>
+                          <p className="font-medium">
+                            {{
+                              por_km: "Por km",
+                              fixo_mensal: "Fixo mensal",
+                              por_entrega: "Por entrega",
+                              comissao: "Comissão",
+                            }[contract.paymentType] || contract.paymentType}
+                            {contract.paymentValue ? ` — ${formatCurrency(contract.paymentValue)}` : ""}
+                          </p>
+                        </div>
+                      )}
+                      {contract.workRegion && (
                         <div>
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Route className="h-3 w-3" /> Distância
+                            <Route className="h-3 w-3" /> Região de Atuação
                           </p>
-                          <p className="font-medium">{parseFloat(freightContract.distanciaKm).toFixed(0)} km</p>
+                          <p className="font-medium">{contract.workRegion}</p>
                         </div>
                       )}
-                      {freightContract.valorTotalCte && (
-                        <div>
-                          <p className="text-xs text-muted-foreground">Valor CTe</p>
-                          <p className="font-medium text-primary">{formatCurrency(freightContract.valorTotalCte)}</p>
-                        </div>
-                      )}
-                      {freightContract.startDate && (
+                      {contract.startDate && (
                         <div>
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
                             <Calendar className="h-3 w-3" /> Vigência
                           </p>
                           <p className="font-medium">
-                            {formatDate(freightContract.startDate)}
-                            {freightContract.endDate ? ` até ${formatDate(freightContract.endDate)}` : ""}
+                            {formatDate(contract.startDate)}
+                            {contract.endDate ? ` até ${formatDate(contract.endDate)}` : ""}
                           </p>
                         </div>
                       )}
