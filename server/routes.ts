@@ -9,6 +9,7 @@ import * as path from "path";
 import PDFDocument from "pdfkit";
 import { randomUUID } from "crypto";
 import nodemailer from "nodemailer";
+import multer from "multer";
 import {
   insertDriverSchema,
   insertManufacturerSchema,
@@ -82,11 +83,19 @@ export async function registerRoutes(
   registerObjectStorageRoutes(app);
   setupSwagger(app);
 
-  // Alternative upload route (fallback when Object Storage fails)
   const uploadsDir = path.join(process.cwd(), "uploads");
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
+
+  const multerStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".jpg";
+      cb(null, `${randomUUID()}${ext}`);
+    },
+  });
+  const upload = multer({ storage: multerStorage, limits: { fileSize: 10 * 1024 * 1024 } });
 
   app.post("/api/uploads/local", isAuthenticatedJWT, async (req, res) => {
     try {
@@ -383,9 +392,22 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/drivers", isAuthenticatedJWT, async (req, res) => {
+  app.post("/api/drivers", isAuthenticatedJWT, upload.fields([
+    { name: "cnhFrontFile", maxCount: 1 },
+    { name: "cnhBackFile", maxCount: 1 },
+  ]), async (req, res) => {
     try {
-      const data = insertDriverSchema.parse(req.body);
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const body = { ...req.body };
+
+      if (files?.cnhFrontFile?.[0]) {
+        body.cnhFrontPhoto = `/uploads/${files.cnhFrontFile[0].filename}`;
+      }
+      if (files?.cnhBackFile?.[0]) {
+        body.cnhBackPhoto = `/uploads/${files.cnhBackFile[0].filename}`;
+      }
+
+      const data = insertDriverSchema.parse(body);
       const driver = await storage.createDriver(data);
       res.status(201).json(driver);
     } catch (error: any) {
@@ -394,9 +416,22 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/drivers/:id", isAuthenticatedJWT, async (req, res) => {
+  app.patch("/api/drivers/:id", isAuthenticatedJWT, upload.fields([
+    { name: "cnhFrontFile", maxCount: 1 },
+    { name: "cnhBackFile", maxCount: 1 },
+  ]), async (req, res) => {
     try {
-      const data = insertDriverSchema.partial().parse(req.body);
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const body = { ...req.body };
+
+      if (files?.cnhFrontFile?.[0]) {
+        body.cnhFrontPhoto = `/uploads/${files.cnhFrontFile[0].filename}`;
+      }
+      if (files?.cnhBackFile?.[0]) {
+        body.cnhBackPhoto = `/uploads/${files.cnhBackFile[0].filename}`;
+      }
+
+      const data = insertDriverSchema.partial().parse(body);
       const driver = await storage.updateDriver(req.params.id, data);
       if (!driver) {
         return res.status(404).json({ message: "Driver not found" });
