@@ -49,7 +49,8 @@ const endpoints: { category: string; items: EndpointDoc[] }[] = [
           { field: "neighborhood", type: "string", required: true, description: "Bairro" },
           { field: "city", type: "string", required: true, description: "Cidade" },
           { field: "state", type: "string", required: true, description: "Estado (UF)" },
-          { field: "modality", type: "string", required: true, description: "Modalidade: pj, clt ou agregado" },
+          { field: "modality", type: "string", required: false, description: "Modalidade: pj, clt ou agregado" },
+          { field: "driverType", type: "string", required: false, description: "Tipo de motorista: coleta ou transporte" },
           { field: "isFitForService", type: "boolean", required: false, description: "Apto para serviço (padrão: true)" },
         ],
         example: {
@@ -67,6 +68,7 @@ const endpoints: { category: string; items: EndpointDoc[] }[] = [
           city: "São Paulo",
           state: "SP",
           modality: "pj",
+          driverType: "transporte",
           isFitForService: true
         },
         response: {
@@ -74,6 +76,7 @@ const endpoints: { category: string; items: EndpointDoc[] }[] = [
           name: "João Silva",
           cpf: "12345678900",
           modality: "pj",
+          driverType: "transporte",
           isFitForService: true
         }
       }
