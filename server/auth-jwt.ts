@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { users, type User, type UserRole } from "@shared/models/auth";
-import { eq, and } from "drizzle-orm";
+import { drivers } from "@shared/schema";
+import { eq, and, or } from "drizzle-orm";
 import { z } from "zod";
 
 const SALT_ROUNDS = 12;
@@ -95,6 +96,21 @@ export function isAuthenticatedJWT(req: AuthenticatedRequest, res: Response, nex
     .catch(() => {
       return res.status(500).json({ message: "Erro ao verificar autenticação" });
     });
+}
+
+async function findDriverTypeForUser(user: User): Promise<string | null> {
+  const conditions = [];
+  if (user.username) conditions.push(eq(drivers.name, user.username));
+  if (user.email) conditions.push(eq(drivers.email, user.email));
+
+  if (conditions.length === 0) return null;
+
+  const [driver] = await db.select({ driverType: drivers.driverType })
+    .from(drivers)
+    .where(conditions.length === 1 ? conditions[0] : or(...conditions))
+    .limit(1);
+
+  return driver?.driverType || null;
 }
 
 export function registerJWTAuthRoutes(app: Express) {
@@ -335,6 +351,8 @@ export function registerJWTAuthRoutes(app: Express) {
       const accessToken = generateAccessToken(payload);
       const refreshToken = generateRefreshToken(payload);
 
+      const driverType = await findDriverTypeForUser(user);
+
       res.json({
         access_token: accessToken,
         refresh_token: refreshToken,
@@ -347,6 +365,7 @@ export function registerJWTAuthRoutes(app: Express) {
           role: user.role,
           firstName: user.firstName,
           lastName: user.lastName,
+          driverType,
         },
       });
     } catch (error: any) {
@@ -418,6 +437,9 @@ export function registerJWTAuthRoutes(app: Express) {
     if (!req.user) {
       return res.status(401).json({ valid: false, error: "invalid_token" });
     }
+
+    const driverType = await findDriverTypeForUser(req.user);
+
     res.json({
       valid: true,
       user: {
@@ -427,6 +449,7 @@ export function registerJWTAuthRoutes(app: Express) {
         role: req.user.role,
         firstName: req.user.firstName,
         lastName: req.user.lastName,
+        driverType,
       },
     });
   });

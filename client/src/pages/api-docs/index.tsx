@@ -148,7 +148,8 @@ const endpoints: { category: string; items: EndpointDoc[] }[] = [
             email: "admin@otdentregas.com",
             role: "admin",
             firstName: "Administrador",
-            lastName: "Sistema"
+            lastName: "Sistema",
+            driverType: "transporte"
           }
         }
       },
@@ -189,7 +190,8 @@ const endpoints: { category: string; items: EndpointDoc[] }[] = [
             email: "admin@otdentregas.com",
             role: "admin",
             firstName: "Administrador",
-            lastName: "Sistema"
+            lastName: "Sistema",
+            driverType: "transporte"
           }
         }
       }
