@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,7 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Calculator,
+  CarFront,
   DollarSign,
   Fuel,
   Route,
@@ -18,12 +27,14 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import type { TruckModel } from "@shared/schema";
 
 function formatCurrency(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 export default function CotacaoFreteProPage() {
+  const [selectedModelId, setSelectedModelId] = useState("");
   const [valorBem, setValorBem] = useState("500000");
   const [distanciaKm, setDistanciaKm] = useState("500");
   const [freteOtd, setFreteOtd] = useState("1200");
@@ -31,6 +42,26 @@ export default function CotacaoFreteProPage() {
   const [pedagio, setPedagio] = useState("189");
   const [consumoVeiculo, setConsumoVeiculo] = useState("2.5");
   const [precoDiesel, setPrecoDiesel] = useState("6.00");
+
+  const { data: truckModels } = useQuery<TruckModel[]>({
+    queryKey: ["/api/truck-models"],
+  });
+
+  const activeModels = useMemo(() =>
+    (truckModels || []).filter(m => m.isActive !== "false").sort((a, b) => `${a.brand} ${a.model}`.localeCompare(`${b.brand} ${b.model}`)),
+    [truckModels]
+  );
+
+  const handleModelSelect = (modelId: string) => {
+    setSelectedModelId(modelId);
+    const model = activeModels.find(m => m.id === modelId);
+    if (model) {
+      setConsumoVeiculo(parseFloat(model.averageConsumption).toString());
+      if (model.vehicleValue) {
+        setValorBem(parseFloat(model.vehicleValue).toString());
+      }
+    }
+  };
 
   const calc = useMemo(() => {
     const vBem = parseFloat(valorBem) || 0;
@@ -78,6 +109,7 @@ export default function CotacaoFreteProPage() {
   }, [calc]);
 
   const handleReset = () => {
+    setSelectedModelId("");
     setValorBem("500000");
     setDistanciaKm("500");
     setFreteOtd("1200");
@@ -120,6 +152,26 @@ export default function CotacaoFreteProPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label className="flex items-center gap-1.5">
+                      <CarFront className="h-3.5 w-3.5 text-primary" />
+                      Modelo do Veículo
+                    </Label>
+                    <Select value={selectedModelId} onValueChange={handleModelSelect}>
+                      <SelectTrigger data-testid="select-model-pro" className="sm:max-w-md">
+                        <SelectValue placeholder="Selecione um modelo cadastrado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeModels.map(m => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.brand} {m.model} — {parseFloat(m.averageConsumption).toFixed(1)} km/l
+                            {m.vehicleValue ? ` — ${parseFloat(m.vehicleValue).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Ao selecionar, o consumo e valor do bem serão preenchidos automaticamente</p>
+                  </div>
                   <div className="space-y-2">
                     <Label className="flex items-center gap-1.5">
                       <Shield className="h-3.5 w-3.5 text-cyan-500" />
