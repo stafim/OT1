@@ -177,6 +177,12 @@ Status enums for workflow tracking:
   - Axle options: 2 to 9 eixos
   - Average consumption in km/l
   - Added to Cadastros menu in sidebar with CarFront icon
+- **Cotação de Frete**: Freight quote calculator page (`/cotacao-frete`) under Operação menu
+  - Input fields: Valor do Bem, Distância km, Frete OTD, Retorno Motorista, Pedágio, Consumo do Veículo, Preço do Diesel
+  - Auto-calculates: Comissão Motorista (R$0.50/km), Diesel, Seguro (0.03% do bem), Valor Base, CTe (markup 21.25%), Impostos, Margem
+  - Pie chart showing cost distribution (recharts)
+  - Summary card with highlighted CTe value
+  - All calculations are frontend-only (no backend needed)
 - **Portaria New Collect**: Added ability to create new collects directly from the Portaria page when vehicles arrive without pre-existing collect records
 - **Damage Report (Relatório de Avarias)**: New page `/relatorio-avarias` under Operação menu
   - Automatically lists all collects and transports that have damage photos (checkinDamagePhotos or checkoutDamagePhotos)
