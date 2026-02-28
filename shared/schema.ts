@@ -963,6 +963,8 @@ export const freightQuotes = pgTable("freight_quotes", {
   valorBase: numeric("valor_base", { precision: 12, scale: 2 }).notNull(),
   valorTotalCte: numeric("valor_total_cte", { precision: 12, scale: 2 }).notNull(),
   impostos: numeric("impostos", { precision: 12, scale: 2 }).notNull(),
+  convertedToContractId: varchar("converted_to_contract_id"),
+  convertedAt: timestamp("converted_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

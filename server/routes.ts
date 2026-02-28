@@ -3514,6 +3514,22 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/freight-quotes/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { convertedToContractId, convertedAt } = req.body;
+      const [updated] = await db
+        .update(freightQuotes)
+        .set({ convertedToContractId: convertedToContractId ?? null, convertedAt: convertedAt ? new Date(convertedAt) : null })
+        .where(eq(freightQuotes.id, req.params.id))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Quote not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating freight quote:", error);
+      res.status(500).json({ message: "Failed to update freight quote" });
+    }
+  });
+
   app.delete("/api/freight-quotes/:id", isAuthenticatedJWT, async (req, res) => {
     try {
       await db.delete(freightQuotes).where(eq(freightQuotes.id, req.params.id));

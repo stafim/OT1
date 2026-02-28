@@ -56,6 +56,10 @@ import {
   Search,
   FileDown,
   FilePlus2,
+  History,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { useToast } from "@/hooks/use-toast";
@@ -102,6 +106,7 @@ export default function CotacaoFreteProPage() {
   const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [quoteName, setQuoteName] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
 
   const { data: truckModels } = useQuery<TruckModel[]>({
     queryKey: ["/api/truck-models"],
@@ -230,7 +235,7 @@ export default function CotacaoFreteProPage() {
     mutationFn: async (quote: FreightQuote) => {
       const numberRes = await apiRequest("GET", "/api/freight-contracts/next-number");
       const { contractNumber } = await numberRes.json();
-      await apiRequest("POST", "/api/freight-contracts", {
+      const contractRes = await apiRequest("POST", "/api/freight-contracts", {
         contractNumber,
         quoteId: quote.id,
         clientId: quote.clientId || null,
@@ -245,7 +250,11 @@ export default function CotacaoFreteProPage() {
         notes: null,
         content: null,
       });
-      await apiRequest("DELETE", `/api/freight-quotes/${quote.id}`);
+      const contract = await contractRes.json();
+      await apiRequest("PATCH", `/api/freight-quotes/${quote.id}`, {
+        convertedToContractId: contract.id,
+        convertedAt: new Date().toISOString(),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/freight-quotes"] });
@@ -333,9 +342,23 @@ export default function CotacaoFreteProPage() {
 
   const filteredQuotes = useMemo(() => {
     if (!savedQuotes) return [];
-    if (!searchQuotes.trim()) return savedQuotes;
+    const active = savedQuotes.filter(q => !q.convertedToContractId);
+    if (!searchQuotes.trim()) return active;
     const term = searchQuotes.toLowerCase();
-    return savedQuotes.filter(q =>
+    return active.filter(q =>
+      q.clientName.toLowerCase().includes(term) ||
+      q.quoteName?.toLowerCase().includes(term) ||
+      q.clientEmail?.toLowerCase().includes(term) ||
+      q.clientPhone?.toLowerCase().includes(term)
+    );
+  }, [savedQuotes, searchQuotes]);
+
+  const convertedQuotes = useMemo(() => {
+    if (!savedQuotes) return [];
+    const converted = savedQuotes.filter(q => !!q.convertedToContractId);
+    if (!searchQuotes.trim()) return converted;
+    const term = searchQuotes.toLowerCase();
+    return converted.filter(q =>
       q.clientName.toLowerCase().includes(term) ||
       q.quoteName?.toLowerCase().includes(term) ||
       q.clientEmail?.toLowerCase().includes(term) ||
@@ -1015,6 +1038,68 @@ export default function CotacaoFreteProPage() {
                       </CardContent>
                     </Card>
                   ))}
+                </div>
+              )}
+
+              {/* History section */}
+              {convertedQuotes.length > 0 && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
+                    onClick={() => setShowHistory(v => !v)}
+                    data-testid="button-toggle-history"
+                  >
+                    <History className="h-4 w-4" />
+                    <span>Histórico de conversões ({convertedQuotes.length})</span>
+                    {showHistory ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+                  </button>
+
+                  {showHistory && (
+                    <div className="space-y-2 mt-3">
+                      {convertedQuotes.map(quote => (
+                        <Card key={quote.id} className="border-dashed opacity-75" data-testid={`card-quote-converted-${quote.id}`}>
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  {quote.quoteName && (
+                                    <span className="font-medium text-sm truncate" data-testid={`text-converted-name-${quote.id}`}>
+                                      {quote.quoteName}
+                                    </span>
+                                  )}
+                                  <span className="text-sm text-muted-foreground truncate">
+                                    {quote.quoteName ? `— ${quote.clientName}` : quote.clientName}
+                                  </span>
+                                  <Badge variant="secondary" className="text-xs shrink-0 bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
+                                    Convertida em Contrato
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                                  {quote.convertedAt && (
+                                    <span className="flex items-center gap-1">
+                                      <History className="h-3 w-3" />
+                                      Convertida em {new Date(quote.convertedAt).toLocaleDateString("pt-BR")}
+                                    </span>
+                                  )}
+                                  <span>CTe: <strong>{(parseFloat(quote.valorTotalCte)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong></span>
+                                </div>
+                              </div>
+                              <a
+                                href="/contratos-frete"
+                                className="shrink-0 flex items-center gap-1 text-xs text-primary hover:underline"
+                                title="Ver contrato gerado"
+                                data-testid={`link-view-contract-${quote.id}`}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                Ver contrato
+                              </a>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
