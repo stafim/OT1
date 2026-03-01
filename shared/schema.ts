@@ -866,6 +866,8 @@ export const driverEvaluations = pgTable("driver_evaluations", {
   averageScore: numeric("average_score", { precision: 5, scale: 2 }),
   weightedScore: numeric("weighted_score", { precision: 5, scale: 2 }),
 
+  status: varchar("status").default("em_andamento"),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 

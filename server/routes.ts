@@ -2752,15 +2752,20 @@ export async function registerRoutes(
     try {
       const allTransports = await db.select().from(transports)
         .where(eq(transports.status, "entregue"));
-      
-      const existingEvaluations = await db.select({ transportId: driverEvaluations.transportId }).from(driverEvaluations);
-      const evaluatedIds = new Set(existingEvaluations.map(e => e.transportId));
-      
-      const pendingTransports = allTransports.filter(t => !evaluatedIds.has(t.id));
-      
+
+      const allEvaluations = await db.select().from(driverEvaluations);
+      const activeCriteria = await db.select().from(evaluationCriteria)
+        .where(eq(evaluationCriteria.isActive, "true"));
+
+      const concludedIds = new Set(
+        allEvaluations.filter(e => e.status === "concluida").map(e => e.transportId)
+      );
+
+      const pendingTransports = allTransports.filter(t => !concludedIds.has(t.id));
+
       const transportsWithDetails = await Promise.all(
         pendingTransports.map(async (transport) => {
-          const vehicle = transport.vehicleChassi 
+          const vehicle = transport.vehicleChassi
             ? await db.select().from(vehicles).where(eq(vehicles.chassi, transport.vehicleChassi)).then(r => r[0])
             : null;
           const driver = transport.driverId
@@ -2772,17 +2777,34 @@ export async function registerRoutes(
           const deliveryLoc = transport.deliveryLocationId
             ? await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, transport.deliveryLocationId)).then(r => r[0])
             : null;
-          
+
+          const partialEval = allEvaluations.find(
+            e => e.transportId === transport.id && e.status === "em_andamento"
+          );
+          let partialScores: any[] = [];
+          if (partialEval) {
+            const rawScores = await db.select().from(evaluationScores)
+              .where(eq(evaluationScores.evaluationId, partialEval.id));
+            partialScores = rawScores.map(s => ({
+              ...s,
+              criteria: activeCriteria.find(c => c.id === s.criteriaId),
+            }));
+          }
+
           return {
             ...transport,
             vehicle,
             driver,
             client,
             deliveryLocation: deliveryLoc,
+            partialEvaluation: partialEval ? { ...partialEval, scores: partialScores } : null,
+            totalCriteria: activeCriteria.length,
+            scoredCriteria: partialScores.length,
+            activeCriteria,
           };
         })
       );
-      
+
       res.json(transportsWithDetails);
     } catch (error) {
       console.error("Error fetching pending transports for evaluation:", error);
@@ -2792,7 +2814,8 @@ export async function registerRoutes(
 
   app.get("/api/driver-evaluations", isAuthenticatedJWT, async (req, res) => {
     try {
-      const evaluations = await db.select().from(driverEvaluations);
+      const evaluations = await db.select().from(driverEvaluations)
+        .where(eq(driverEvaluations.status, "concluida"));
       
       const evaluationsWithDetails = await Promise.all(
         evaluations.map(async (evaluation) => {
@@ -2844,76 +2867,116 @@ export async function registerRoutes(
     try {
       const { criteriaScores, ...evaluationData } = req.body;
 
-      if (criteriaScores && Array.isArray(criteriaScores) && criteriaScores.length > 0) {
-        const activeCriteria = await db.select().from(evaluationCriteria)
-          .where(eq(evaluationCriteria.isActive, "true"));
+      if (!criteriaScores || !Array.isArray(criteriaScores) || criteriaScores.length === 0) {
+        return res.status(400).json({ message: "criteriaScores required" });
+      }
 
-        let weightedSum = 0;
-        let totalWeight = 0;
-        let simpleSum = 0;
+      const activeCriteria = await db.select().from(evaluationCriteria)
+        .where(eq(evaluationCriteria.isActive, "true"));
 
-        for (const cs of criteriaScores) {
-          const criteria = activeCriteria.find(c => c.id === cs.criteriaId);
-          if (criteria) {
-            const weight = parseFloat(criteria.weight);
-            const severity = cs.severity || "sem_ocorrencia";
-            let penaltyPercent = 0;
-            if (severity === "leve") penaltyPercent = parseFloat(criteria.penaltyLeve || "10");
-            else if (severity === "medio") penaltyPercent = parseFloat(criteria.penaltyMedio || "50");
-            else if (severity === "grave") penaltyPercent = parseFloat(criteria.penaltyGrave || "100");
-            const score = 100 - penaltyPercent;
-            cs.calculatedScore = score;
-            weightedSum += score * (weight / 100);
-            totalWeight += weight;
-            simpleSum += score;
-          }
+      // Calculate score for each submitted criterion
+      for (const cs of criteriaScores) {
+        const criteria = activeCriteria.find(c => c.id === cs.criteriaId);
+        if (criteria) {
+          const severity = cs.severity || "sem_ocorrencia";
+          let penaltyPercent = 0;
+          if (severity === "leve") penaltyPercent = parseFloat(criteria.penaltyLeve || "10");
+          else if (severity === "medio") penaltyPercent = parseFloat(criteria.penaltyMedio || "50");
+          else if (severity === "grave") penaltyPercent = parseFloat(criteria.penaltyGrave || "100");
+          cs.calculatedScore = 100 - penaltyPercent;
         }
+      }
 
-        const weightedScore = totalWeight > 0 ? weightedSum : 0;
-        const averageScore = criteriaScores.length > 0 ? (simpleSum / criteriaScores.length) : 0;
+      // Check if an evaluation already exists for this transport (em_andamento)
+      const existing = await db.select().from(driverEvaluations)
+        .where(eq(driverEvaluations.transportId, evaluationData.transportId))
+        .limit(1);
 
-        const [evaluation] = await db.insert(driverEvaluations)
+      let evaluationId: string;
+      let isNew = false;
+
+      if (existing.length > 0) {
+        evaluationId = existing[0].id;
+        await db.update(driverEvaluations)
+          .set({
+            hadIncident: evaluationData.hadIncident,
+            incidentDescription: evaluationData.hadIncident === "true" ? evaluationData.incidentDescription : null,
+          })
+          .where(eq(driverEvaluations.id, evaluationId));
+      } else {
+        isNew = true;
+        const [newEval] = await db.insert(driverEvaluations)
           .values({
             ...evaluationData,
-            averageScore: averageScore.toFixed(2),
-            weightedScore: weightedScore.toFixed(2),
+            status: "em_andamento",
+            averageScore: "0",
+            weightedScore: "0",
           })
           .returning();
+        evaluationId = newEval.id;
+      }
 
-        for (const cs of criteriaScores) {
+      // Upsert scores for each submitted criterion
+      for (const cs of criteriaScores) {
+        const existingScore = await db.select().from(evaluationScores)
+          .where(and(
+            eq(evaluationScores.evaluationId, evaluationId),
+            eq(evaluationScores.criteriaId, cs.criteriaId)
+          ))
+          .limit(1);
+
+        if (existingScore.length > 0) {
+          await db.update(evaluationScores)
+            .set({
+              score: (cs.calculatedScore ?? 100).toString(),
+              severity: cs.severity || "sem_ocorrencia",
+              notes: cs.notes || null,
+            })
+            .where(eq(evaluationScores.id, existingScore[0].id));
+        } else {
           await db.insert(evaluationScores).values({
-            evaluationId: evaluation.id,
+            evaluationId,
             criteriaId: cs.criteriaId,
-            score: (cs.calculatedScore ?? cs.score ?? 100).toString(),
+            score: (cs.calculatedScore ?? 100).toString(),
             severity: cs.severity || "sem_ocorrencia",
             notes: cs.notes || null,
           });
         }
-
-        const scores = await db.select().from(evaluationScores)
-          .where(eq(evaluationScores.evaluationId, evaluation.id));
-
-        res.status(201).json({ ...evaluation, scores });
-      } else {
-        const data = insertDriverEvaluationSchema.parse(evaluationData);
-        const ratingScores = [
-          ratingToNumber(data.posturaProfissional || "regular"),
-          ratingToNumber(data.pontualidade || "regular"),
-          ratingToNumber(data.apresentacaoPessoal || "regular"),
-          ratingToNumber(data.cordialidade || "regular"),
-          ratingToNumber(data.cumpriuProcesso || "regular"),
-        ];
-        const averageScore = (ratingScores.reduce((a, b) => a + b, 0) / ratingScores.length).toFixed(2);
-
-        const [evaluation] = await db.insert(driverEvaluations)
-          .values({ ...data, averageScore })
-          .returning();
-
-        res.status(201).json(evaluation);
       }
+
+      // Recalculate scores from all current scores for this evaluation
+      const allScores = await db.select().from(evaluationScores)
+        .where(eq(evaluationScores.evaluationId, evaluationId));
+
+      const scoredCriteriaIds = new Set(allScores.map(s => s.criteriaId));
+      const allScored = activeCriteria.length > 0 && activeCriteria.every(c => scoredCriteriaIds.has(c.id));
+
+      let wSum = 0, wTotal = 0, sSum = 0;
+      for (const score of allScores) {
+        const criteria = activeCriteria.find(c => c.id === score.criteriaId);
+        if (criteria) {
+          const w = parseFloat(criteria.weight);
+          const s = parseFloat(score.score);
+          wSum += s * (w / 100);
+          wTotal += w;
+          sSum += s;
+        }
+      }
+
+      const newStatus = allScored ? "concluida" : "em_andamento";
+      const [evaluation] = await db.update(driverEvaluations)
+        .set({
+          status: newStatus,
+          averageScore: allScores.length > 0 ? (sSum / allScores.length).toFixed(2) : "0",
+          weightedScore: wTotal > 0 ? wSum.toFixed(2) : "0",
+        })
+        .where(eq(driverEvaluations.id, evaluationId))
+        .returning();
+
+      res.status(isNew ? 201 : 200).json({ ...evaluation, scores: allScores });
     } catch (error) {
-      console.error("Error creating evaluation:", error);
-      res.status(500).json({ message: "Failed to create evaluation" });
+      console.error("Error creating/updating evaluation:", error);
+      res.status(500).json({ message: "Failed to create/update evaluation" });
     }
   });
 

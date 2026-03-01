@@ -29,6 +29,9 @@ import {
   ShieldAlert,
   ShieldCheck,
   Pencil,
+  Lock,
+  CheckCircle,
+  Circle,
 } from "lucide-react";
 import type { Transport, Driver, Vehicle, Client, DeliveryLocation, DriverEvaluation, EvaluationCriteria, EvaluationScore } from "@shared/schema";
 
@@ -37,6 +40,18 @@ interface TransportWithDetails extends Transport {
   driver?: Driver | null;
   client?: Client | null;
   deliveryLocation?: DeliveryLocation | null;
+  partialEvaluation?: {
+    id: string;
+    scores: ScoreWithCriteria[];
+    hadIncident: string | null;
+    incidentDescription: string | null;
+    status: string | null;
+    averageScore: string | null;
+    weightedScore: string | null;
+  } | null;
+  totalCriteria?: number;
+  scoredCriteria?: number;
+  activeCriteria?: EvaluationCriteria[];
 }
 
 interface ScoreWithCriteria extends EvaluationScore {
@@ -112,12 +127,14 @@ function SeveritySelector({
   onChange,
   reason,
   onReasonChange,
+  readOnly = false,
 }: {
   criteria: EvaluationCriteria;
   severity: SeverityLevel;
   onChange: (severity: SeverityLevel) => void;
   reason: string;
   onReasonChange: (reason: string) => void;
+  readOnly?: boolean;
 }) {
   const getPenalty = (sev: SeverityLevel) => {
     if (sev === "sem_ocorrencia") return 0;
@@ -129,6 +146,35 @@ function SeveritySelector({
 
   const currentPenalty = getPenalty(severity);
   const currentScore = 100 - currentPenalty;
+
+  if (readOnly) {
+    const Icon = severityIcons[severity];
+    return (
+      <div className="p-3 rounded-lg border bg-muted/30 opacity-80">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">{criteria.name}</p>
+              <p className="text-xs text-muted-foreground">Peso: {parseFloat(criteria.weight).toFixed(0)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge className={`text-xs ${severityColors[severity]}`} variant="outline">
+              <Icon className="h-3 w-3 mr-1" />
+              {severityLabels[severity]}
+            </Badge>
+            <span className={`text-base font-bold ${currentScore >= 80 ? "text-green-600" : currentScore >= 50 ? "text-orange-600" : "text-red-600"}`}>
+              {currentScore.toFixed(0)}pts
+            </span>
+          </div>
+        </div>
+        {reason && (
+          <p className="text-xs text-muted-foreground mt-2 border-t pt-1">{reason}</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2 p-3 rounded-lg border">
@@ -195,6 +241,7 @@ export default function DriverEvaluationsPage() {
   const [criteriaReasons, setCriteriaReasons] = useState<Record<string, string>>({});
   const [manualScore, setManualScore] = useState("100");
   const [editingEvaluationId, setEditingEvaluationId] = useState<string | null>(null);
+  const [alreadyScoredScores, setAlreadyScoredScores] = useState<ScoreWithCriteria[]>([]);
   const { toast } = useToast();
 
   const { data: pendingTransports, isLoading: loadingPending } = useQuery<TransportWithDetails[]>({
@@ -264,21 +311,29 @@ export default function DriverEvaluationsPage() {
     setManualScore("100");
     setSelectedTransport(null);
     setEditingEvaluationId(null);
+    setAlreadyScoredScores([]);
   };
 
   const handleOpenEvaluation = (transport: TransportWithDetails) => {
     setEditingEvaluationId(null);
     setSelectedTransport(transport);
+
+    const existing = transport.partialEvaluation?.scores ?? [];
+    setAlreadyScoredScores(existing);
+    const scoredIds = new Set(existing.map(s => s.criteriaId));
+
     const defaultSeverities: Record<string, SeverityLevel> = {};
     const defaultReasons: Record<string, string> = {};
     activeCriteria.forEach(c => {
-      defaultSeverities[c.id] = "sem_ocorrencia";
-      defaultReasons[c.id] = "";
+      if (!scoredIds.has(c.id)) {
+        defaultSeverities[c.id] = "sem_ocorrencia";
+        defaultReasons[c.id] = "";
+      }
     });
     setCriteriaSeverities(defaultSeverities);
     setCriteriaReasons(defaultReasons);
-    setHadIncident(false);
-    setIncidentDescription("");
+    setHadIncident(transport.partialEvaluation?.hadIncident === "true");
+    setIncidentDescription(transport.partialEvaluation?.incidentDescription || "");
     setManualScore("100");
     setShowEvaluationDialog(true);
   };
@@ -358,7 +413,11 @@ export default function DriverEvaluationsPage() {
       return;
     }
 
-    const scoresToSubmit = activeCriteria.map(c => ({
+    const unscoredCriteria = editingEvaluationId
+      ? activeCriteria
+      : activeCriteria.filter(c => !alreadyScoredScores.some(s => s.criteriaId === c.id));
+
+    const scoresToSubmit = unscoredCriteria.map(c => ({
       criteriaId: c.id,
       severity: criteriaSeverities[c.id] || "sem_ocorrencia",
       notes: criteriaReasons[c.id]?.trim() || null,
@@ -471,14 +530,38 @@ export default function DriverEvaluationsPage() {
                         <span className="text-sm text-muted-foreground">{formatDate(transport.checkoutDateTime)}</span>
                       </div>
                       <Badge variant="outline" className="hidden sm:inline-flex">Entregue</Badge>
+                      {transport.partialEvaluation && (transport.scoredCriteria ?? 0) > 0 && (
+                        <div className="flex items-center gap-1.5 hidden md:flex" data-testid={`partial-progress-${transport.id}`}>
+                          <div className="flex items-center gap-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full px-2 py-0.5 text-xs font-medium">
+                            <Circle className="h-3 w-3" />
+                            {transport.scoredCriteria}/{transport.totalCriteria} critérios
+                          </div>
+                          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-orange-500 rounded-full transition-all"
+                              style={{ width: `${Math.round(((transport.scoredCriteria ?? 0) / (transport.totalCriteria || 1)) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <Button
                       size="sm"
+                      variant={transport.partialEvaluation ? "outline" : "default"}
                       onClick={() => handleOpenEvaluation(transport)}
                       data-testid={`button-evaluate-${transport.id}`}
                     >
-                      <Award className="h-4 w-4 mr-1" />
-                      Avaliar
+                      {transport.partialEvaluation ? (
+                        <>
+                          <Circle className="h-4 w-4 mr-1 text-orange-500" />
+                          Continuar
+                        </>
+                      ) : (
+                        <>
+                          <Award className="h-4 w-4 mr-1" />
+                          Avaliar
+                        </>
+                      )}
                     </Button>
                   </div>
                 ))}
@@ -614,8 +697,43 @@ export default function DriverEvaluationsPage() {
                 </Card>
               ) : (
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium">Avalie cada critério por severidade</Label>
-                  {activeCriteria.map((c) => (
+                  {!editingEvaluationId && alreadyScoredScores.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <Label className="text-sm font-medium text-green-700 dark:text-green-400">
+                          Critérios já avaliados ({alreadyScoredScores.length})
+                        </Label>
+                      </div>
+                      {alreadyScoredScores.map((s) => {
+                        const crit = activeCriteria.find(c => c.id === s.criteriaId) || s.criteria;
+                        if (!crit) return null;
+                        return (
+                          <SeveritySelector
+                            key={s.criteriaId}
+                            criteria={crit}
+                            severity={(s.severity as SeverityLevel) || "sem_ocorrencia"}
+                            onChange={() => {}}
+                            reason={s.notes || ""}
+                            onReasonChange={() => {}}
+                            readOnly
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                  {!editingEvaluationId && alreadyScoredScores.length > 0 && activeCriteria.filter(c => !alreadyScoredScores.some(s => s.criteriaId === c.id)).length > 0 && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <Circle className="h-4 w-4 text-orange-500" />
+                      <Label className="text-sm font-medium text-orange-700 dark:text-orange-400">
+                        Critérios pendentes ({activeCriteria.filter(c => !alreadyScoredScores.some(s => s.criteriaId === c.id)).length})
+                      </Label>
+                    </div>
+                  )}
+                  {(!editingEvaluationId && alreadyScoredScores.length === 0) && (
+                    <Label className="text-sm font-medium">Avalie cada critério por severidade</Label>
+                  )}
+                  {(editingEvaluationId ? activeCriteria : activeCriteria.filter(c => !alreadyScoredScores.some(s => s.criteriaId === c.id))).map((c) => (
                     <SeveritySelector
                       key={c.id}
                       criteria={c}
