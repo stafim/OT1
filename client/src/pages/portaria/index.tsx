@@ -85,6 +85,7 @@ export default function PortariaPage() {
   const [confirmExitWithoutCheckin, setConfirmExitWithoutCheckin] = useState<string | null>(null);
   const [exitAuthorizationReason, setExitAuthorizationReason] = useState("");
   const [showNewCollectDialog, setShowNewCollectDialog] = useState(false);
+  const [selectedTransportId, setSelectedTransportId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
   const [openManufacturer, setOpenManufacturer] = useState(false);
   const [openYard, setOpenYard] = useState(false);
@@ -246,6 +247,10 @@ export default function PortariaPage() {
     
     return chassiMatch || driverMatch || requestNumberMatch;
   }) || [];
+
+  const selectedTransport = selectedTransportId
+    ? (transports?.find((t) => t.id === selectedTransportId) as TransportWithRelations | undefined) || null
+    : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -473,12 +478,13 @@ export default function PortariaPage() {
               </div>
             ) : (
               <div className="border rounded-lg overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-0 bg-muted/50 border-b px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto_auto] gap-0 bg-muted/50 border-b px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   <span>Chassi</span>
                   <span>Origem</span>
                   <span>Destino</span>
                   <span>Motorista</span>
                   <span>Data</span>
+                  <span></span>
                   <span></span>
                 </div>
                 {pendingCollects.map((collect, idx) => {
@@ -496,10 +502,11 @@ export default function PortariaPage() {
                     <div
                       key={collect.id}
                       className={cn(
-                        "grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-0 items-center px-4 py-3 text-sm",
+                        "grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto_auto] gap-0 items-center px-4 py-3 text-sm cursor-pointer hover:bg-muted/40 transition-colors",
                         idx % 2 === 0 ? "bg-background" : "bg-muted/20",
                         "border-b last:border-b-0"
                       )}
+                      onClick={() => setSelectedCollectId(collect.id)}
                       data-testid={`row-collect-${collect.id}`}
                     >
                       <span className="font-mono font-medium text-xs">{collect.vehicleChassi}</span>
@@ -508,8 +515,17 @@ export default function PortariaPage() {
                       <span className="truncate pr-2">{driver?.name || <span className="text-muted-foreground">-</span>}</span>
                       <span className="text-muted-foreground text-xs">{dateStr}</span>
                       <Button
+                        variant="ghost"
                         size="sm"
-                        onClick={() => authorizeMutation.mutate(collect.id)}
+                        onClick={(e) => { e.stopPropagation(); setSelectedCollectId(collect.id); }}
+                        className="text-muted-foreground"
+                        data-testid={`button-detail-list-${collect.id}`}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); authorizeMutation.mutate(collect.id); }}
                         disabled={isAuthorizing}
                         className="whitespace-nowrap"
                         data-testid={`button-authorize-list-${collect.id}`}
@@ -894,7 +910,7 @@ export default function PortariaPage() {
           </div>
         ) : (
           <div className="border rounded-lg overflow-hidden">
-            <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_auto_auto] gap-0 bg-muted/50 border-b px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_auto_auto_auto] gap-0 bg-muted/50 border-b px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
               <span className="pr-4">OTD</span>
               <span>Chassi</span>
               <span>Origem</span>
@@ -902,6 +918,7 @@ export default function PortariaPage() {
               <span>Destino</span>
               <span>Motorista</span>
               <span>Status</span>
+              <span></span>
               <span></span>
             </div>
             {pendingTransports.map((transport, idx) => {
@@ -916,10 +933,11 @@ export default function PortariaPage() {
                 <div
                   key={transport.id}
                   className={cn(
-                    "grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_auto_auto] gap-0 items-center px-4 py-3 text-sm",
+                    "grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_auto_auto_auto] gap-0 items-center px-4 py-3 text-sm cursor-pointer hover:bg-muted/40 transition-colors",
                     idx % 2 === 0 ? "bg-background" : "bg-muted/20",
                     "border-b last:border-b-0"
                   )}
+                  onClick={() => setSelectedTransportId(transport.id)}
                   data-testid={`row-transport-${transport.id}`}
                 >
                   <span className="font-mono text-xs font-semibold pr-4">{transport.requestNumber}</span>
@@ -942,12 +960,21 @@ export default function PortariaPage() {
                       </Badge>
                     )}
                   </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); setSelectedTransportId(transport.id); }}
+                    className="text-muted-foreground"
+                    data-testid={`button-detail-transport-${transport.id}`}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
                   {isPendingCheckin ? (
                     <Button
                       variant="outline"
                       size="sm"
                       className="border-orange-400 text-orange-700 hover:bg-orange-50 whitespace-nowrap"
-                      onClick={() => setConfirmExitWithoutCheckin(transport.id)}
+                      onClick={(e) => { e.stopPropagation(); setConfirmExitWithoutCheckin(transport.id); }}
                       disabled={isAuthorizing}
                       data-testid={`button-authorize-exit-list-nocheckin-${transport.id}`}
                     >
@@ -957,7 +984,7 @@ export default function PortariaPage() {
                   ) : (
                     <Button
                       size="sm"
-                      onClick={() => authorizeExitMutation.mutate(transport.id)}
+                      onClick={(e) => { e.stopPropagation(); authorizeExitMutation.mutate(transport.id); }}
                       disabled={isAuthorizing}
                       className="whitespace-nowrap"
                       data-testid={`button-authorize-exit-list-${transport.id}`}
@@ -1132,6 +1159,182 @@ export default function PortariaPage() {
               )}
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedTransportId} onOpenChange={() => setSelectedTransportId(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogOut className="h-5 w-5" />
+              Detalhes do Transporte
+            </DialogTitle>
+            <DialogDescription>
+              Informações completas do transporte aguardando saída
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTransport ? (() => {
+            const t = selectedTransport;
+            const originYard = getYard(t.originYardId);
+            const client = (t as any).client;
+            const deliveryLocation = (t as any).deliveryLocation;
+            const driver = (t as any).driver;
+            const isPendingCheckin = t.status === "pendente";
+
+            return (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Número OTD</p>
+                    <p className="font-mono font-semibold text-lg">{t.requestNumber}</p>
+                  </div>
+                  {isPendingCheckin ? (
+                    <Badge variant="secondary" className="bg-orange-500/20 text-orange-700">
+                      <AlertCircle className="h-3.5 w-3.5 mr-1" />
+                      Aguardando Check-in
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="bg-blue-500/20 text-blue-700">
+                      Aguardando Saída
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Chassi</p>
+                    <p className="font-mono font-medium">{t.vehicleChassi}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Previsão de Entrega</p>
+                    <p className="font-medium">
+                      {t.deliveryDate ? (() => {
+                        const d = String(t.deliveryDate);
+                        const m = d.match(/(\d{4})-(\d{2})-(\d{2})/);
+                        return m ? `${m[3]}/${m[2]}/${m[1]}` : "-";
+                      })() : "-"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Cliente</p>
+                    <p className="font-medium">{client?.name || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Pátio de Origem</p>
+                    <p className="font-medium">{originYard?.name || "-"}</p>
+                  </div>
+                </div>
+
+                {deliveryLocation && (
+                  <div className="p-4 rounded-lg bg-muted/50 border space-y-1">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      Local de Entrega
+                    </p>
+                    <p className="font-medium">{deliveryLocation.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {[deliveryLocation.address, deliveryLocation.addressNumber, deliveryLocation.neighborhood, deliveryLocation.city, deliveryLocation.state]
+                        .filter(Boolean).join(", ")}
+                    </p>
+                    {deliveryLocation.responsibleName && (
+                      <p className="text-sm text-muted-foreground">
+                        Responsável: <span className="text-foreground">{deliveryLocation.responsibleName}</span>
+                        {deliveryLocation.responsiblePhone && ` — ${deliveryLocation.responsiblePhone}`}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {driver && (
+                  <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 border">
+                    {t.checkinSelfiePhoto ? (
+                      <button
+                        type="button"
+                        onClick={() => setLightboxPhoto(t.checkinSelfiePhoto || null)}
+                        className="shrink-0"
+                      >
+                        <img
+                          src={normalizeImageUrl(t.checkinSelfiePhoto)}
+                          alt="Selfie motorista"
+                          className="h-14 w-14 rounded-full object-cover border-2 border-primary cursor-pointer hover:opacity-80 transition-opacity"
+                        />
+                      </button>
+                    ) : (
+                      <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center shrink-0">
+                        <User className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm text-muted-foreground">Motorista</p>
+                      <p className="font-medium">{driver.name}</p>
+                      {driver.cpf && <p className="text-xs text-muted-foreground">CPF: {driver.cpf}</p>}
+                    </div>
+                  </div>
+                )}
+
+                {t.checkinDateTime && (
+                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <h4 className="font-medium text-blue-700 dark:text-blue-300 mb-3 flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Check-in realizado
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Data/Hora</p>
+                        <p className="font-medium">
+                          {format(new Date(t.checkinDateTime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                      {t.checkinLatitude && t.checkinLongitude && (
+                        <div>
+                          <p className="text-muted-foreground">Localização</p>
+                          <a
+                            href={`https://maps.google.com/?q=${t.checkinLatitude},${t.checkinLongitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1"
+                          >
+                            <MapPin className="h-3.5 w-3.5" />
+                            Ver no Maps
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                    {t.checkinNotes && (
+                      <div className="mt-3 pt-3 border-t border-blue-500/20">
+                        <p className="text-sm text-muted-foreground">Observações:</p>
+                        <p className="text-sm">{t.checkinNotes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isPendingCheckin && (
+                  <div className="p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md text-center">
+                    <p className="text-sm text-orange-700 dark:text-orange-400 flex items-center justify-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Motorista ainda não realizou o check-in
+                    </p>
+                  </div>
+                )}
+
+                {t.notes && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Observações</p>
+                    <p className="text-sm bg-muted/50 p-3 rounded-md">{t.notes}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })() : (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
