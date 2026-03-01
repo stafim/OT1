@@ -260,7 +260,8 @@ export default function DriverEvaluationsPage() {
 
   const submitEvaluationMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", "/api/driver-evaluations", data);
+      const res = await apiRequest("POST", "/api/driver-evaluations", data);
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/driver-evaluations"] });
@@ -272,10 +273,10 @@ export default function DriverEvaluationsPage() {
         description: "A avaliação do motorista foi registrada com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
-        title: "Erro",
-        description: "Não foi possível enviar a avaliação.",
+        title: "Erro ao enviar avaliação",
+        description: error?.message || "Não foi possível enviar a avaliação.",
         variant: "destructive",
       });
     },
@@ -393,7 +394,14 @@ export default function DriverEvaluationsPage() {
   };
 
   const handleSubmitEvaluation = () => {
-    if (!selectedTransport?.driverId) return;
+    if (!selectedTransport?.driverId) {
+      toast({
+        title: "Motorista não atribuído",
+        description: "Este transporte não possui motorista. Atribua um motorista antes de avaliar.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (activeCriteria.length === 0) {
       toast({
@@ -422,6 +430,15 @@ export default function DriverEvaluationsPage() {
       severity: criteriaSeverities[c.id] || "sem_ocorrencia",
       notes: criteriaReasons[c.id]?.trim() || null,
     }));
+
+    if (!editingEvaluationId && scoresToSubmit.length === 0) {
+      toast({
+        title: "Todos os critérios já foram avaliados",
+        description: "Esta avaliação já está completa.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const finalWeightedScore = hadIncident ? parseFloat(manualScore) : calculateWeightedScore();
 
