@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import otdLogoPath from "@assets/logo_OTD_1772310881404.png";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -382,8 +383,11 @@ export default function JornadaVeiculoPage() {
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { background: white; }
+          .print-header { display: block !important; }
+          body { background: white; color: black; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
+        .print-header { display: none; }
       `}</style>
       <PageHeader
         title="Jornada do Veículo"
@@ -392,6 +396,45 @@ export default function JornadaVeiculoPage() {
           { label: "Jornada do Veículo" },
         ]}
       />
+
+      <div className="print-header" style={{ padding: "24px 32px 16px", borderBottom: "2px solid #e5e7eb", marginBottom: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <img src={otdLogoPath} alt="OTD Logistics" style={{ height: "52px", objectFit: "contain" }} />
+            <div>
+              <p style={{ fontSize: "18px", fontWeight: "700", color: "#111827", margin: 0 }}>OTD Logistics</p>
+              <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Dossiê do Veículo — Jornada Completa</p>
+            </div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ fontSize: "11px", color: "#6b7280", margin: 0 }}>Emitido em</p>
+            <p style={{ fontSize: "13px", fontWeight: "600", color: "#111827", margin: 0 }}>
+              {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </p>
+          </div>
+        </div>
+        {v && (
+          <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
+            <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "10px 14px" }}>
+              <p style={{ fontSize: "10px", color: "#9ca3af", margin: "0 0 2px" }}>CHASSI</p>
+              <p style={{ fontSize: "13px", fontWeight: "700", fontFamily: "monospace", color: "#111827", margin: 0 }}>{v.chassi}</p>
+            </div>
+            <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "10px 14px" }}>
+              <p style={{ fontSize: "10px", color: "#9ca3af", margin: "0 0 2px" }}>MONTADORA</p>
+              <p style={{ fontSize: "13px", fontWeight: "600", color: "#111827", margin: 0 }}>{v.manufacturer?.name ?? "—"}</p>
+            </div>
+            <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "10px 14px" }}>
+              <p style={{ fontSize: "10px", color: "#9ca3af", margin: "0 0 2px" }}>CLIENTE</p>
+              <p style={{ fontSize: "13px", fontWeight: "600", color: "#111827", margin: 0 }}>{v.client?.name ?? "—"}</p>
+            </div>
+            <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "10px 14px" }}>
+              <p style={{ fontSize: "10px", color: "#9ca3af", margin: "0 0 2px" }}>STATUS</p>
+              <p style={{ fontSize: "13px", fontWeight: "600", color: "#111827", margin: 0 }}>{statusCfg?.label ?? v.status}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
         <Card className="no-print">
           <CardHeader>
