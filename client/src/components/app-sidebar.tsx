@@ -39,6 +39,7 @@ import {
   CarFront,
   Sparkles,
   FileText,
+  Activity,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -104,6 +105,11 @@ const operationItems: MenuItem[] = [
     title: "Relatório de Avarias",
     url: "/relatorio-avarias",
     icon: ShieldAlert,
+  },
+  {
+    title: "Jornada do Veículo",
+    url: "/jornada-veiculo",
+    icon: Activity,
   },
   {
     title: "Cotação de Frete PRO",

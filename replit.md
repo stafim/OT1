@@ -200,3 +200,11 @@ Status enums for workflow tracking:
   - Search by chassis, driver, OTD number, or client
   - Photo gallery with lightbox navigation (prev/next) for viewing damage images
   - Separates check-in and check-out damage photos within each record
+- **Jornada do Veículo**: New report page `/jornada-veiculo` under Operação menu
+  - Backend route: `GET /api/vehicle-journey/:chassi` returns vehicle + all collects + all transports with full relations
+  - Timeline component at top showing progress (Coleta → Pátio → Transporte → Entrega) with semaphoric colors
+  - Vehicle header card: chassi, manufacturer, client, status badge, "Gerar PDF do Dossiê" button (uses window.print())
+  - Tabs: Coleta (driver info, photos), Logística (movements table + timestamps), Transporte (OTD, route, driver, photos), Entrega (final date, delivery proof photos)
+  - Combobox search filtering all vehicles by chassi, manufacturer, or client name
+  - Photo gallery with lightbox for all check-in/check-out photos in each section
+  - Status colors: Yellow = Aguardando Coleta, Blue = No Pátio/Em Trânsito, Green = Entregue, Gray = Retirado

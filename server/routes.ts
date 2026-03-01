@@ -742,6 +742,60 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/vehicle-journey/:chassi", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const chassi = decodeURIComponent(req.params.chassi);
+      const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.chassi, chassi));
+      if (!vehicle) {
+        return res.status(404).json({ message: "Veículo não encontrado" });
+      }
+      const [manufacturer] = vehicle.manufacturerId
+        ? await db.select().from(manufacturers).where(eq(manufacturers.id, vehicle.manufacturerId))
+        : [null];
+      const [yard] = vehicle.yardId
+        ? await db.select().from(yards).where(eq(yards.id, vehicle.yardId))
+        : [null];
+      const [client] = vehicle.clientId
+        ? await db.select().from(clients).where(eq(clients.id, vehicle.clientId))
+        : [null];
+      const collectsList = await db.select().from(collects).where(eq(collects.vehicleChassi, chassi)).orderBy(collects.createdAt);
+      const collectsWithRelations = await Promise.all(
+        collectsList.map(async (collect) => {
+          const [mfr] = await db.select().from(manufacturers).where(eq(manufacturers.id, collect.manufacturerId));
+          const [yd] = await db.select().from(yards).where(eq(yards.id, collect.yardId));
+          const [driver] = collect.driverId
+            ? await db.select().from(drivers).where(eq(drivers.id, collect.driverId))
+            : [null];
+          return { ...collect, manufacturer: mfr, yard: yd, driver };
+        })
+      );
+      const transportsList = await db.select().from(transports).where(eq(transports.vehicleChassi, chassi)).orderBy(transports.createdAt);
+      const transportsWithRelations = await Promise.all(
+        transportsList.map(async (transport) => {
+          const [originYard] = transport.originYardId
+            ? await db.select().from(yards).where(eq(yards.id, transport.originYardId))
+            : [null];
+          const [deliveryLocation] = transport.deliveryLocationId
+            ? await db.select().from(deliveryLocations).where(eq(deliveryLocations.id, transport.deliveryLocationId))
+            : [null];
+          const [driver] = transport.driverId
+            ? await db.select().from(drivers).where(eq(drivers.id, transport.driverId))
+            : [null];
+          const [cl] = await db.select().from(clients).where(eq(clients.id, transport.clientId));
+          return { ...transport, originYard, deliveryLocation, driver, client: cl };
+        })
+      );
+      res.json({
+        vehicle: { ...vehicle, manufacturer, yard, client },
+        collects: collectsWithRelations,
+        transports: transportsWithRelations,
+      });
+    } catch (error) {
+      console.error("Error fetching vehicle journey:", error);
+      res.status(500).json({ message: "Failed to fetch vehicle journey" });
+    }
+  });
+
   app.post("/api/vehicles", isAuthenticatedJWT, async (req, res) => {
     try {
       const data = insertVehicleSchema.parse(req.body);
