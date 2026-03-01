@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import otdLogoPath from "@assets/logo_OTD_1772310881404.png";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,15 +19,14 @@ import {
   Warehouse,
   Package,
   CheckCircle2,
-  Circle,
   Camera,
   MapPin,
   Calendar,
   User,
-  ArrowRight,
   FileText,
   Clock,
   Car,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizeImageUrl } from "@/lib/utils";
@@ -368,8 +366,414 @@ export default function JornadaVeiculoPage() {
     );
   });
 
-  function handlePrint() {
-    window.print();
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+
+  async function handlePrint() {
+    if (!journey || !v) return;
+    setPdfGenerating(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+      const pageW = 210;
+      const pageH = 297;
+      const margin = 18;
+      const contentW = pageW - margin * 2;
+      const orange: [number, number, number] = [234, 88, 12];
+      const darkGray: [number, number, number] = [30, 30, 30];
+      const medGray: [number, number, number] = [100, 100, 100];
+      const lightGray: [number, number, number] = [245, 245, 245];
+      const white: [number, number, number] = [255, 255, 255];
+      const green: [number, number, number] = [22, 163, 74];
+      const blue: [number, number, number] = [37, 99, 235];
+      const yellow: [number, number, number] = [202, 138, 4];
+
+      let y = 0;
+      let pageNum = 1;
+
+      const checkPageBreak = (neededHeight: number) => {
+        if (y + neededHeight > pageH - 15) {
+          doc.addPage();
+          pageNum++;
+          drawPageFooter();
+          y = 15;
+        }
+      };
+
+      const drawPageFooter = () => {
+        doc.setFontSize(8);
+        doc.setTextColor(...medGray);
+        doc.setFont("helvetica", "normal");
+        doc.text(`OTD Logistics — Dossiê do Veículo — Chassi: ${v!.chassi}`, margin, pageH - 8);
+        doc.text(`Página ${pageNum}`, pageW - margin, pageH - 8, { align: "right" });
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.3);
+        doc.line(margin, pageH - 12, pageW - margin, pageH - 12);
+      };
+
+      const drawSectionTitle = (title: string) => {
+        checkPageBreak(14);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...orange);
+        doc.text(title.toUpperCase(), margin, y);
+        doc.setDrawColor(...orange);
+        doc.setLineWidth(0.4);
+        doc.line(margin, y + 1.5, margin + contentW, y + 1.5);
+        y += 8;
+      };
+
+      const drawField = (label: string, value: string, x: number, fieldWidth: number) => {
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...medGray);
+        doc.text(label.toUpperCase(), x, y);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...darkGray);
+        const maxLen = Math.floor(fieldWidth / 2.2);
+        const truncated = value.length > maxLen ? value.slice(0, maxLen - 1) + "…" : value;
+        doc.text(truncated, x, y + 5);
+      };
+
+      const statusColor = (status: string): [number, number, number] => {
+        if (status === "entregue" || status === "retirado") return green;
+        if (status === "em_transito" || status === "despachado" || status === "em_estoque") return blue;
+        return yellow;
+      };
+
+      // ── HEADER ──────────────────────────────────────────────
+      doc.setFillColor(...orange);
+      doc.rect(0, 0, pageW, 42, "F");
+
+      // Load logo
+      try {
+        const logoImg = new Image();
+        logoImg.crossOrigin = "anonymous";
+        await new Promise<void>((resolve) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = () => resolve();
+          logoImg.src = "/logo-otd.png";
+        });
+        if (logoImg.complete && logoImg.naturalWidth > 0) {
+          const canvas = document.createElement("canvas");
+          canvas.width = logoImg.naturalWidth;
+          canvas.height = logoImg.naturalHeight;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(logoImg, 0, 0);
+            const dataUrl = canvas.toDataURL("image/png");
+            const aspectRatio = logoImg.naturalWidth / logoImg.naturalHeight;
+            const logoH = 26;
+            const logoW = logoH * aspectRatio;
+            doc.addImage(dataUrl, "PNG", margin, 8, logoW, logoH);
+          }
+        }
+      } catch {}
+
+      doc.setFontSize(13);
+      doc.setTextColor(...white);
+      doc.setFont("helvetica", "bold");
+      doc.text("DOSSIÊ DO VEÍCULO", pageW - margin, 16, { align: "right" });
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "normal");
+      doc.text("Jornada Completa — OTD Logistics", pageW - margin, 23, { align: "right" });
+      doc.setFontSize(8);
+      doc.text(`Emitido em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageW - margin, 30, { align: "right" });
+
+      y = 52;
+
+      // ── VEHICLE IDENTIFICATION ──────────────────────────────
+      drawSectionTitle("Identificação do Veículo");
+
+      const statusLbl = statusConfig[v.status]?.label ?? v.status;
+      const sColor = statusColor(v.status);
+
+      // Chassi highlight box
+      doc.setFillColor(...lightGray);
+      doc.roundedRect(margin, y - 3, contentW, 18, 2, 2, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...medGray);
+      doc.text("CHASSI", margin + 4, y + 2);
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...darkGray);
+      doc.text(v.chassi, margin + 4, y + 10);
+
+      // Status badge
+      doc.setFillColor(...sColor);
+      const badgeW = 40;
+      doc.roundedRect(pageW - margin - badgeW, y - 1, badgeW, 10, 2, 2, "F");
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...white);
+      doc.text(statusLbl, pageW - margin - badgeW / 2, y + 5.5, { align: "center" });
+
+      y += 23;
+
+      // Fields row
+      const colW = contentW / 4;
+      drawField("Montadora", v.manufacturer?.name ?? "—", margin, colW);
+      drawField("Cliente", v.client?.name ?? "—", margin + colW, colW);
+      drawField("Cor", v.color ?? "—", margin + colW * 2, colW);
+      drawField("Pátio Atual", v.yard?.name ?? "—", margin + colW * 3, colW);
+      y += 14;
+
+      // ── TIMELINE ────────────────────────────────────────────
+      checkPageBreak(30);
+      drawSectionTitle("Linha do Tempo");
+
+      const steps = ["Coleta", "Pátio", "Transporte", "Entrega"];
+      const stepStatuses: Record<string, number> = { pre_estoque: 0, em_estoque: 1, despachado: 2, entregue: 3, retirado: 3 };
+      const currentStep = stepStatuses[v.status] ?? 0;
+      const stepW = contentW / steps.length;
+
+      steps.forEach((step, i) => {
+        const cx = margin + stepW * i + stepW / 2;
+        const done = currentStep > i;
+        const active = currentStep === i;
+        const fill: [number, number, number] = done ? green : active ? orange : [200, 200, 200];
+        doc.setFillColor(...fill);
+        doc.circle(cx, y + 4, 4, "F");
+        if (done) {
+          doc.setTextColor(...white);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "bold");
+          doc.text("✓", cx, y + 6.5, { align: "center" });
+        }
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", active || done ? "bold" : "normal");
+        doc.setTextColor(done ? 22 : active ? 234 : 150, done ? 163 : active ? 88 : 150, done ? 74 : active ? 12 : 150);
+        doc.text(step, cx, y + 12, { align: "center" });
+        if (i < steps.length - 1) {
+          const lineColor: [number, number, number] = currentStep > i ? green : [200, 200, 200];
+          doc.setDrawColor(...lineColor);
+          doc.setLineWidth(1);
+          doc.line(cx + 4, y + 4, cx + stepW - 4, y + 4);
+        }
+      });
+      y += 20;
+
+      // ── COLLECTS ────────────────────────────────────────────
+      if (journey.collects.length > 0) {
+        checkPageBreak(20);
+        drawSectionTitle("Coleta(s)");
+
+        journey.collects.forEach((c, idx) => {
+          checkPageBreak(40);
+          if (journey.collects.length > 1) {
+            doc.setFontSize(8.5);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...darkGray);
+            doc.text(`Coleta #${idx + 1}`, margin, y);
+            y += 6;
+          }
+          const fields = [
+            ["Data/Hora", c.collectDate ? fmtDate(c.collectDate) : "—"],
+            ["Motorista", c.driver ? `${c.driver.firstName} ${c.driver.lastName}` : "—"],
+            ["Origem (Montadora)", c.manufacturer?.name ?? "—"],
+            ["Destino (Pátio)", c.yard ? `${c.yard.name}${c.yard.city ? " – " + c.yard.city : ""}` : "—"],
+            ["Status", collectStatusConfig[c.status]?.label ?? c.status],
+          ];
+          const fColW = contentW / 2;
+          fields.forEach((f, fi) => {
+            const col = fi % 2;
+            const xPos = margin + col * fColW;
+            if (col === 0 && fi > 0) { y += 12; checkPageBreak(12); }
+            drawField(f[0], f[1], xPos, fColW);
+          });
+          y += 16;
+
+          const checkinPhotos = [
+            c.checkinFrontalPhoto, c.checkinLateral1Photo, c.checkinLateral2Photo,
+            c.checkinTraseiraPhoto, c.checkinOdometerPhoto, c.checkinSelfiePhoto,
+          ].filter(Boolean) as string[];
+
+          if (checkinPhotos.length > 0) {
+            checkPageBreak(8);
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(...medGray);
+            doc.text(`${checkinPhotos.length} foto(s) de check-in registrada(s)`, margin, y);
+            y += 7;
+          }
+
+          if (idx < journey.collects.length - 1) {
+            doc.setDrawColor(220, 220, 220);
+            doc.setLineWidth(0.2);
+            doc.line(margin, y, margin + contentW, y);
+            y += 5;
+          }
+        });
+        y += 4;
+      }
+
+      // ── LOGISTICS ───────────────────────────────────────────
+      checkPageBreak(20);
+      drawSectionTitle("Logística e Movimentações");
+
+      const timestamps = [
+        ["Coleta",          v.collectDateTime],
+        ["Entrada no Pátio", v.yardEntryDateTime],
+        ["Despacho",         v.dispatchDateTime],
+        ["Entrega Final",    v.deliveryDateTime],
+      ].filter(([, d]) => d);
+
+      if (timestamps.length > 0) {
+        const tColW = contentW / 2;
+        timestamps.forEach(([label, date], ti) => {
+          const col = ti % 2;
+          const xPos = margin + col * tColW;
+          if (col === 0 && ti > 0) { y += 12; checkPageBreak(12); }
+          drawField(label as string, fmtDate(date), xPos, tColW);
+        });
+        y += 16;
+      }
+
+      // Movements table
+      const movements = [
+        ...journey.collects.map((c) => ({
+          tipo: "Coleta",
+          origem: c.manufacturer?.name ?? "—",
+          destino: c.yard?.name ?? "—",
+          data: c.collectDate ? fmtDateOnly(c.collectDate) : "—",
+          status: collectStatusConfig[c.status]?.label ?? c.status,
+        })),
+        ...journey.transports.map((t) => ({
+          tipo: "Transporte",
+          origem: t.originYard?.name ?? "—",
+          destino: t.deliveryLocation?.name ?? "—",
+          data: "—",
+          status: transportStatusConfig[t.status]?.label ?? t.status,
+        })),
+      ];
+
+      if (movements.length > 0) {
+        checkPageBreak(24);
+        const cols = ["Tipo", "Origem", "Destino", "Data", "Status"];
+        const colWidths = [22, 42, 42, 26, 30];
+        const rowH = 7;
+
+        doc.setFillColor(...orange);
+        doc.rect(margin, y, contentW, rowH, "F");
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...white);
+        let cx = margin + 2;
+        cols.forEach((col, i) => {
+          doc.text(col, cx, y + 5);
+          cx += colWidths[i];
+        });
+        y += rowH;
+
+        movements.forEach((row, ri) => {
+          checkPageBreak(rowH + 2);
+          doc.setFillColor(ri % 2 === 0 ? 250 : 245, ri % 2 === 0 ? 250 : 245, ri % 2 === 0 ? 250 : 245);
+          doc.rect(margin, y, contentW, rowH, "F");
+          doc.setFontSize(7.5);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...darkGray);
+          cx = margin + 2;
+          [row.tipo, row.origem, row.destino, row.data, row.status].forEach((val, i) => {
+            const maxChars = Math.floor(colWidths[i] / 1.8);
+            const txt = val.length > maxChars ? val.slice(0, maxChars - 1) + "…" : val;
+            doc.text(txt, cx, y + 5);
+            cx += colWidths[i];
+          });
+          y += rowH;
+        });
+        y += 6;
+      }
+
+      // ── TRANSPORTS ──────────────────────────────────────────
+      if (journey.transports.length > 0) {
+        checkPageBreak(20);
+        drawSectionTitle("Transporte(s)");
+
+        journey.transports.forEach((t, idx) => {
+          checkPageBreak(50);
+          if (journey.transports.length > 1) {
+            doc.setFontSize(8.5);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...darkGray);
+            doc.text(`OTD ${t.requestNumber ?? "#" + (idx + 1)}`, margin, y);
+            y += 6;
+          }
+
+          const tFields: [string, string][] = [
+            ["Nº OTD", t.requestNumber ?? "—"],
+            ["Status", transportStatusConfig[t.status]?.label ?? t.status],
+            ["Motorista", t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : "—"],
+            ["Pátio de Origem", t.originYard?.name ?? "—"],
+            ["Destino", t.deliveryLocation ? `${t.deliveryLocation.name}${t.deliveryLocation.city ? " – " + t.deliveryLocation.city : ""}` : "—"],
+            ["Cliente", t.client?.name ?? "—"],
+          ];
+          if (t.routeDistanceKm) tFields.push(["Distância", `${t.routeDistanceKm} km`]);
+          if (t.routeDurationMinutes) tFields.push(["Duração estimada", `${Math.floor(t.routeDurationMinutes / 60)}h ${t.routeDurationMinutes % 60}min`]);
+          if (t.estimatedTolls) tFields.push(["Pedágios estimados", `R$ ${Number(t.estimatedTolls).toFixed(2)}`]);
+
+          const fColW2 = contentW / 2;
+          tFields.forEach((f, fi) => {
+            const col = fi % 2;
+            const xPos = margin + col * fColW2;
+            if (col === 0 && fi > 0) { y += 12; checkPageBreak(12); }
+            drawField(f[0], f[1], xPos, fColW2);
+          });
+          y += 14;
+
+          if (idx < journey.transports.length - 1) {
+            doc.setDrawColor(220, 220, 220);
+            doc.setLineWidth(0.2);
+            doc.line(margin, y, margin + contentW, y);
+            y += 5;
+          }
+        });
+        y += 4;
+      }
+
+      // ── DELIVERY ────────────────────────────────────────────
+      const delivered = journey.transports.find((t) => t.status === "entregue");
+      if (delivered) {
+        checkPageBreak(30);
+        drawSectionTitle("Entrega Final");
+
+        const dFields: [string, string][] = [
+          ["Data/Hora da Entrega", v.deliveryDateTime ? fmtDate(v.deliveryDateTime) : "—"],
+          ["Motorista", delivered.driver ? `${delivered.driver.firstName} ${delivered.driver.lastName}` : "—"],
+          ["Endereço", delivered.deliveryLocation?.address ? [delivered.deliveryLocation.address, delivered.deliveryLocation.addressNumber].filter(Boolean).join(", ") : "—"],
+          ["Cidade/Estado", delivered.deliveryLocation ? `${delivered.deliveryLocation.city ?? ""}${delivered.deliveryLocation.state ? " – " + delivered.deliveryLocation.state : ""}` : "—"],
+        ];
+        if (v.notes) dFields.push(["Observações", v.notes]);
+
+        const fColW3 = contentW / 2;
+        dFields.forEach((f, fi) => {
+          const col = fi % 2;
+          const xPos = margin + col * fColW3;
+          if (col === 0 && fi > 0) { y += 12; checkPageBreak(12); }
+          drawField(f[0], f[1], xPos, fColW3);
+        });
+        y += 14;
+
+        // Green delivery banner
+        checkPageBreak(16);
+        doc.setFillColor(...green);
+        doc.roundedRect(margin, y, contentW, 12, 2, 2, "F");
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...white);
+        doc.text("✓  Veículo entregue ao cliente com sucesso", margin + contentW / 2, y + 8, { align: "center" });
+        y += 18;
+      }
+
+      drawPageFooter();
+
+      doc.save(`dossie-${v.chassi.replace(/\s/g, "_")}.pdf`);
+    } catch (err) {
+      console.error("Erro ao gerar PDF:", err);
+    } finally {
+      setPdfGenerating(false);
+    }
   }
 
   const v = journey?.vehicle;
@@ -380,15 +784,6 @@ export default function JornadaVeiculoPage() {
 
   return (
     <>
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          .print-header { display: block !important; }
-          body { background: white; color: black; }
-          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }
-        .print-header { display: none; }
-      `}</style>
       <PageHeader
         title="Jornada do Veículo"
         breadcrumbs={[
@@ -396,45 +791,6 @@ export default function JornadaVeiculoPage() {
           { label: "Jornada do Veículo" },
         ]}
       />
-
-      <div className="print-header" style={{ padding: "24px 32px 16px", borderBottom: "2px solid #e5e7eb", marginBottom: "24px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <img src={otdLogoPath} alt="OTD Logistics" style={{ height: "52px", objectFit: "contain" }} />
-            <div>
-              <p style={{ fontSize: "18px", fontWeight: "700", color: "#111827", margin: 0 }}>OTD Logistics</p>
-              <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Dossiê do Veículo — Jornada Completa</p>
-            </div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: "11px", color: "#6b7280", margin: 0 }}>Emitido em</p>
-            <p style={{ fontSize: "13px", fontWeight: "600", color: "#111827", margin: 0 }}>
-              {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-            </p>
-          </div>
-        </div>
-        {v && (
-          <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
-            <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "10px 14px" }}>
-              <p style={{ fontSize: "10px", color: "#9ca3af", margin: "0 0 2px" }}>CHASSI</p>
-              <p style={{ fontSize: "13px", fontWeight: "700", fontFamily: "monospace", color: "#111827", margin: 0 }}>{v.chassi}</p>
-            </div>
-            <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "10px 14px" }}>
-              <p style={{ fontSize: "10px", color: "#9ca3af", margin: "0 0 2px" }}>MONTADORA</p>
-              <p style={{ fontSize: "13px", fontWeight: "600", color: "#111827", margin: 0 }}>{v.manufacturer?.name ?? "—"}</p>
-            </div>
-            <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "10px 14px" }}>
-              <p style={{ fontSize: "10px", color: "#9ca3af", margin: "0 0 2px" }}>CLIENTE</p>
-              <p style={{ fontSize: "13px", fontWeight: "600", color: "#111827", margin: 0 }}>{v.client?.name ?? "—"}</p>
-            </div>
-            <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "10px 14px" }}>
-              <p style={{ fontSize: "10px", color: "#9ca3af", margin: "0 0 2px" }}>STATUS</p>
-              <p style={{ fontSize: "13px", fontWeight: "600", color: "#111827", margin: 0 }}>{statusCfg?.label ?? v.status}</p>
-            </div>
-          </div>
-        )}
-      </div>
-
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
         <Card className="no-print">
           <CardHeader>
@@ -592,11 +948,14 @@ export default function JornadaVeiculoPage() {
                       variant="outline"
                       size="sm"
                       onClick={handlePrint}
+                      disabled={pdfGenerating}
                       className="no-print gap-2"
                       data-testid="button-print-dossie"
                     >
-                      <Printer className="h-4 w-4" />
-                      Gerar PDF do Dossiê
+                      {pdfGenerating
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Printer className="h-4 w-4" />}
+                      {pdfGenerating ? "Gerando PDF..." : "Gerar PDF do Dossiê"}
                     </Button>
                   </div>
                 </div>
