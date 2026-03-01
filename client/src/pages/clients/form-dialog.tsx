@@ -100,7 +100,7 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
       phone: "",
       email: "",
       contactName: "",
-      dailyCost: "",
+      dailyCost: "20.00",
       isActive: "true",
     },
   });
@@ -123,7 +123,7 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
         phone: client.phone || "",
         email: client.email || "",
         contactName: client.contactName || "",
-        dailyCost: client.dailyCost || "",
+        dailyCost: client.dailyCost || "20.00",
         isActive: client.isActive || "true",
       });
     } else if (!isEditing && open) {
@@ -143,7 +143,7 @@ export function ClientFormDialog({ open, onOpenChange, clientId, onEditFullPage 
         phone: "",
         email: "",
         contactName: "",
-        dailyCost: "",
+        dailyCost: "20.00",
         isActive: "true",
       });
     }
