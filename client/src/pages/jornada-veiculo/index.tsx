@@ -358,6 +358,7 @@ export default function JornadaVeiculoPage() {
   });
 
   const filteredVehicles = (vehiclesList ?? []).filter((v) => {
+    if (v.status !== "entregue") return false;
     const q = input.toLowerCase();
     return (
       v.chassi.toLowerCase().includes(q) ||
