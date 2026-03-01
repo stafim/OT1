@@ -130,14 +130,14 @@ function SeveritySelector({
   readOnly = false,
 }: {
   criteria: EvaluationCriteria;
-  severity: SeverityLevel;
+  severity: SeverityLevel | undefined;
   onChange: (severity: SeverityLevel) => void;
   reason: string;
   onReasonChange: (reason: string) => void;
   readOnly?: boolean;
 }) {
-  const getPenalty = (sev: SeverityLevel) => {
-    if (sev === "sem_ocorrencia") return 0;
+  const getPenalty = (sev: SeverityLevel | undefined) => {
+    if (!sev || sev === "sem_ocorrencia") return 0;
     if (sev === "leve") return parseFloat(criteria.penaltyLeve || "10");
     if (sev === "medio") return parseFloat(criteria.penaltyMedio || "50");
     if (sev === "grave") return parseFloat(criteria.penaltyGrave || "100");
@@ -148,7 +148,8 @@ function SeveritySelector({
   const currentScore = 100 - currentPenalty;
 
   if (readOnly) {
-    const Icon = severityIcons[severity];
+    const resolvedSev = severity ?? "sem_ocorrencia";
+    const Icon = severityIcons[resolvedSev];
     return (
       <div className="p-3 rounded-lg border bg-muted/30 opacity-80">
         <div className="flex items-center justify-between gap-4">
@@ -160,9 +161,9 @@ function SeveritySelector({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Badge className={`text-xs ${severityColors[severity]}`} variant="outline">
+            <Badge className={`text-xs ${severityColors[resolvedSev]}`} variant="outline">
               <Icon className="h-3 w-3 mr-1" />
-              {severityLabels[severity]}
+              {severityLabels[resolvedSev]}
             </Badge>
             <span className={`text-base font-bold ${currentScore >= 80 ? "text-green-600" : currentScore >= 50 ? "text-orange-600" : "text-red-600"}`}>
               {currentScore.toFixed(0)}pts
@@ -184,10 +185,16 @@ function SeveritySelector({
           <p className="text-xs text-muted-foreground">Peso: {parseFloat(criteria.weight).toFixed(0)}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-lg font-bold ${currentScore >= 80 ? "text-green-600" : currentScore >= 50 ? "text-orange-600" : "text-red-600"}`}>
-            {currentScore.toFixed(0)}
-          </span>
-          <span className="text-xs text-muted-foreground">pts</span>
+          {severity !== undefined ? (
+            <>
+              <span className={`text-lg font-bold ${currentScore >= 80 ? "text-green-600" : currentScore >= 50 ? "text-orange-600" : "text-red-600"}`}>
+                {currentScore.toFixed(0)}
+              </span>
+              <span className="text-xs text-muted-foreground">pts</span>
+            </>
+          ) : (
+            <span className="text-lg font-bold text-muted-foreground">—</span>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-4 gap-2">
@@ -237,7 +244,7 @@ export default function DriverEvaluationsPage() {
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationWithDetails | null>(null);
   const [hadIncident, setHadIncident] = useState(false);
   const [incidentDescription, setIncidentDescription] = useState("");
-  const [criteriaSeverities, setCriteriaSeverities] = useState<Record<string, SeverityLevel>>({});
+  const [criteriaSeverities, setCriteriaSeverities] = useState<Record<string, SeverityLevel | undefined>>({});
   const [criteriaReasons, setCriteriaReasons] = useState<Record<string, string>>({});
   const [manualScore, setManualScore] = useState("100");
   const [editingEvaluationId, setEditingEvaluationId] = useState<string | null>(null);
@@ -323,11 +330,10 @@ export default function DriverEvaluationsPage() {
     setAlreadyScoredScores(existing);
     const scoredIds = new Set(existing.map(s => s.criteriaId));
 
-    const defaultSeverities: Record<string, SeverityLevel> = {};
+    const defaultSeverities: Record<string, SeverityLevel | undefined> = {};
     const defaultReasons: Record<string, string> = {};
     activeCriteria.forEach(c => {
       if (!scoredIds.has(c.id)) {
-        defaultSeverities[c.id] = "sem_ocorrencia";
         defaultReasons[c.id] = "";
       }
     });
@@ -347,7 +353,7 @@ export default function DriverEvaluationsPage() {
     } as unknown as TransportWithDetails;
     setSelectedTransport(syntheticTransport);
 
-    const severities: Record<string, SeverityLevel> = {};
+    const severities: Record<string, SeverityLevel | undefined> = {};
     const reasons: Record<string, string> = {};
     activeCriteria.forEach(c => {
       const existingScore = evaluation.scores?.find(s => s.criteriaId === c.id);
@@ -754,7 +760,7 @@ export default function DriverEvaluationsPage() {
                     <SeveritySelector
                       key={c.id}
                       criteria={c}
-                      severity={criteriaSeverities[c.id] || "sem_ocorrencia"}
+                      severity={criteriaSeverities[c.id]}
                       onChange={(sev) => setCriteriaSeverities(prev => ({ ...prev, [c.id]: sev }))}
                       reason={criteriaReasons[c.id] || ""}
                       onReasonChange={(r) => setCriteriaReasons(prev => ({ ...prev, [c.id]: r }))}
