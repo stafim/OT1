@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
+import { DataTable } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -483,95 +484,118 @@ export default function FinanceiroPage() {
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-4">
-            {filteredSettlements.length === 0 ? (
-              <Card>
-                <CardContent className="py-10 text-center text-muted-foreground">
-                  <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium">Nenhuma prestação de contas encontrada</p>
-                  <p className="text-sm">
-                    {activeTab === "pending" 
-                      ? "Não há prestações aguardando análise no momento"
-                      : "Nenhuma prestação de contas registrada"}
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4">
-                {filteredSettlements.map(settlement => {
-                  const status = statusConfig[settlement.status || "pendente"];
-                  const StatusIcon = status.icon;
-                  
-                  return (
-                    <Card 
-                      key={settlement.id} 
-                      className="hover-elevate cursor-pointer"
-                      onClick={() => openDetails(settlement)}
-                      data-testid={`card-settlement-${settlement.id}`}
+            <DataTable
+              columns={[
+                {
+                  key: "status",
+                  label: "Status",
+                  render: (settlement) => {
+                    const status = statusConfig[settlement.status || "pendente"];
+                    const StatusIcon = status.icon;
+                    return (
+                      <Badge variant={status.variant} className="gap-1 whitespace-nowrap">
+                        <StatusIcon className="h-3 w-3" />
+                        {status.label}
+                      </Badge>
+                    );
+                  },
+                },
+                {
+                  key: "requestNumber",
+                  label: "OTD",
+                  render: (settlement) => (
+                    <span className="font-mono font-bold text-primary">
+                      {settlement.transport?.requestNumber || "—"}
+                    </span>
+                  ),
+                },
+                {
+                  key: "driver",
+                  label: "Motorista",
+                  render: (settlement) => (
+                    <span className="flex items-center gap-1.5 text-sm">
+                      <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      {settlement.driver?.name || "—"}
+                    </span>
+                  ),
+                },
+                {
+                  key: "vehicleChassi",
+                  label: "Chassi",
+                  render: (settlement) => (
+                    <span className="font-mono text-sm">
+                      {settlement.transport?.vehicleChassi || "—"}
+                    </span>
+                  ),
+                },
+                {
+                  key: "destination",
+                  label: "Destino",
+                  render: (settlement) => (
+                    <span className="flex items-center gap-1.5 text-sm">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      {settlement.transport?.deliveryLocation?.city
+                        ? `${settlement.transport.deliveryLocation.city}/${settlement.transport.deliveryLocation.state}`
+                        : "—"}
+                    </span>
+                  ),
+                },
+                {
+                  key: "totalExpenses",
+                  label: "Total",
+                  render: (settlement) => (
+                    <span className="font-semibold text-green-600 text-sm">
+                      {formatCurrency(settlement.totalExpenses)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "items",
+                  label: "Comprovantes",
+                  render: (settlement) => (
+                    <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Camera className="h-3.5 w-3.5 shrink-0" />
+                      {settlement.items?.length || 0}
+                    </span>
+                  ),
+                },
+                {
+                  key: "submittedAt",
+                  label: "Enviado em",
+                  render: (settlement) => (
+                    <span className="text-xs text-muted-foreground">
+                      {settlement.submittedAt
+                        ? format(new Date(settlement.submittedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                        : "—"}
+                    </span>
+                  ),
+                },
+                {
+                  key: "actions",
+                  label: "",
+                  className: "text-right",
+                  render: (settlement) => (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => { e.stopPropagation(); openDetails(settlement); }}
+                      data-testid={`button-view-settlement-${settlement.id}`}
                     >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-3">
-                              <Badge variant={status.variant} className="gap-1">
-                                <StatusIcon className="h-3 w-3" />
-                                {status.label}
-                              </Badge>
-                              {settlement.transport?.requestNumber && (
-                                <span className="font-mono font-bold text-primary">
-                                  {settlement.transport.requestNumber}
-                                </span>
-                              )}
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                                <span>{settlement.driver?.name || "Motorista não encontrado"}</span>
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                <Truck className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-mono">{settlement.transport?.vehicleChassi || "-"}</span>
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-4 w-4 text-muted-foreground" />
-                                <span>
-                                  {settlement.transport?.deliveryLocation?.city || "-"}/
-                                  {settlement.transport?.deliveryLocation?.state || "-"}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-4 pt-2 border-t">
-                              <div className="flex items-center gap-2">
-                                <Camera className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm">{settlement.items?.length || 0} comprovantes</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <DollarSign className="h-4 w-4 text-green-600" />
-                                <span className="font-semibold text-green-600">
-                                  {formatCurrency(settlement.totalExpenses)}
-                                </span>
-                              </div>
-                              {settlement.submittedAt && (
-                                <span className="text-xs text-muted-foreground">
-                                  Enviado em {format(new Date(settlement.submittedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <Button variant="ghost" size="icon" data-testid="button-view-settlement">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  ),
+                },
+              ]}
+              data={filteredSettlements}
+              isLoading={isLoading}
+              keyField="id"
+              onRowClick={openDetails}
+              emptyMessage={
+                activeTab === "pending"
+                  ? "Não há prestações aguardando análise no momento"
+                  : "Nenhuma prestação de contas registrada"
+              }
+            />
           </TabsContent>
         </Tabs>
       </div>
