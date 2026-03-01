@@ -131,7 +131,7 @@ function SeveritySelector({
 }: {
   criteria: EvaluationCriteria;
   severity: SeverityLevel | undefined;
-  onChange: (severity: SeverityLevel) => void;
+  onChange: (severity: SeverityLevel | undefined) => void;
   reason: string;
   onReasonChange: (reason: string) => void;
   readOnly?: boolean;
@@ -206,7 +206,7 @@ function SeveritySelector({
             <button
               key={sev}
               type="button"
-              onClick={() => onChange(sev)}
+              onClick={() => onChange(isSelected ? undefined : sev)}
               className={`flex flex-col items-center gap-1 p-2 rounded-md border-2 transition-all text-xs ${
                 isSelected
                   ? `${severityColors[sev]} border-current font-semibold ring-2 ring-offset-1 ring-current/30`
