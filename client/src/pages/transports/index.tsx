@@ -15,10 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye, Navigation, Clock, Fuel, Receipt, Route, Car, Info } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye, Navigation, Clock, Fuel, Receipt, Route, Car, Info, Check, ChevronsUpDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { normalizeImageUrl } from "@/lib/utils";
+import { normalizeImageUrl, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import type { Transport, Client, Yard, Vehicle, DeliveryLocation, Driver } from "@shared/schema";
 import {
@@ -39,6 +39,19 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Tooltip,
   TooltipContent,
@@ -319,6 +332,7 @@ export default function TransportsPage() {
   const [clearCheckinId, setClearCheckinId] = useState<string | null>(null);
   const [clearCheckoutId, setClearCheckoutId] = useState<string | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
+  const [chassiComboOpen, setChassiComboOpen] = useState(false);
   const [newTransportData, setNewTransportData] = useState({
     vehicleChassi: "",
     clientId: "",
@@ -1363,21 +1377,51 @@ export default function TransportsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Veículo (Chassi) *</Label>
-                <Select
-                  value={newTransportData.vehicleChassi}
-                  onValueChange={(value) => setNewTransportData(prev => ({ ...prev, vehicleChassi: value }))}
-                >
-                  <SelectTrigger data-testid="select-vehicle">
-                    <SelectValue placeholder="Selecione o veículo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableVehicles.map((vehicle) => (
-                      <SelectItem key={vehicle.chassi} value={vehicle.chassi}>
-                        {vehicle.chassi}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={chassiComboOpen} onOpenChange={setChassiComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={chassiComboOpen}
+                      className={cn(
+                        "w-full justify-between font-normal",
+                        !newTransportData.vehicleChassi && "text-muted-foreground"
+                      )}
+                      data-testid="select-vehicle"
+                    >
+                      {newTransportData.vehicleChassi || "Buscar chassi..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Digite para buscar chassi..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum veículo em estoque encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {availableVehicles.map((vehicle) => (
+                            <CommandItem
+                              key={vehicle.chassi}
+                              value={vehicle.chassi}
+                              onSelect={() => {
+                                setNewTransportData(prev => ({ ...prev, vehicleChassi: vehicle.chassi }));
+                                setChassiComboOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  newTransportData.vehicleChassi === vehicle.chassi ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {vehicle.chassi}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 {availableVehicles.length === 0 && (
                   <p className="text-xs text-muted-foreground">Nenhum veículo em estoque disponível</p>
                 )}
