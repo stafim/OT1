@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
+import { DataTable } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -925,121 +926,146 @@ export default function CotacaoFreteProPage() {
                 </p>
               </div>
 
-              {quotesLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
-                  ))}
-                </div>
-              ) : filteredQuotes.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center text-muted-foreground">
-                    <List className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                    <h3 className="text-lg font-medium mb-2">Nenhuma cotação salva</h3>
-                    <p className="max-w-md mx-auto">
-                      Use a calculadora para criar e salvar suas cotações de frete.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-3">
-                  {filteredQuotes.map(quote => (
-                    <Card key={quote.id} data-testid={`card-quote-${quote.id}`}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              {quote.quoteName && (
-                                <span className="font-semibold text-sm truncate" data-testid={`text-quote-name-${quote.id}`}>
-                                  {quote.quoteName}
-                                </span>
-                              )}
-                              <h3 className={`text-sm truncate ${quote.quoteName ? "text-muted-foreground" : "font-semibold"}`} data-testid={`text-quote-client-${quote.id}`}>
-                                {quote.quoteName ? `— ${quote.clientName}` : quote.clientName}
-                              </h3>
-                              {quote.validUntil && (
-                                <Badge
-                                  variant={isExpired(quote.validUntil) ? "destructive" : "outline"}
-                                  className="text-xs shrink-0"
-                                >
-                                  {isExpired(quote.validUntil) ? "Expirada" : `Válida até ${formatDate(quote.validUntil)}`}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mb-2">
-                              {quote.clientPhone && (
-                                <span className="flex items-center gap-1">
-                                  <Phone className="h-3 w-3" />
-                                  {quote.clientPhone}
-                                </span>
-                              )}
-                              {quote.clientEmail && (
-                                <span className="flex items-center gap-1">
-                                  <Mail className="h-3 w-3" />
-                                  {quote.clientEmail}
-                                </span>
-                              )}
-                              {quote.createdAt && (
-                                <span className="flex items-center gap-1">
-                                  <CalendarDays className="h-3 w-3" />
-                                  {new Date(quote.createdAt).toLocaleDateString("pt-BR")}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                              <span>Distância: <strong>{parseFloat(quote.distanciaKm).toFixed(0)} km</strong></span>
-                              <span>Base: <strong>{formatCurrency(parseFloat(quote.valorBase))}</strong></span>
-                              <span className="text-primary font-bold">CTe: {formatCurrency(parseFloat(quote.valorTotalCte))}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                              onClick={() => convertToContractMutation.mutate(quote)}
-                              disabled={convertToContractMutation.isPending}
-                              title="Converter em Contrato de Frete"
-                              data-testid={`button-convert-contract-${quote.id}`}
-                            >
-                              <FilePlus2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 text-primary hover:text-primary"
-                              onClick={() => handleDownloadPDF(quote)}
-                              title="Baixar PDF da cotação"
-                              data-testid={`button-download-pdf-${quote.id}`}
-                            >
-                              <FileDown className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8"
-                              onClick={() => handleLoadQuote(quote)}
-                              title="Carregar na calculadora"
-                              data-testid={`button-load-quote-${quote.id}`}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8"
-                              onClick={() => setDeletingQuoteId(quote.id)}
-                              data-testid={`button-delete-quote-${quote.id}`}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+              <DataTable
+                columns={[
+                  {
+                    key: "quoteName",
+                    label: "Nome / Cliente",
+                    render: (quote) => (
+                      <div className="min-w-0">
+                        {quote.quoteName && (
+                          <p className="font-semibold text-sm truncate" data-testid={`text-quote-name-${quote.id}`}>
+                            {quote.quoteName}
+                          </p>
+                        )}
+                        <p className={`text-sm truncate ${quote.quoteName ? "text-muted-foreground text-xs" : "font-semibold"}`} data-testid={`text-quote-client-${quote.id}`}>
+                          {quote.clientName}
+                        </p>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: "contact",
+                    label: "Contato",
+                    render: (quote) => (
+                      <div className="space-y-0.5 text-xs text-muted-foreground">
+                        {quote.clientPhone && (
+                          <p className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {quote.clientPhone}
+                          </p>
+                        )}
+                        {quote.clientEmail && (
+                          <p className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {quote.clientEmail}
+                          </p>
+                        )}
+                        {!quote.clientPhone && !quote.clientEmail && (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
+                      </div>
+                    ),
+                  },
+                  {
+                    key: "distanciaKm",
+                    label: "Distância",
+                    render: (quote) => (
+                      <span className="text-sm">{parseFloat(quote.distanciaKm).toFixed(0)} km</span>
+                    ),
+                  },
+                  {
+                    key: "valorBase",
+                    label: "Valor Base",
+                    render: (quote) => (
+                      <span className="text-sm">{formatCurrency(parseFloat(quote.valorBase))}</span>
+                    ),
+                  },
+                  {
+                    key: "valorTotalCte",
+                    label: "CTe",
+                    render: (quote) => (
+                      <span className="text-sm font-bold text-primary">{formatCurrency(parseFloat(quote.valorTotalCte))}</span>
+                    ),
+                  },
+                  {
+                    key: "validUntil",
+                    label: "Validade",
+                    render: (quote) => (
+                      quote.validUntil ? (
+                        <Badge
+                          variant={isExpired(quote.validUntil) ? "destructive" : "outline"}
+                          className="text-xs"
+                        >
+                          {isExpired(quote.validUntil) ? "Expirada" : formatDate(quote.validUntil)}
+                        </Badge>
+                      ) : <span className="text-muted-foreground/50 text-xs">—</span>
+                    ),
+                  },
+                  {
+                    key: "createdAt",
+                    label: "Criada em",
+                    render: (quote) => (
+                      <span className="text-xs text-muted-foreground">
+                        {quote.createdAt ? new Date(quote.createdAt).toLocaleDateString("pt-BR") : "—"}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: "actions",
+                    label: "Ações",
+                    className: "text-right",
+                    render: (quote) => (
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={(e) => { e.stopPropagation(); convertToContractMutation.mutate(quote); }}
+                          disabled={convertToContractMutation.isPending}
+                          title="Converter em Contrato de Frete"
+                          data-testid={`button-convert-contract-${quote.id}`}
+                        >
+                          <FilePlus2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-primary hover:text-primary"
+                          onClick={(e) => { e.stopPropagation(); handleDownloadPDF(quote); }}
+                          title="Baixar PDF"
+                          data-testid={`button-download-pdf-${quote.id}`}
+                        >
+                          <FileDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={(e) => { e.stopPropagation(); handleLoadQuote(quote); }}
+                          title="Carregar na calculadora"
+                          data-testid={`button-load-quote-${quote.id}`}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); setDeletingQuoteId(quote.id); }}
+                          data-testid={`button-delete-quote-${quote.id}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ),
+                  },
+                ]}
+                data={filteredQuotes}
+                isLoading={quotesLoading}
+                keyField="id"
+                emptyMessage="Nenhuma cotação salva. Use a calculadora para criar e salvar cotações."
+              />
 
               {/* History section */}
               {convertedQuotes.length > 0 && (
@@ -1056,48 +1082,73 @@ export default function CotacaoFreteProPage() {
                   </button>
 
                   {showHistory && (
-                    <div className="space-y-2 mt-3">
-                      {convertedQuotes.map(quote => (
-                        <Card key={quote.id} className="border-dashed opacity-75" data-testid={`card-quote-converted-${quote.id}`}>
-                          <CardContent className="p-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                  {quote.quoteName && (
-                                    <span className="font-medium text-sm truncate" data-testid={`text-converted-name-${quote.id}`}>
-                                      {quote.quoteName}
-                                    </span>
-                                  )}
-                                  <span className="text-sm text-muted-foreground truncate">
-                                    {quote.quoteName ? `— ${quote.clientName}` : quote.clientName}
-                                  </span>
-                                  <Badge variant="secondary" className="text-xs shrink-0 bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
-                                    Convertida em Contrato
-                                  </Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                                  {quote.convertedAt && (
-                                    <span className="flex items-center gap-1">
-                                      <History className="h-3 w-3" />
-                                      Convertida em {new Date(quote.convertedAt).toLocaleDateString("pt-BR")}
-                                    </span>
-                                  )}
-                                  <span>CTe: <strong>{(parseFloat(quote.valorTotalCte)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong></span>
-                                </div>
+                    <div className="mt-3 opacity-75">
+                      <DataTable
+                        columns={[
+                          {
+                            key: "quoteName",
+                            label: "Nome / Cliente",
+                            render: (quote) => (
+                              <div className="min-w-0">
+                                {quote.quoteName && (
+                                  <p className="font-medium text-sm truncate" data-testid={`text-converted-name-${quote.id}`}>
+                                    {quote.quoteName}
+                                  </p>
+                                )}
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {quote.clientName}
+                                </p>
                               </div>
+                            ),
+                          },
+                          {
+                            key: "valorTotalCte",
+                            label: "CTe",
+                            render: (quote) => (
+                              <span className="text-sm font-bold text-primary">
+                                {parseFloat(quote.valorTotalCte).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                              </span>
+                            ),
+                          },
+                          {
+                            key: "convertedAt",
+                            label: "Convertida em",
+                            render: (quote) => (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <History className="h-3 w-3" />
+                                {quote.convertedAt ? new Date(quote.convertedAt).toLocaleDateString("pt-BR") : "—"}
+                              </span>
+                            ),
+                          },
+                          {
+                            key: "status",
+                            label: "Status",
+                            render: () => (
+                              <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
+                                Convertida em Contrato
+                              </Badge>
+                            ),
+                          },
+                          {
+                            key: "link",
+                            label: "",
+                            className: "text-right",
+                            render: (quote) => (
                               <a
                                 href="/contratos-frete"
-                                className="shrink-0 flex items-center gap-1 text-xs text-primary hover:underline"
-                                title="Ver contrato gerado"
+                                className="flex items-center justify-end gap-1 text-xs text-primary hover:underline"
                                 data-testid={`link-view-contract-${quote.id}`}
                               >
                                 <ExternalLink className="h-3.5 w-3.5" />
                                 Ver contrato
                               </a>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            ),
+                          },
+                        ]}
+                        data={convertedQuotes}
+                        keyField="id"
+                        emptyMessage="Nenhuma cotação convertida."
+                      />
                     </div>
                   )}
                 </div>
