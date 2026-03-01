@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
+import { DataTable } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -851,134 +852,98 @@ export default function ContratosFreteePage() {
           </Button>
         </div>
 
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <Card>
-            <CardContent className="py-16 text-center text-muted-foreground">
-              <FileText className="h-16 w-16 mx-auto mb-4 opacity-20" />
-              <h3 className="text-lg font-medium mb-2">Nenhum contrato encontrado</h3>
-              <p className="max-w-md mx-auto text-sm">
-                Crie um novo contrato ou converta uma cotação salva em contrato de frete.
-              </p>
-              <Button className="mt-4" onClick={handleNew} data-testid="button-new-contract-empty">
-                <Plus className="h-4 w-4 mr-1.5" />
-                Criar Primeiro Contrato
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map((contract) => {
-              const st = statusConfig[contract.status as keyof typeof statusConfig] ?? statusConfig.ativo;
-              const StatusIcon = st.icon;
-              return (
-                <Card
-                  key={contract.id}
-                  className="cursor-pointer hover:border-primary/30 transition-colors"
-                  onClick={() => handleView(contract)}
-                  data-testid={`card-contract-${contract.id}`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                            {contract.contractNumber}
-                          </span>
-                          <h3 className="font-semibold text-sm truncate" data-testid={`text-client-${contract.id}`}>
-                            {contract.clientName}
-                          </h3>
-                          <Badge variant="outline" className={`text-xs ${st.className}`}>
-                            <StatusIcon className="h-3 w-3 mr-1" />
-                            {st.label}
-                          </Badge>
-                          {contract.quoteId && (
-                            <Badge variant="secondary" className="text-xs">
-                              <LinkIcon className="h-3 w-3 mr-1" />
-                              Cotação
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
-                          {contract.clientPhone && (
-                            <span className="flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {contract.clientPhone}
-                            </span>
-                          )}
-                          {contract.clientEmail && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {contract.clientEmail}
-                            </span>
-                          )}
-                          {contract.startDate && (
-                            <span className="flex items-center gap-1">
-                              <CalendarDays className="h-3 w-3" />
-                              {formatDate(contract.startDate)}
-                              {contract.endDate && ` → ${formatDate(contract.endDate)}`}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mt-2">
-                          {contract.distanciaKm && (
-                            <span className="flex items-center gap-1">
-                              <Route className="h-3 w-3 text-blue-500" />
-                              {parseFloat(contract.distanciaKm).toLocaleString("pt-BR")} km
-                            </span>
-                          )}
-                          {contract.valorTotalCte && (
-                            <span className="flex items-center gap-1 font-semibold text-primary">
-                              <DollarSign className="h-3 w-3" />
-                              {formatCurrency(contract.valorTotalCte)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          onClick={() => handleView(contract)}
-                          title="Visualizar contrato"
-                          data-testid={`button-view-${contract.id}`}
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          onClick={() => handleEdit(contract)}
-                          title="Editar contrato"
-                          data-testid={`button-edit-${contract.id}`}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          onClick={() => setDeletingId(contract.id)}
-                          title="Remover contrato"
-                          data-testid={`button-delete-${contract.id}`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+        <DataTable
+          columns={[
+            {
+              key: "contractNumber",
+              label: "Nº Contrato",
+              render: (c: FreightContract) => (
+                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+                  {c.contractNumber}
+                </span>
+              ),
+            },
+            { key: "clientName", label: "Cliente" },
+            {
+              key: "status",
+              label: "Status",
+              render: (c: FreightContract) => {
+                const st = statusConfig[c.status as keyof typeof statusConfig] ?? statusConfig.ativo;
+                const StatusIcon = st.icon;
+                return (
+                  <Badge variant="outline" className={`text-xs ${st.className}`}>
+                    <StatusIcon className="h-3 w-3 mr-1" />
+                    {st.label}
+                  </Badge>
+                );
+              },
+            },
+            {
+              key: "distanciaKm",
+              label: "Distância",
+              render: (c: FreightContract) =>
+                c.distanciaKm ? `${parseFloat(c.distanciaKm).toLocaleString("pt-BR")} km` : "—",
+            },
+            {
+              key: "valorTotalCte",
+              label: "Valor Total",
+              render: (c: FreightContract) => (
+                <span className="font-semibold text-primary">
+                  {formatCurrency(c.valorTotalCte)}
+                </span>
+              ),
+            },
+            {
+              key: "startDate",
+              label: "Vigência",
+              render: (c: FreightContract) =>
+                c.startDate
+                  ? `${formatDate(c.startDate)}${c.endDate ? ` → ${formatDate(c.endDate)}` : ""}`
+                  : "—",
+            },
+            {
+              key: "actions",
+              label: "",
+              className: "w-28",
+              render: (c: FreightContract) => (
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleView(c)}
+                    title="Visualizar"
+                    data-testid={`button-view-${c.id}`}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleEdit(c)}
+                    title="Editar"
+                    data-testid={`button-edit-${c.id}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setDeletingId(c.id)}
+                    title="Remover"
+                    data-testid={`button-delete-${c.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ),
+            },
+          ]}
+          data={filtered}
+          isLoading={isLoading}
+          keyField="id"
+          onRowClick={handleView}
+          emptyMessage="Nenhum contrato encontrado"
+        />
       </div>
 
       <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
