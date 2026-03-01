@@ -321,7 +321,7 @@ const initialCheckFormData: CheckFormData = {
 export default function TransportsPage() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("em_transito");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewTransport, setViewTransport] = useState<TransportWithRelations | null>(null);
   const [checkinTransport, setCheckinTransport] = useState<TransportWithRelations | null>(null);
