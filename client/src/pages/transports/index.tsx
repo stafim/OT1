@@ -714,9 +714,9 @@ export default function TransportsPage() {
         ]}
       />
       <div className="flex-1 overflow-auto p-4 md:p-6">
-        <div className="mb-4 flex flex-col gap-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative max-w-sm flex-1">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-1 gap-2 max-w-lg">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nº solicitação, chassi ou cliente..."
@@ -726,61 +726,24 @@ export default function TransportsPage() {
                 data-testid="input-search-transports"
               />
             </div>
-            <Button onClick={() => setShowNewDialog(true)} data-testid="button-add-transport">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Transporte
-            </Button>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-44" data-testid="select-status-filter">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pendente">Pendente</SelectItem>
+                <SelectItem value="aguardando_saida">Aguardando Saída</SelectItem>
+                <SelectItem value="em_transito">Em Trânsito</SelectItem>
+                <SelectItem value="entregue">Entregue</SelectItem>
+                <SelectItem value="cancelado">Cancelado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={statusFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("all")}
-              data-testid="filter-all"
-            >
-              Todos
-            </Button>
-            <Button
-              variant={statusFilter === "pendente" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("pendente")}
-              data-testid="filter-pendente"
-            >
-              Pendente
-            </Button>
-            <Button
-              variant={statusFilter === "aguardando_saida" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("aguardando_saida")}
-              data-testid="filter-aguardando-saida"
-            >
-              Aguardando Saída
-            </Button>
-            <Button
-              variant={statusFilter === "em_transito" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("em_transito")}
-              data-testid="filter-em-transito"
-            >
-              Em Trânsito
-            </Button>
-            <Button
-              variant={statusFilter === "entregue" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("entregue")}
-              data-testid="filter-entregue"
-            >
-              Entregue
-            </Button>
-            <Button
-              variant={statusFilter === "cancelado" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("cancelado")}
-              data-testid="filter-cancelado"
-            >
-              Cancelado
-            </Button>
-          </div>
+          <Button onClick={() => setShowNewDialog(true)} data-testid="button-add-transport">
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Transporte
+          </Button>
         </div>
 
         <DataTable
