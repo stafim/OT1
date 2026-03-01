@@ -37,7 +37,6 @@ import {
   DollarSign,
   ShieldAlert,
   CarFront,
-  Calculator,
   Sparkles,
   FileText,
 } from "lucide-react";
@@ -110,11 +109,6 @@ const operationItems: MenuItem[] = [
     title: "Relatório de Avarias",
     url: "/relatorio-avarias",
     icon: ShieldAlert,
-  },
-  {
-    title: "Cotação de Frete",
-    url: "/cotacao-frete",
-    icon: Calculator,
   },
   {
     title: "Cotação de Frete PRO",
