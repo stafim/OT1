@@ -883,6 +883,7 @@ export const evaluationScores = pgTable("evaluation_scores", {
   criteriaId: varchar("criteria_id").notNull().references(() => evaluationCriteria.id),
   score: numeric("score", { precision: 5, scale: 2 }).notNull(),
   severity: evaluationSeverityEnum("severity").default("sem_ocorrencia"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -109,10 +109,14 @@ function SeveritySelector({
   criteria,
   severity,
   onChange,
+  reason,
+  onReasonChange,
 }: {
   criteria: EvaluationCriteria;
   severity: SeverityLevel;
   onChange: (severity: SeverityLevel) => void;
+  reason: string;
+  onReasonChange: (reason: string) => void;
 }) {
   const getPenalty = (sev: SeverityLevel) => {
     if (sev === "sem_ocorrencia") return 0;
@@ -165,6 +169,14 @@ function SeveritySelector({
           );
         })}
       </div>
+      <Textarea
+        placeholder="Motivo / observação (opcional)..."
+        value={reason}
+        onChange={(e) => onReasonChange(e.target.value)}
+        rows={2}
+        className="text-xs resize-none"
+        data-testid={`textarea-reason-${criteria.id}`}
+      />
     </div>
   );
 }
@@ -179,6 +191,7 @@ export default function DriverEvaluationsPage() {
   const [hadIncident, setHadIncident] = useState(false);
   const [incidentDescription, setIncidentDescription] = useState("");
   const [criteriaSeverities, setCriteriaSeverities] = useState<Record<string, SeverityLevel>>({});
+  const [criteriaReasons, setCriteriaReasons] = useState<Record<string, string>>({});
   const [manualScore, setManualScore] = useState("100");
   const { toast } = useToast();
 
@@ -221,6 +234,7 @@ export default function DriverEvaluationsPage() {
 
   const resetForm = () => {
     setCriteriaSeverities({});
+    setCriteriaReasons({});
     setHadIncident(false);
     setIncidentDescription("");
     setManualScore("100");
@@ -230,10 +244,13 @@ export default function DriverEvaluationsPage() {
   const handleOpenEvaluation = (transport: TransportWithDetails) => {
     setSelectedTransport(transport);
     const defaultSeverities: Record<string, SeverityLevel> = {};
+    const defaultReasons: Record<string, string> = {};
     activeCriteria.forEach(c => {
       defaultSeverities[c.id] = "sem_ocorrencia";
+      defaultReasons[c.id] = "";
     });
     setCriteriaSeverities(defaultSeverities);
+    setCriteriaReasons(defaultReasons);
     setHadIncident(false);
     setIncidentDescription("");
     setManualScore("100");
@@ -293,6 +310,7 @@ export default function DriverEvaluationsPage() {
     const scoresToSubmit = activeCriteria.map(c => ({
       criteriaId: c.id,
       severity: criteriaSeverities[c.id] || "sem_ocorrencia",
+      notes: criteriaReasons[c.id]?.trim() || null,
     }));
 
     const finalWeightedScore = hadIncident ? parseFloat(manualScore) : calculateWeightedScore();
@@ -546,6 +564,8 @@ export default function DriverEvaluationsPage() {
                       criteria={c}
                       severity={criteriaSeverities[c.id] || "sem_ocorrencia"}
                       onChange={(sev) => setCriteriaSeverities(prev => ({ ...prev, [c.id]: sev }))}
+                      reason={criteriaReasons[c.id] || ""}
+                      onReasonChange={(r) => setCriteriaReasons(prev => ({ ...prev, [c.id]: r }))}
                     />
                   ))}
                 </div>
@@ -663,14 +683,19 @@ export default function DriverEvaluationsPage() {
                     const severityValue = (score.severity || "sem_ocorrencia") as SeverityLevel;
                     const scoreNum = parseFloat(score.score);
                     return (
-                      <div key={score.id} className="flex items-center justify-between p-3 rounded-lg border">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{score.criteria?.name || "Critério"}</p>
-                          <Badge className={`mt-1 text-xs ${severityColors[severityValue]}`} variant="outline">
-                            {severityLabels[severityValue]}
-                          </Badge>
+                      <div key={score.id} className="p-3 rounded-lg border space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{score.criteria?.name || "Critério"}</p>
+                            <Badge className={`mt-1 text-xs ${severityColors[severityValue]}`} variant="outline">
+                              {severityLabels[severityValue]}
+                            </Badge>
+                          </div>
+                          <ScoreDisplay score={scoreNum} label="pts" />
                         </div>
-                        <ScoreDisplay score={scoreNum} label="pts" />
+                        {score.notes && (
+                          <p className="text-xs text-muted-foreground border-t pt-1 mt-1">{score.notes}</p>
+                        )}
                       </div>
                     );
                   })}

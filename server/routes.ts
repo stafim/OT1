@@ -2886,6 +2886,7 @@ export async function registerRoutes(
             criteriaId: cs.criteriaId,
             score: (cs.calculatedScore ?? cs.score ?? 100).toString(),
             severity: cs.severity || "sem_ocorrencia",
+            notes: cs.notes || null,
           });
         }
 
