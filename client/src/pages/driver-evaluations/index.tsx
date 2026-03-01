@@ -28,6 +28,7 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
+  Pencil,
 } from "lucide-react";
 import type { Transport, Driver, Vehicle, Client, DeliveryLocation, DriverEvaluation, EvaluationCriteria, EvaluationScore } from "@shared/schema";
 
@@ -193,6 +194,7 @@ export default function DriverEvaluationsPage() {
   const [criteriaSeverities, setCriteriaSeverities] = useState<Record<string, SeverityLevel>>({});
   const [criteriaReasons, setCriteriaReasons] = useState<Record<string, string>>({});
   const [manualScore, setManualScore] = useState("100");
+  const [editingEvaluationId, setEditingEvaluationId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: pendingTransports, isLoading: loadingPending } = useQuery<TransportWithDetails[]>({
@@ -232,6 +234,28 @@ export default function DriverEvaluationsPage() {
     },
   });
 
+  const updateEvaluationMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest("PUT", `/api/driver-evaluations/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-evaluations"] });
+      setShowEvaluationDialog(false);
+      resetForm();
+      toast({
+        title: "Avaliação atualizada",
+        description: "A avaliação foi editada com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a avaliação.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetForm = () => {
     setCriteriaSeverities({});
     setCriteriaReasons({});
@@ -239,9 +263,11 @@ export default function DriverEvaluationsPage() {
     setIncidentDescription("");
     setManualScore("100");
     setSelectedTransport(null);
+    setEditingEvaluationId(null);
   };
 
   const handleOpenEvaluation = (transport: TransportWithDetails) => {
+    setEditingEvaluationId(null);
     setSelectedTransport(transport);
     const defaultSeverities: Record<string, SeverityLevel> = {};
     const defaultReasons: Record<string, string> = {};
@@ -254,6 +280,31 @@ export default function DriverEvaluationsPage() {
     setHadIncident(false);
     setIncidentDescription("");
     setManualScore("100");
+    setShowEvaluationDialog(true);
+  };
+
+  const handleOpenEditEvaluation = (evaluation: EvaluationWithDetails) => {
+    setEditingEvaluationId(evaluation.id);
+    const syntheticTransport = {
+      ...evaluation.transport,
+      driver: evaluation.driver,
+    } as unknown as TransportWithDetails;
+    setSelectedTransport(syntheticTransport);
+
+    const severities: Record<string, SeverityLevel> = {};
+    const reasons: Record<string, string> = {};
+    activeCriteria.forEach(c => {
+      const existingScore = evaluation.scores?.find(s => s.criteriaId === c.id);
+      severities[c.id] = (existingScore?.severity as SeverityLevel) || "sem_ocorrencia";
+      reasons[c.id] = existingScore?.notes || "";
+    });
+    setCriteriaSeverities(severities);
+    setCriteriaReasons(reasons);
+    setHadIncident(evaluation.hadIncident === "true");
+    setIncidentDescription(evaluation.incidentDescription || "");
+    const ws = parseFloat(evaluation.weightedScore || evaluation.averageScore || "100");
+    setManualScore(ws.toFixed(1));
+    setShowDetailsDialog(false);
     setShowEvaluationDialog(true);
   };
 
@@ -315,7 +366,7 @@ export default function DriverEvaluationsPage() {
 
     const finalWeightedScore = hadIncident ? parseFloat(manualScore) : calculateWeightedScore();
 
-    submitEvaluationMutation.mutate({
+    const payload = {
       transportId: selectedTransport.id,
       driverId: selectedTransport.driverId,
       evaluatorId: "system",
@@ -325,7 +376,13 @@ export default function DriverEvaluationsPage() {
       averageScore: calculateSimpleAverage().toFixed(2),
       weightedScore: finalWeightedScore.toFixed(2),
       criteriaScores: scoresToSubmit,
-    });
+    };
+
+    if (editingEvaluationId) {
+      updateEvaluationMutation.mutate({ id: editingEvaluationId, data: payload });
+    } else {
+      submitEvaluationMutation.mutate(payload);
+    }
   };
 
   const filteredPending = pendingTransports?.filter((t) =>
@@ -497,7 +554,7 @@ export default function DriverEvaluationsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Award className="h-5 w-5 text-primary" />
-              Avaliar Motorista
+              {editingEvaluationId ? "Editar Avaliação" : "Avaliar Motorista"}
             </DialogTitle>
           </DialogHeader>
 
@@ -623,11 +680,11 @@ export default function DriverEvaluationsPage() {
             </Button>
             <Button
               onClick={handleSubmitEvaluation}
-              disabled={submitEvaluationMutation.isPending || activeCriteria.length === 0}
+              disabled={submitEvaluationMutation.isPending || updateEvaluationMutation.isPending || activeCriteria.length === 0}
               data-testid="button-submit-evaluation"
             >
               <Send className="h-4 w-4 mr-2" />
-              Enviar Avaliação
+              {editingEvaluationId ? "Salvar Alterações" : "Enviar Avaliação"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -720,6 +777,17 @@ export default function DriverEvaluationsPage() {
               </Card>
             </div>
           )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => selectedEvaluation && handleOpenEditEvaluation(selectedEvaluation)}
+              data-testid="button-edit-evaluation"
+              className="gap-2"
+            >
+              <Pencil className="h-4 w-4" />
+              Editar Avaliação
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

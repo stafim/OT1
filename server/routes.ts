@@ -2917,6 +2917,77 @@ export async function registerRoutes(
     }
   });
 
+  app.put("/api/driver-evaluations/:id", isAuthenticatedJWT, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { criteriaScores, ...evaluationData } = req.body;
+
+      const existing = await db.select().from(driverEvaluations).where(eq(driverEvaluations.id, id)).limit(1);
+      if (existing.length === 0) return res.status(404).json({ message: "Evaluation not found" });
+
+      if (!criteriaScores || !Array.isArray(criteriaScores) || criteriaScores.length === 0) {
+        return res.status(400).json({ message: "criteriaScores required" });
+      }
+
+      const activeCriteria = await db.select().from(evaluationCriteria)
+        .where(eq(evaluationCriteria.isActive, "true"));
+
+      let weightedSum = 0;
+      let totalWeight = 0;
+      let simpleSum = 0;
+
+      for (const cs of criteriaScores) {
+        const criteria = activeCriteria.find(c => c.id === cs.criteriaId);
+        if (criteria) {
+          const weight = parseFloat(criteria.weight);
+          const severity = cs.severity || "sem_ocorrencia";
+          let penaltyPercent = 0;
+          if (severity === "leve") penaltyPercent = parseFloat(criteria.penaltyLeve || "10");
+          else if (severity === "medio") penaltyPercent = parseFloat(criteria.penaltyMedio || "50");
+          else if (severity === "grave") penaltyPercent = parseFloat(criteria.penaltyGrave || "100");
+          const score = 100 - penaltyPercent;
+          cs.calculatedScore = score;
+          weightedSum += score * (weight / 100);
+          totalWeight += weight;
+          simpleSum += score;
+        }
+      }
+
+      const weightedScore = totalWeight > 0 ? weightedSum : 0;
+      const averageScore = criteriaScores.length > 0 ? (simpleSum / criteriaScores.length) : 0;
+
+      const [evaluation] = await db.update(driverEvaluations)
+        .set({
+          hadIncident: evaluationData.hadIncident,
+          incidentDescription: evaluationData.incidentDescription ?? null,
+          averageScore: averageScore.toFixed(2),
+          weightedScore: weightedScore.toFixed(2),
+        })
+        .where(eq(driverEvaluations.id, id))
+        .returning();
+
+      await db.delete(evaluationScores).where(eq(evaluationScores.evaluationId, id));
+
+      for (const cs of criteriaScores) {
+        await db.insert(evaluationScores).values({
+          evaluationId: id,
+          criteriaId: cs.criteriaId,
+          score: (cs.calculatedScore ?? cs.score ?? 100).toString(),
+          severity: cs.severity || "sem_ocorrencia",
+          notes: cs.notes || null,
+        });
+      }
+
+      const scores = await db.select().from(evaluationScores)
+        .where(eq(evaluationScores.evaluationId, id));
+
+      res.json({ ...evaluation, scores });
+    } catch (error) {
+      console.error("Error updating evaluation:", error);
+      res.status(500).json({ message: "Failed to update evaluation" });
+    }
+  });
+
   app.get("/api/drivers/:id/evaluation-summary", isAuthenticatedJWT, async (req, res) => {
     try {
       const evaluations = await db.select().from(driverEvaluations)
