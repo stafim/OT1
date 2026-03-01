@@ -41,7 +41,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { normalizeImageUrl, cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Truck, CheckCircle, Clock, Building, MapPin, User, DoorOpen, Loader2, Search, LogOut, Package, Eye, Shield, History, AlertCircle, Plus, ChevronsUpDown, Check as CheckIcon } from "lucide-react";
+import { Truck, CheckCircle, Clock, Building, MapPin, User, DoorOpen, Loader2, Search, LogOut, Package, Eye, Shield, History, AlertCircle, Plus, ChevronsUpDown, Check as CheckIcon, LayoutGrid, List } from "lucide-react";
 import type { Collect, Manufacturer, Yard, Driver, Vehicle, Transport, Client, DeliveryLocation } from "@shared/schema";
 
 const newCollectFormSchema = z.object({
@@ -85,6 +85,7 @@ export default function PortariaPage() {
   const [confirmExitWithoutCheckin, setConfirmExitWithoutCheckin] = useState<string | null>(null);
   const [exitAuthorizationReason, setExitAuthorizationReason] = useState("");
   const [showNewCollectDialog, setShowNewCollectDialog] = useState(false);
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
   const [openManufacturer, setOpenManufacturer] = useState(false);
   const [openYard, setOpenYard] = useState(false);
   const [openDriver, setOpenDriver] = useState(false);
@@ -256,6 +257,31 @@ export default function PortariaPage() {
         ]}
       />
       <div className="flex-1 overflow-auto p-4 md:p-6">
+        <div className="flex justify-end mb-4">
+          <div className="flex items-center border rounded-md overflow-hidden">
+            <Button
+              variant={viewMode === "cards" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-none h-8 px-3 gap-1.5"
+              onClick={() => setViewMode("cards")}
+              data-testid="button-view-cards"
+            >
+              <LayoutGrid className="h-4 w-4" />
+              Cards
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-none h-8 px-3 gap-1.5"
+              onClick={() => setViewMode("list")}
+              data-testid="button-view-list"
+            >
+              <List className="h-4 w-4" />
+              Lista
+            </Button>
+          </div>
+        </div>
+
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
@@ -342,7 +368,7 @@ export default function PortariaPage() {
                   </p>
                 </CardContent>
               </Card>
-            ) : (
+            ) : viewMode === "cards" ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {pendingCollects.map((collect) => {
                   const manufacturer = getManufacturer(collect.manufacturerId);
@@ -445,6 +471,56 @@ export default function PortariaPage() {
                   );
                 })}
               </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-0 bg-muted/50 border-b px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <span>Chassi</span>
+                  <span>Origem</span>
+                  <span>Destino</span>
+                  <span>Motorista</span>
+                  <span>Data</span>
+                  <span></span>
+                </div>
+                {pendingCollects.map((collect, idx) => {
+                  const manufacturer = getManufacturer(collect.manufacturerId);
+                  const yard = getYard(collect.yardId);
+                  const driver = collect.driverId ? getDriver(collect.driverId) : null;
+                  const isAuthorizing = authorizeMutation.isPending;
+                  const dateStr = collect.collectDate ? (() => {
+                    const s = String(collect.collectDate);
+                    const m = s.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+                    return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : "-";
+                  })() : "-";
+
+                  return (
+                    <div
+                      key={collect.id}
+                      className={cn(
+                        "grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-0 items-center px-4 py-3 text-sm",
+                        idx % 2 === 0 ? "bg-background" : "bg-muted/20",
+                        "border-b last:border-b-0"
+                      )}
+                      data-testid={`row-collect-${collect.id}`}
+                    >
+                      <span className="font-mono font-medium text-xs">{collect.vehicleChassi}</span>
+                      <span className="text-muted-foreground truncate pr-2">{manufacturer?.name || "-"}</span>
+                      <span className="text-muted-foreground truncate pr-2">{yard?.name || "-"}</span>
+                      <span className="truncate pr-2">{driver?.name || <span className="text-muted-foreground">-</span>}</span>
+                      <span className="text-muted-foreground text-xs">{dateStr}</span>
+                      <Button
+                        size="sm"
+                        onClick={() => authorizeMutation.mutate(collect.id)}
+                        disabled={isAuthorizing}
+                        className="whitespace-nowrap"
+                        data-testid={`button-authorize-list-${collect.id}`}
+                      >
+                        {isAuthorizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5 mr-1" />}
+                        Autorizar
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </TabsContent>
 
@@ -483,7 +559,7 @@ export default function PortariaPage() {
                   </p>
                 </CardContent>
               </Card>
-            ) : (
+            ) : viewMode === "cards" ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {finalizedCollects.map((collect) => {
                   const manufacturer = getManufacturer(collect.manufacturerId);
@@ -551,6 +627,48 @@ export default function PortariaPage() {
                         </Button>
                       </CardContent>
                     </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-0 bg-muted/50 border-b px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <span>Chassi</span>
+                  <span>Origem</span>
+                  <span>Destino</span>
+                  <span>Motorista</span>
+                  <span>Entrada</span>
+                  <span></span>
+                </div>
+                {finalizedCollects.map((collect, idx) => {
+                  const manufacturer = getManufacturer(collect.manufacturerId);
+                  const yard = getYard(collect.yardId);
+                  const driver = collect.driverId ? getDriver(collect.driverId) : null;
+                  const approverName = getApproverName(collect);
+
+                  return (
+                    <div
+                      key={collect.id}
+                      className={cn(
+                        "grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-0 items-center px-4 py-3 text-sm cursor-pointer hover:bg-muted/40 transition-colors",
+                        idx % 2 === 0 ? "bg-background" : "bg-muted/20",
+                        "border-b last:border-b-0"
+                      )}
+                      onClick={() => setSelectedCollectId(collect.id)}
+                      data-testid={`row-history-${collect.id}`}
+                    >
+                      <span className="font-mono font-medium text-xs">{collect.vehicleChassi}</span>
+                      <span className="text-muted-foreground truncate pr-2">{manufacturer?.name || "-"}</span>
+                      <span className="text-muted-foreground truncate pr-2">{yard?.name || "-"}</span>
+                      <span className="truncate pr-2">{driver?.name || <span className="text-muted-foreground">-</span>}</span>
+                      <div className="text-xs text-muted-foreground">
+                        <div>{collect.checkoutDateTime ? format(new Date(collect.checkoutDateTime), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</div>
+                        {approverName && <div className="text-primary text-xs">{approverName}</div>}
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedCollectId(collect.id); }} data-testid={`button-view-list-${collect.id}`}>
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   );
                 })}
               </div>
@@ -623,7 +741,7 @@ export default function PortariaPage() {
               </p>
             </CardContent>
           </Card>
-        ) : (
+        ) : viewMode === "cards" ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {pendingTransports.map((transport) => {
               const originYard = getYard(transport.originYardId);
@@ -771,6 +889,84 @@ export default function PortariaPage() {
                     )}
                   </CardContent>
                 </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_auto_auto] gap-0 bg-muted/50 border-b px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <span className="pr-4">OTD</span>
+              <span>Chassi</span>
+              <span>Origem</span>
+              <span>Cliente</span>
+              <span>Destino</span>
+              <span>Motorista</span>
+              <span>Status</span>
+              <span></span>
+            </div>
+            {pendingTransports.map((transport, idx) => {
+              const originYard = getYard(transport.originYardId);
+              const isAuthorizing = authorizeExitMutation.isPending;
+              const client = (transport as any).client;
+              const deliveryLocation = (transport as any).deliveryLocation;
+              const driver = (transport as any).driver;
+              const isPendingCheckin = transport.status === "pendente";
+
+              return (
+                <div
+                  key={transport.id}
+                  className={cn(
+                    "grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_auto_auto] gap-0 items-center px-4 py-3 text-sm",
+                    idx % 2 === 0 ? "bg-background" : "bg-muted/20",
+                    "border-b last:border-b-0"
+                  )}
+                  data-testid={`row-transport-${transport.id}`}
+                >
+                  <span className="font-mono text-xs font-semibold pr-4">{transport.requestNumber}</span>
+                  <span className="font-mono text-xs pr-2">{transport.vehicleChassi}</span>
+                  <span className="text-muted-foreground truncate pr-2">{originYard?.name || "-"}</span>
+                  <span className="truncate pr-2">{client?.name || "-"}</span>
+                  <span className="text-muted-foreground truncate pr-2">
+                    {deliveryLocation ? `${deliveryLocation.city}/${deliveryLocation.state}` : "-"}
+                  </span>
+                  <span className="truncate pr-2">{driver?.name || <span className="text-muted-foreground">-</span>}</span>
+                  <span className="pr-3">
+                    {isPendingCheckin ? (
+                      <Badge variant="secondary" className="text-xs bg-orange-500/20 text-orange-700 whitespace-nowrap">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Falta Check-in
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700 whitespace-nowrap">
+                        Aguard. Saída
+                      </Badge>
+                    )}
+                  </span>
+                  {isPendingCheckin ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-orange-400 text-orange-700 hover:bg-orange-50 whitespace-nowrap"
+                      onClick={() => setConfirmExitWithoutCheckin(transport.id)}
+                      disabled={isAuthorizing}
+                      data-testid={`button-authorize-exit-list-nocheckin-${transport.id}`}
+                    >
+                      <LogOut className="h-3.5 w-3.5 mr-1" />
+                      Autorizar
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => authorizeExitMutation.mutate(transport.id)}
+                      disabled={isAuthorizing}
+                      className="whitespace-nowrap"
+                      data-testid={`button-authorize-exit-list-${transport.id}`}
+                    >
+                      {isAuthorizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5 mr-1" />}
+                      Autorizar
+                    </Button>
+                  )}
+                </div>
               );
             })}
           </div>
