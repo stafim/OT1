@@ -101,11 +101,6 @@ const operationItems: MenuItem[] = [
     icon: FileBarChart,
   },
   {
-    title: "Rotograma (Em dev)",
-    url: "/rotograma",
-    icon: Route,
-  },
-  {
     title: "Relatório de Avarias",
     url: "/relatorio-avarias",
     icon: ShieldAlert,
