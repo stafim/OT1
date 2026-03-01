@@ -1276,6 +1276,35 @@ export async function registerRoutes(
   });
 
   // Transport Check-out (delivery to client)
+  app.patch("/api/transports/:id/conclude", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const existingTransport = await storage.getTransport(req.params.id);
+      if (!existingTransport) {
+        return res.status(404).json({ message: "Transport not found" });
+      }
+      if (existingTransport.status === "entregue") {
+        return res.status(400).json({ message: "Transporte já foi concluído" });
+      }
+      if (existingTransport.status === "cancelado") {
+        return res.status(400).json({ message: "Transporte cancelado não pode ser concluído" });
+      }
+
+      const transport = await storage.updateTransport(req.params.id, {
+        status: "entregue",
+        checkoutDateTime: existingTransport.checkoutDateTime ?? new Date(),
+      });
+
+      await storage.updateVehicle(existingTransport.vehicleChassi, {
+        status: "entregue",
+      });
+
+      res.json(transport);
+    } catch (error: any) {
+      console.error("Error concluding transport:", error);
+      res.status(400).json({ message: error.message || "Failed to conclude transport" });
+    }
+  });
+
   app.patch("/api/transports/:id/checkout", isAuthenticatedJWT, async (req, res) => {
     try {
       const { latitude, longitude, frontalPhoto, lateral1Photo, lateral2Photo, traseiraPhoto, odometerPhoto, fuelLevelPhoto, damagePhotos, selfiePhoto, notes } = req.body;

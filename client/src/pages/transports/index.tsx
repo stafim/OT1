@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye, Navigation, Clock, Fuel, Receipt, Route, Car, Info, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye, Navigation, Clock, Fuel, Receipt, Route, Car, Info, Check, ChevronsUpDown, PackageCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { normalizeImageUrl, cn } from "@/lib/utils";
@@ -331,6 +331,7 @@ export default function TransportsPage() {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [clearCheckinId, setClearCheckinId] = useState<string | null>(null);
   const [clearCheckoutId, setClearCheckoutId] = useState<string | null>(null);
+  const [concludeTransportId, setConcludeTransportId] = useState<string | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [chassiComboOpen, setChassiComboOpen] = useState(false);
   const [newTransportData, setNewTransportData] = useState({
@@ -533,6 +534,23 @@ export default function TransportsPage() {
     },
   });
 
+  const concludeTransportMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("PATCH", `/api/transports/${id}/conclude`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transports"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+      toast({ title: "Transporte concluído com sucesso" });
+      setConcludeTransportId(null);
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || "Erro ao concluir transporte", variant: "destructive" });
+      setConcludeTransportId(null);
+    },
+  });
+
   const getLocation = (setter: (data: CheckFormData) => void, data: CheckFormData) => {
     setGettingLocation(true);
     navigator.geolocation.getCurrentPosition(
@@ -675,6 +693,25 @@ export default function TransportsPage() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Excluir Check-out</TooltipContent>
+            </Tooltip>
+          )}
+          {t.status !== "entregue" && t.status !== "cancelado" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConcludeTransportId(t.id);
+                  }}
+                  data-testid={`button-conclude-${t.id}`}
+                  className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
+                >
+                  <PackageCheck className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Concluir Transporte</TooltipContent>
             </Tooltip>
           )}
           <Button
@@ -1325,6 +1362,31 @@ export default function TransportsPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir Check-out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!concludeTransportId} onOpenChange={() => setConcludeTransportId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <PackageCheck className="h-5 w-5 text-green-600" />
+              Concluir Transporte
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja concluir este transporte? O status será marcado como <strong>Entregue</strong> e o veículo também será atualizado. Esta ação não pode ser desfeita facilmente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => concludeTransportId && concludeTransportMutation.mutate(concludeTransportId)}
+              className="bg-green-600 text-white hover:bg-green-700"
+              data-testid="button-confirm-conclude"
+            >
+              {concludeTransportMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Concluir Transporte
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
