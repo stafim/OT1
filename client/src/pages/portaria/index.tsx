@@ -524,40 +524,62 @@ export default function PortariaPage() {
                 })}
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden divide-y">
-                {pendingCollects.map((collect) => {
+              <div className="border rounded-lg overflow-hidden">
+                <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto_auto] gap-0 bg-muted/50 border-b px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <span>Chassi</span>
+                  <span>Origem</span>
+                  <span>Destino</span>
+                  <span>Motorista</span>
+                  <span>Data</span>
+                  <span></span>
+                  <span></span>
+                </div>
+                {pendingCollects.map((collect, idx) => {
+                  const manufacturer = getManufacturer(collect.manufacturerId);
+                  const yard = getYard(collect.yardId);
+                  const driver = collect.driverId ? getDriver(collect.driverId) : null;
                   const isAuthorizing = authorizeMutation.isPending;
+                  const dateStr = collect.collectDate ? (() => {
+                    const s = String(collect.collectDate);
+                    const m = s.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+                    return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : "-";
+                  })() : "-";
+
                   return (
                     <div
                       key={collect.id}
-                      className="flex items-center justify-between px-4 py-3 bg-background hover:bg-muted/40 transition-colors"
+                      className={cn(
+                        "grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto_auto] gap-0 items-center px-4 py-3 text-sm cursor-pointer hover:bg-muted/40 transition-colors",
+                        idx % 2 === 0 ? "bg-background" : "bg-muted/20",
+                        "border-b last:border-b-0"
+                      )}
+                      onClick={() => setSelectedCollectId(collect.id)}
                       data-testid={`row-collect-${collect.id}`}
                     >
-                      <div className="flex items-center gap-3">
-                        <Truck className="h-4 w-4 text-amber-500 shrink-0" />
-                        <span className="font-mono font-semibold text-sm tracking-wide">{collect.vehicleChassi}</span>
-                        <Badge variant="secondary" className="text-xs">Em Trânsito</Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedCollectId(collect.id)}
-                          className="text-muted-foreground"
-                          data-testid={`button-detail-list-${collect.id}`}
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={(e) => { e.stopPropagation(); authorizeMutation.mutate(collect.id); }}
-                          disabled={isAuthorizing}
-                          data-testid={`button-authorize-list-${collect.id}`}
-                        >
-                          {isAuthorizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5 mr-1" />}
-                          Autorizar Entrada
-                        </Button>
-                      </div>
+                      <span className="font-mono font-medium text-xs">{collect.vehicleChassi}</span>
+                      <span className="text-muted-foreground truncate pr-2">{manufacturer?.name || "-"}</span>
+                      <span className="text-muted-foreground truncate pr-2">{yard?.name || "-"}</span>
+                      <span className="truncate pr-2">{driver?.name || <span className="text-muted-foreground">-</span>}</span>
+                      <span className="text-muted-foreground text-xs">{dateStr}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); setSelectedCollectId(collect.id); }}
+                        className="text-muted-foreground"
+                        data-testid={`button-detail-list-${collect.id}`}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); authorizeMutation.mutate(collect.id); }}
+                        disabled={isAuthorizing}
+                        className="whitespace-nowrap"
+                        data-testid={`button-authorize-list-${collect.id}`}
+                      >
+                        {isAuthorizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5 mr-1" />}
+                        Autorizar
+                      </Button>
                     </div>
                   );
                 })}
@@ -934,61 +956,90 @@ export default function PortariaPage() {
             })}
           </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden divide-y">
-            {pendingTransports.map((transport) => {
+          <div className="border rounded-lg overflow-hidden">
+            <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_auto_auto_auto] gap-0 bg-muted/50 border-b px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <span className="pr-4">OTD</span>
+              <span>Chassi</span>
+              <span>Origem</span>
+              <span>Cliente</span>
+              <span>Destino</span>
+              <span>Motorista</span>
+              <span>Status</span>
+              <span></span>
+              <span></span>
+            </div>
+            {pendingTransports.map((transport, idx) => {
+              const originYard = getYard(transport.originYardId);
               const isAuthorizing = authorizeExitMutation.isPending;
+              const client = (transport as any).client;
+              const deliveryLocation = (transport as any).deliveryLocation;
+              const driver = (transport as any).driver;
               const isPendingCheckin = transport.status === "pendente";
+
               return (
                 <div
                   key={transport.id}
-                  className="flex items-center justify-between px-4 py-3 bg-background hover:bg-muted/40 transition-colors"
+                  className={cn(
+                    "grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_auto_auto_auto] gap-0 items-center px-4 py-3 text-sm cursor-pointer hover:bg-muted/40 transition-colors",
+                    idx % 2 === 0 ? "bg-background" : "bg-muted/20",
+                    "border-b last:border-b-0"
+                  )}
+                  onClick={() => setSelectedTransportId(transport.id)}
                   data-testid={`row-transport-${transport.id}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <LogOut className={`h-4 w-4 shrink-0 ${isPendingCheckin ? "text-orange-500" : "text-blue-500"}`} />
-                    <span className="font-mono font-semibold text-sm tracking-wide">{transport.vehicleChassi}</span>
+                  <span className="font-mono text-xs font-semibold pr-4">{transport.requestNumber}</span>
+                  <span className="font-mono text-xs pr-2">{transport.vehicleChassi}</span>
+                  <span className="text-muted-foreground truncate pr-2">{originYard?.name || "-"}</span>
+                  <span className="truncate pr-2">{client?.name || "-"}</span>
+                  <span className="text-muted-foreground truncate pr-2">
+                    {deliveryLocation ? `${deliveryLocation.city}/${deliveryLocation.state}` : "-"}
+                  </span>
+                  <span className="truncate pr-2">{driver?.name || <span className="text-muted-foreground">-</span>}</span>
+                  <span className="pr-3">
                     {isPendingCheckin ? (
-                      <Badge variant="secondary" className="text-xs bg-orange-500/20 text-orange-700">
-                        <AlertCircle className="h-3 w-3 mr-1" />Falta Check-in
+                      <Badge variant="secondary" className="text-xs bg-orange-500/20 text-orange-700 whitespace-nowrap">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Falta Check-in
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700">Aguard. Saída</Badge>
+                      <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700 whitespace-nowrap">
+                        Aguard. Saída
+                      </Badge>
                     )}
-                  </div>
-                  <div className="flex items-center gap-2">
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); setSelectedTransportId(transport.id); }}
+                    className="text-muted-foreground"
+                    data-testid={`button-detail-transport-${transport.id}`}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  {isPendingCheckin ? (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      onClick={() => setSelectedTransportId(transport.id)}
-                      className="text-muted-foreground"
-                      data-testid={`button-detail-transport-${transport.id}`}
+                      className="border-orange-400 text-orange-700 hover:bg-orange-50 whitespace-nowrap"
+                      onClick={(e) => { e.stopPropagation(); setConfirmExitWithoutCheckin(transport.id); }}
+                      disabled={isAuthorizing}
+                      data-testid={`button-authorize-exit-list-nocheckin-${transport.id}`}
                     >
-                      <Eye className="h-3.5 w-3.5" />
+                      <LogOut className="h-3.5 w-3.5 mr-1" />
+                      Autorizar
                     </Button>
-                    {isPendingCheckin ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-orange-400 text-orange-700 hover:bg-orange-50 whitespace-nowrap"
-                        onClick={(e) => { e.stopPropagation(); setConfirmExitWithoutCheckin(transport.id); }}
-                        disabled={isAuthorizing}
-                        data-testid={`button-authorize-exit-list-nocheckin-${transport.id}`}
-                      >
-                        <LogOut className="h-3.5 w-3.5 mr-1" />
-                        Autorizar Saída
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={(e) => { e.stopPropagation(); authorizeExitMutation.mutate(transport.id); }}
-                        disabled={isAuthorizing}
-                        data-testid={`button-authorize-exit-list-${transport.id}`}
-                      >
-                        {isAuthorizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5 mr-1" />}
-                        Autorizar Saída
-                      </Button>
-                    )}
-                  </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); authorizeExitMutation.mutate(transport.id); }}
+                      disabled={isAuthorizing}
+                      className="whitespace-nowrap"
+                      data-testid={`button-authorize-exit-list-${transport.id}`}
+                    >
+                      {isAuthorizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5 mr-1" />}
+                      Autorizar
+                    </Button>
+                  )}
                 </div>
               );
             })}
