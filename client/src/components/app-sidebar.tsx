@@ -156,6 +156,11 @@ const cadastroItems: MenuItem[] = [
     icon: Users,
   },
   {
+    title: "Rastreadores",
+    url: "/rastreadores",
+    icon: Radio,
+  },
+  {
     title: "Check Points (Em dev)",
     url: "/checkpoints",
     icon: MapPin,
