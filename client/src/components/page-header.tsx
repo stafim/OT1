@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Separator } from "@/components/ui/separator";
@@ -13,9 +14,10 @@ import {
 interface PageHeaderProps {
   title: string;
   breadcrumbs?: Array<{ label: string; href?: string }>;
+  actions?: ReactNode;
 }
 
-export function PageHeader({ title, breadcrumbs }: PageHeaderProps) {
+export function PageHeader({ title, breadcrumbs, actions }: PageHeaderProps) {
   return (
     <header className="sticky top-0 z-50 flex h-14 items-center justify-between gap-4 border-b bg-background px-4">
       <div className="flex items-center gap-4">
@@ -42,7 +44,10 @@ export function PageHeader({ title, breadcrumbs }: PageHeaderProps) {
           <h1 className="text-lg font-semibold" data-testid="text-page-title">{title}</h1>
         )}
       </div>
-      <ThemeToggle />
+      <div className="flex items-center gap-2">
+        {actions}
+        <ThemeToggle />
+      </div>
     </header>
   );
 }
