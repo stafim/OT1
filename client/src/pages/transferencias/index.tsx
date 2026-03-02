@@ -179,7 +179,7 @@ export default function TransferenciasPage() {
         actions={
           <Button onClick={() => setShowCreate(true)} data-testid="button-nova-transferencia">
             <Plus className="h-4 w-4 mr-2" />
-            Nova Transferência
+            Transferir
           </Button>
         }
       />
@@ -401,7 +401,7 @@ export default function TransferenciasPage() {
               data-testid="button-submit-create"
             >
               {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Criar Transferência
+              Transferir
             </Button>
           </DialogFooter>
         </DialogContent>
