@@ -277,6 +277,63 @@ export async function registerRoutes(
     }
   });
 
+  // Dashboard - Yard Stats
+  app.get("/api/dashboard/yard-stats", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const [allYards, allVehicles] = await Promise.all([
+        db.select().from(yards),
+        db.select().from(vehicles),
+      ]);
+
+      const statusLabels: Record<string, string> = {
+        pre_estoque: "Pré-Estoque",
+        em_estoque: "Em Estoque",
+        em_transferencia: "Em Transferência",
+        despachado: "Despachado",
+        entregue: "Entregue",
+        retirado: "Retirado",
+      };
+
+      const yardStats = allYards.map((yard) => {
+        const yardVehicles = allVehicles.filter((v) => v.yardId === yard.id);
+        const byStatus: Record<string, string[]> = {};
+        for (const v of yardVehicles) {
+          const st = v.status ?? "pre_estoque";
+          if (!byStatus[st]) byStatus[st] = [];
+          byStatus[st].push(v.chassi);
+        }
+        const statusBreakdown = Object.entries(byStatus).map(([status, chassis]) => ({
+          status,
+          label: statusLabels[status] ?? status,
+          count: chassis.length,
+          chassis,
+        }));
+        return {
+          id: yard.id,
+          name: yard.name,
+          city: yard.city,
+          state: yard.state,
+          total: yardVehicles.length,
+          statusBreakdown,
+        };
+      });
+
+      const totals = {
+        totalYards: allYards.length,
+        totalVehicles: allVehicles.length,
+        em_estoque: allVehicles.filter((v) => v.status === "em_estoque").length,
+        pre_estoque: allVehicles.filter((v) => v.status === "pre_estoque").length,
+        em_transferencia: allVehicles.filter((v) => v.status === "em_transferencia").length,
+        despachado: allVehicles.filter((v) => v.status === "despachado").length,
+      };
+
+      res.json({ yardStats, totals });
+    } catch (error) {
+      console.error("Error fetching yard stats:", error);
+      res.status(500).json({ message: "Failed to fetch yard stats" });
+    }
+  });
+
   // Yard Report - Billing by days in stock
   app.get("/api/reports/yard-billing", isAuthenticatedJWT, async (req, res) => {
     try {

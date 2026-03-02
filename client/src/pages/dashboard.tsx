@@ -11,10 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { 
   Truck, Package, Users, Warehouse, TrendingUp, DollarSign, 
   Clock, MapPin, CheckCircle2, AlertCircle, Timer, LayoutGrid,
-  Gauge, Star, Target, Activity, Zap, Calendar
+  Gauge, Star, Target, Activity, Zap, Calendar, Building, ArrowLeftRight, ChevronDown, ChevronUp
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -775,6 +776,260 @@ function EficienciaDashboard({ analytics, isLoading }: { analytics: Analytics | 
   );
 }
 
+interface YardStat {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+  total: number;
+  statusBreakdown: Array<{ status: string; label: string; count: number; chassis: string[] }>;
+}
+
+interface YardStatsData {
+  yardStats: YardStat[];
+  totals: {
+    totalYards: number;
+    totalVehicles: number;
+    em_estoque: number;
+    pre_estoque: number;
+    em_transferencia: number;
+    despachado: number;
+  };
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  pre_estoque: "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400",
+  em_estoque: "bg-green-500/20 text-green-700 dark:text-green-400",
+  em_transferencia: "bg-purple-500/20 text-purple-700 dark:text-purple-400",
+  despachado: "bg-blue-500/20 text-blue-700 dark:text-blue-400",
+  entregue: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400",
+  retirado: "bg-gray-500/20 text-gray-700 dark:text-gray-400",
+};
+
+const STATUS_CHART_COLORS: Record<string, string> = {
+  pre_estoque: "#EAB308",
+  em_estoque: "#22C55E",
+  em_transferencia: "#A855F7",
+  despachado: "#3B82F6",
+  entregue: "#10B981",
+  retirado: "#6B7280",
+};
+
+function YardCard({ yard }: { yard: YardStat }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <Card className="overflow-hidden" data-testid={`card-yard-${yard.id}`}>
+      <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20">
+              <Building className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{yard.name}</CardTitle>
+              {(yard.city || yard.state) && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <MapPin className="h-3 w-3" />
+                  {[yard.city, yard.state].filter(Boolean).join(" / ")}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold">{yard.total}</p>
+            <p className="text-xs text-muted-foreground">chassis</p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 space-y-3">
+        {yard.statusBreakdown.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-2">Nenhum veículo neste pátio</p>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {yard.statusBreakdown.map((s) => (
+                <div
+                  key={s.status}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[s.status] ?? "bg-muted text-muted-foreground"}`}
+                  data-testid={`badge-status-${yard.id}-${s.status}`}
+                >
+                  <span>{s.label}</span>
+                  <span className="font-bold">{s.count}</span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors pt-1"
+              onClick={() => setExpanded((e) => !e)}
+              data-testid={`button-expand-yard-${yard.id}`}
+            >
+              {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {expanded ? "Ocultar chassis" : "Ver chassis"}
+            </button>
+
+            {expanded && (
+              <div className="space-y-2 pt-1">
+                {yard.statusBreakdown.map((s) => (
+                  <div key={s.status}>
+                    <p className={`text-xs font-semibold mb-1 px-2 py-0.5 rounded w-fit ${STATUS_COLORS[s.status] ?? ""}`}>
+                      {s.label} ({s.count})
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 pl-1">
+                      {s.chassis.map((chassi) => (
+                        <Badge
+                          key={chassi}
+                          variant="outline"
+                          className="font-mono text-xs"
+                          data-testid={`badge-chassi-${chassi}`}
+                        >
+                          {chassi}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PatioDashboard() {
+  const { data, isLoading } = useQuery<YardStatsData>({
+    queryKey: ["/api/dashboard/yard-stats"],
+  });
+
+  const chartData = (data?.yardStats ?? [])
+    .filter((y) => y.total > 0)
+    .map((y) => {
+      const row: Record<string, string | number> = { name: y.name };
+      for (const s of y.statusBreakdown) {
+        row[s.status] = s.count;
+      }
+      return row;
+    });
+
+  const allStatuses = Array.from(
+    new Set((data?.yardStats ?? []).flatMap((y) => y.statusBreakdown.map((s) => s.status)))
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <KPICard
+          title="Pátios Ativos"
+          value={data?.totals.totalYards ?? 0}
+          subtitle="pátios cadastrados"
+          icon={Building}
+          isLoading={isLoading}
+          testId="kpi-total-yards"
+          color="primary"
+        />
+        <KPICard
+          title="Total de Chassis"
+          value={data?.totals.totalVehicles ?? 0}
+          subtitle="veículos no sistema"
+          icon={Truck}
+          isLoading={isLoading}
+          testId="kpi-total-vehicles-yard"
+          color="blue"
+        />
+        <KPICard
+          title="Em Estoque"
+          value={data?.totals.em_estoque ?? 0}
+          subtitle="prontos no pátio"
+          icon={Warehouse}
+          isLoading={isLoading}
+          testId="kpi-em-estoque"
+          color="success"
+        />
+        <KPICard
+          title="Em Transferência"
+          value={data?.totals.em_transferencia ?? 0}
+          subtitle="entre pátios"
+          icon={ArrowLeftRight}
+          isLoading={isLoading}
+          testId="kpi-em-transferencia"
+          color="purple"
+        />
+      </div>
+
+      {chartData.length > 0 && (
+        <Card data-testid="chart-yard-vehicles">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Building className="h-5 w-5 text-primary" />
+              Chassis por Pátio e Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-64 w-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                    formatter={(value: number, name: string) => [
+                      value,
+                      { pre_estoque: "Pré-Estoque", em_estoque: "Em Estoque", em_transferencia: "Em Transferência", despachado: "Despachado", entregue: "Entregue", retirado: "Retirado" }[name] ?? name
+                    ]}
+                  />
+                  <Legend formatter={(value) => ({ pre_estoque: "Pré-Estoque", em_estoque: "Em Estoque", em_transferencia: "Em Transferência", despachado: "Despachado", entregue: "Entregue", retirado: "Retirado" }[value] ?? value)} />
+                  {allStatuses.map((status) => (
+                    <Bar key={status} dataKey={status} stackId="a" fill={STATUS_CHART_COLORS[status] ?? "#94a3b8"} radius={status === allStatuses[allStatuses.length - 1] ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <div>
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Building className="h-5 w-5 text-muted-foreground" />
+          Detalhes por Pátio
+        </h2>
+        {isLoading ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <Skeleton className="h-5 w-40 mb-3" />
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-8 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (data?.yardStats ?? []).length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Building className="h-12 w-12 text-muted-foreground mb-4 opacity-30" />
+              <p className="text-muted-foreground">Nenhum pátio cadastrado</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {(data?.yardStats ?? []).map((yard) => (
+              <YardCard key={yard.id} yard={yard} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("geral");
   const [period, setPeriod] = useState("all");
@@ -789,7 +1044,7 @@ export default function DashboardPage() {
       <div className="flex-1 overflow-auto p-4 md:p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+            <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="geral" className="gap-2" data-testid="tab-geral">
               <LayoutGrid className="h-4 w-4 hidden sm:inline" />
               Geral
@@ -809,6 +1064,10 @@ export default function DashboardPage() {
             <TabsTrigger value="eficiencia" className="gap-2" data-testid="tab-eficiencia">
               <Gauge className="h-4 w-4 hidden sm:inline" />
               Eficiência
+            </TabsTrigger>
+            <TabsTrigger value="patio" className="gap-2" data-testid="tab-patio">
+              <Building className="h-4 w-4 hidden sm:inline" />
+              Pátio
             </TabsTrigger>
             </TabsList>
 
@@ -844,6 +1103,10 @@ export default function DashboardPage() {
 
           <TabsContent value="eficiencia" className="space-y-4">
             <EficienciaDashboard analytics={analytics} isLoading={isLoading} />
+          </TabsContent>
+
+          <TabsContent value="patio" className="space-y-4">
+            <PatioDashboard />
           </TabsContent>
         </Tabs>
       </div>
