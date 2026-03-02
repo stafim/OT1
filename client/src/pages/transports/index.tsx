@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye, Navigation, Clock, Fuel, Receipt, Route, Car, Info, Check, ChevronsUpDown, PackageCheck } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, LogIn, LogOut, MapPin, Loader2, Camera, Upload, X, CheckCircle, XCircle, Eye, Navigation, Clock, Fuel, Receipt, Route, Car, Info, Check, ChevronsUpDown, PackageCheck, MoreHorizontal } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { normalizeImageUrl, cn } from "@/lib/utils";
@@ -57,6 +57,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -617,84 +625,63 @@ export default function TransportsPage() {
       className: "w-52",
       render: (t: TransportWithRelations) => (
         <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 size="icon"
-                variant={t.checkinDateTime ? "secondary" : "default"}
+                variant="ghost"
+                onClick={(e) => e.stopPropagation()}
+                data-testid={`button-checkinout-menu-${t.id}`}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuLabel>Check-in / Check-out</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 disabled={!!t.checkinDateTime}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCheckinTransport(t);
-                }}
+                onClick={() => setCheckinTransport(t)}
                 data-testid={`button-checkin-${t.id}`}
               >
-                <LogIn className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {t.checkinDateTime ? "Check-in realizado" : "Realizar Check-in"}
-            </TooltipContent>
-          </Tooltip>
-          {t.checkinDateTime && !t.checkoutDateTime && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setClearCheckinId(t.id);
-                  }}
+                <LogIn className="h-4 w-4 mr-2" />
+                {t.checkinDateTime ? "Check-in realizado" : "Realizar Check-in"}
+              </DropdownMenuItem>
+              {t.checkinDateTime && !t.checkoutDateTime && (
+                <DropdownMenuItem
+                  onClick={() => setClearCheckinId(t.id)}
+                  className="text-destructive focus:text-destructive"
                   data-testid={`button-clear-checkin-${t.id}`}
                 >
-                  <XCircle className="h-4 w-4 text-destructive" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Excluir Check-in</TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant={t.checkoutDateTime ? "secondary" : "default"}
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Excluir Check-in
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 disabled={!t.checkinDateTime || !!t.checkoutDateTime}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCheckoutTransport(t);
-                }}
+                onClick={() => setCheckoutTransport(t)}
                 data-testid={`button-checkout-${t.id}`}
               >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {t.checkoutDateTime 
-                ? "Check-out realizado" 
-                : !t.checkinDateTime 
-                  ? "Faça o check-in primeiro" 
-                  : "Realizar Check-out"}
-            </TooltipContent>
-          </Tooltip>
-          {t.checkoutDateTime && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setClearCheckoutId(t.id);
-                  }}
+                <LogOut className="h-4 w-4 mr-2" />
+                {t.checkoutDateTime
+                  ? "Check-out realizado"
+                  : !t.checkinDateTime
+                    ? "Faça o check-in primeiro"
+                    : "Realizar Check-out"}
+              </DropdownMenuItem>
+              {t.checkoutDateTime && (
+                <DropdownMenuItem
+                  onClick={() => setClearCheckoutId(t.id)}
+                  className="text-destructive focus:text-destructive"
                   data-testid={`button-clear-checkout-${t.id}`}
                 >
-                  <XCircle className="h-4 w-4 text-destructive" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Excluir Check-out</TooltipContent>
-            </Tooltip>
-          )}
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Excluir Check-out
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {t.status !== "entregue" && t.status !== "cancelado" && (
             <Tooltip>
               <TooltipTrigger asChild>
