@@ -1045,6 +1045,87 @@ export default function PortariaPage() {
             })}
           </div>
         )}
+
+        {/* Transfer Authorization Section */}
+        <Card className="mt-8 mb-6">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/20">
+                <ArrowLeftRight className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Controle de Transferências</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Autorize a saída de veículos sendo transferidos entre pátios
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+
+        <div className="mb-10">
+          <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+            <ArrowLeftRight className="h-5 w-5 text-muted-foreground" />
+            Transferências Pendentes de Autorização
+            {pendingTransfersList.length > 0 && (
+              <Badge variant="secondary" className="ml-2">{pendingTransfersList.length}</Badge>
+            )}
+          </h2>
+
+          {transfersLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <Card key={i}><CardContent className="p-4"><Skeleton className="h-4 w-32 mb-2" /><Skeleton className="h-3 w-48 mb-4" /><Skeleton className="h-8 w-full" /></CardContent></Card>
+              ))}
+            </div>
+          ) : pendingTransfersList.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-xl">
+              <CheckCircle2 className="h-10 w-10 mx-auto mb-2 opacity-30" />
+              <p className="font-medium">Nenhuma transferência aguardando autorização</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {pendingTransfersList.map((t) => (
+                <Card key={t.id} className="border-purple-200 dark:border-purple-800" data-testid={`card-transfer-portaria-${t.id}`}>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-mono font-semibold text-sm" data-testid={`text-chassi-transfer-${t.id}`}>{t.vehicleChassi}</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        <Clock className="h-3 w-3 mr-1" />Pendente
+                      </Badge>
+                    </div>
+                    <div className="text-sm space-y-1">
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Building className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{t.originYard?.name ?? t.originYardId}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400">
+                        <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate font-medium">{t.destinationYard?.name ?? t.destinationYardId}</span>
+                      </div>
+                    </div>
+                    {t.notes && (
+                      <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5 line-clamp-2">{t.notes}</p>
+                    )}
+                    <Button
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      size="sm"
+                      onClick={() => authorizeTransferMutation.mutate(t.id)}
+                      disabled={authorizeTransferMutation.isPending}
+                      data-testid={`button-authorize-transfer-${t.id}`}
+                    >
+                      {authorizeTransferMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                      Autorizar Transferência
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <Dialog open={!!lightboxPhoto} onOpenChange={() => setLightboxPhoto(null)}>
@@ -1384,87 +1465,6 @@ export default function PortariaPage() {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Transfer Authorization Section */}
-      <Card className="mt-8 mb-6">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/20">
-              <ArrowLeftRight className="h-5 w-5 text-purple-500" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">Controle de Transferências</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Autorize a saída de veículos sendo transferidos entre pátios
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      <div className="mb-10">
-        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-          <ArrowLeftRight className="h-5 w-5 text-muted-foreground" />
-          Transferências Pendentes de Autorização
-          {pendingTransfersList.length > 0 && (
-            <Badge variant="secondary" className="ml-2">{pendingTransfersList.length}</Badge>
-          )}
-        </h2>
-
-        {transfersLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <Card key={i}><CardContent className="p-4"><Skeleton className="h-4 w-32 mb-2" /><Skeleton className="h-3 w-48 mb-4" /><Skeleton className="h-8 w-full" /></CardContent></Card>
-            ))}
-          </div>
-        ) : pendingTransfersList.length === 0 ? (
-          <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-xl">
-            <CheckCircle2 className="h-10 w-10 mx-auto mb-2 opacity-30" />
-            <p className="font-medium">Nenhuma transferência aguardando autorização</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {pendingTransfersList.map((t) => (
-              <Card key={t.id} className="border-purple-200 dark:border-purple-800" data-testid={`card-transfer-portaria-${t.id}`}>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Truck className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-mono font-semibold text-sm" data-testid={`text-chassi-transfer-${t.id}`}>{t.vehicleChassi}</span>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      <Clock className="h-3 w-3 mr-1" />Pendente
-                    </Badge>
-                  </div>
-                  <div className="text-sm space-y-1">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <Building className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{t.originYard?.name ?? t.originYardId}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400">
-                      <ArrowRight className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate font-medium">{t.destinationYard?.name ?? t.destinationYardId}</span>
-                    </div>
-                  </div>
-                  {t.notes && (
-                    <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5 line-clamp-2">{t.notes}</p>
-                  )}
-                  <Button
-                    className="w-full bg-purple-600 hover:bg-purple-700"
-                    size="sm"
-                    onClick={() => authorizeTransferMutation.mutate(t.id)}
-                    disabled={authorizeTransferMutation.isPending}
-                    data-testid={`button-authorize-transfer-${t.id}`}
-                  >
-                    {authorizeTransferMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                    Autorizar Transferência
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
 
       <Dialog open={showNewCollectDialog} onOpenChange={(open) => {
         if (!open) {
