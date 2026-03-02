@@ -1289,16 +1289,19 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Transporte cancelado não pode ser concluído" });
       }
 
-      const transport = await storage.updateTransport(req.params.id, {
-        status: "entregue",
-        checkoutDateTime: existingTransport.checkoutDateTime ?? new Date(),
-      });
+      const checkoutTime = existingTransport.checkoutDateTime ?? new Date();
+      const [updatedTransport] = await db
+        .update(transports)
+        .set({ status: "entregue", checkoutDateTime: checkoutTime })
+        .where(eq(transports.id, req.params.id))
+        .returning();
 
-      await storage.updateVehicle(existingTransport.vehicleChassi, {
-        status: "entregue",
-      });
+      await db
+        .update(vehicles)
+        .set({ status: "entregue" })
+        .where(eq(vehicles.chassi, existingTransport.vehicleChassi));
 
-      res.json(transport);
+      res.json(updatedTransport);
     } catch (error: any) {
       console.error("Error concluding transport:", error);
       res.status(400).json({ message: error.message || "Failed to conclude transport" });

@@ -208,3 +208,10 @@ Status enums for workflow tracking:
   - Combobox search filtering all vehicles by chassi, manufacturer, or client name
   - Photo gallery with lightbox for all check-in/check-out photos in each section
   - Status colors: Yellow = Aguardando Coleta, Blue = No Pátio/Em Trânsito, Green = Entregue, Gray = Retirado
+
+### March 2, 2026
+- **Bug Fix: "Concluir Frete" not persisting**: Fixed `PATCH /api/transports/:id/conclude` endpoint
+  - Root cause: `storage.updateTransport(id, Partial<InsertTransport>)` was not persisting when called with `{ status, checkoutDateTime }` — the Zod-inferred `InsertTransport` type (with transforms) was incompatible with Drizzle's `.set()` method, causing the update to silently fail
+  - Fix: Changed conclude endpoint to use Drizzle ORM directly (`db.update(transports).set(...).where(...)`) with native column types, bypassing the storage abstraction
+  - Same approach used for vehicle status update in the same endpoint
+  - Transport status now correctly persists to `entregue` and `checkoutDateTime` is recorded
