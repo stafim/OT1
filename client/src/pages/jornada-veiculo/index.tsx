@@ -8,13 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
   Search,
   Printer,
-  Check,
-  ChevronsUpDown,
   Truck,
   Warehouse,
   Package,
@@ -343,8 +339,7 @@ function MovementsTable({ journey }: { journey: VehicleJourney }) {
 }
 
 export default function JornadaVeiculoPage() {
-  const [open, setOpen]   = useState(false);
-  const [input, setInput] = useState("");
+  const [search, setSearch] = useState("");
   const [selectedChassi, setSelectedChassi] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("coleta");
 
@@ -358,8 +353,8 @@ export default function JornadaVeiculoPage() {
   });
 
   const filteredVehicles = (vehiclesList ?? []).filter((v) => {
-    if (v.status !== "entregue") return false;
-    const q = input.toLowerCase();
+    const q = search.toLowerCase();
+    if (!q) return true;
     return (
       v.chassi.toLowerCase().includes(q) ||
       (v.manufacturer?.name ?? "").toLowerCase().includes(q) ||
@@ -794,95 +789,111 @@ export default function JornadaVeiculoPage() {
       />
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
         <Card className="no-print">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Search className="h-4 w-4" />
-              Buscar Veículo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="flex-1">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Selecione um veículo pelo chassi, montadora ou cliente
-                </p>
-                <Popover open={open} onOpenChange={setOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={open}
-                      className="w-full justify-between max-w-md"
-                      data-testid="combobox-vehicle-search"
-                    >
-                      {selectedChassi
-                        ? selectedChassi
-                        : "Selecione um veículo..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[400px] p-0" align="start">
-                    <Command>
-                      <CommandInput
-                        placeholder="Chassi, montadora ou cliente..."
-                        value={input}
-                        onValueChange={setInput}
-                        data-testid="input-vehicle-search"
-                      />
-                      <CommandList>
-                        <CommandEmpty>Nenhum veículo encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          {filteredVehicles.slice(0, 30).map((v) => {
-                            const cfg = statusConfig[v.status];
-                            return (
-                              <CommandItem
-                                key={v.chassi}
-                                value={v.chassi}
-                                onSelect={() => {
-                                  setSelectedChassi(v.chassi);
-                                  setInput(v.chassi);
-                                  setOpen(false);
-                                  setActiveTab("coleta");
-                                }}
-                                data-testid={`option-vehicle-${v.chassi}`}
-                              >
-                                <Check className={cn("mr-2 h-4 w-4", selectedChassi === v.chassi ? "opacity-100" : "opacity-0")} />
-                                <div className="flex flex-col">
-                                  <span className="font-mono text-sm font-medium">{v.chassi}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {v.manufacturer?.name ?? "—"} · {cfg?.label ?? v.status}
-                                  </span>
-                                </div>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+          <CardContent className="pt-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+              <div className="lg:w-80 xl:w-96 shrink-0 flex flex-col gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    placeholder="Buscar por chassi, montadora ou cliente..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-vehicle-search"
+                  />
+                </div>
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="bg-muted/50 px-3 py-2 border-b flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {filteredVehicles.length} veículo{filteredVehicles.length !== 1 ? "s" : ""}
+                    </span>
+                    {selectedChassi && (
+                      <button
+                        onClick={() => { setSelectedChassi(null); setSearch(""); setActiveTab("coleta"); }}
+                        className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                        data-testid="button-clear-selection"
+                      >
+                        Limpar seleção
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-72 overflow-y-auto divide-y">
+                    {filteredVehicles.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                        <Car className="h-8 w-8 mb-2 opacity-30" />
+                        <p className="text-sm">Nenhum veículo encontrado</p>
+                      </div>
+                    ) : (
+                      filteredVehicles.slice(0, 50).map((vItem) => {
+                        const cfg = statusConfig[vItem.status];
+                        const isSelected = selectedChassi === vItem.chassi;
+                        return (
+                          <button
+                            key={vItem.chassi}
+                            onClick={() => { setSelectedChassi(vItem.chassi); setActiveTab("coleta"); }}
+                            className={cn(
+                              "w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 transition-colors hover:bg-muted/60",
+                              isSelected && "bg-primary/10 hover:bg-primary/15"
+                            )}
+                            data-testid={`option-vehicle-${vItem.chassi}`}
+                          >
+                            <div className="min-w-0">
+                              <p className={cn("font-mono text-sm font-medium truncate", isSelected && "text-primary")}>
+                                {vItem.chassi}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {[vItem.manufacturer?.name, vItem.client?.name].filter(Boolean).join(" · ") || "—"}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className={cn("shrink-0 text-[10px] px-1.5 py-0.5", cfg?.badgeClass)}>
+                              {cfg?.label ?? vItem.status}
+                            </Badge>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
-              {selectedChassi && (
-                <Button
-                  variant="outline"
-                  onClick={() => { setSelectedChassi(null); setInput(""); }}
-                  className="shrink-0"
-                  data-testid="button-clear-selection"
-                >
-                  Limpar seleção
-                </Button>
-              )}
+
+              <div className="flex-1 min-w-0">
+                {!selectedChassi ? (
+                  <div className="flex flex-col items-center justify-center h-full min-h-[180px] rounded-xl border border-dashed text-center text-muted-foreground">
+                    <Car className="mb-3 h-10 w-10 opacity-30" />
+                    <p className="text-base font-medium">Selecione um veículo</p>
+                    <p className="text-sm mt-1">Use a lista ao lado para buscar pelo chassi</p>
+                  </div>
+                ) : journeyLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-4 w-64" />
+                    <Skeleton className="h-4 w-48" />
+                  </div>
+                ) : journey ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                        <Car className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-mono text-lg font-bold leading-tight">{journey.vehicle.chassi}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {[journey.vehicle.manufacturer?.name, journey.vehicle.client?.name].filter(Boolean).join(" · ") || "—"}
+                        </p>
+                      </div>
+                      {statusConfig[journey.vehicle.status] && (
+                        <Badge variant="outline" className={statusConfig[journey.vehicle.status].badgeClass}>
+                          {statusConfig[journey.vehicle.status].label}
+                        </Badge>
+                      )}
+                    </div>
+                    <Timeline status={journey.vehicle.status} />
+                  </div>
+                ) : null}
+              </div>
             </div>
           </CardContent>
         </Card>
-
-        {!selectedChassi && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center text-muted-foreground">
-            <Car className="mb-4 h-12 w-12 opacity-30" />
-            <p className="text-lg font-medium">Selecione um veículo</p>
-            <p className="text-sm mt-1">Use o campo acima para buscar pelo chassi</p>
-          </div>
-        )}
 
         {selectedChassi && journeyLoading && (
           <div className="space-y-4">
@@ -893,12 +904,6 @@ export default function JornadaVeiculoPage() {
 
         {selectedChassi && !journeyLoading && journey && (
           <>
-            <Card>
-              <CardContent className="pt-6">
-                <Timeline status={journey.vehicle.status} />
-              </CardContent>
-            </Card>
-
             <Card>
               <CardContent className="pt-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
