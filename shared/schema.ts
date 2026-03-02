@@ -10,9 +10,18 @@ export * from "./models/auth";
 export const vehicleStatusEnum = pgEnum("vehicle_status", [
   "pre_estoque",
   "em_estoque",
+  "em_transferencia",
   "despachado",
   "entregue",
   "retirado"
+]);
+
+export const transferStatusEnum = pgEnum("transfer_status", [
+  "pendente",
+  "autorizada",
+  "em_transito",
+  "concluida",
+  "cancelada",
 ]);
 
 export const transportStatusEnum = pgEnum("transport_status", [
@@ -1156,3 +1165,33 @@ export const insertFreightContractSchema = createInsertSchema(freightContracts).
 
 export type InsertFreightContract = z.infer<typeof insertFreightContractSchema>;
 export type FreightContract = typeof freightContracts.$inferSelect;
+
+// ============== TRANSFERÊNCIAS ==============
+export const transfers = pgTable("transfers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vehicleChassi: varchar("vehicle_chassi").notNull(),
+  originYardId: varchar("origin_yard_id").notNull(),
+  destinationYardId: varchar("destination_yard_id").notNull(),
+  requestedBy: varchar("requested_by"),
+  authorizedBy: varchar("authorized_by"),
+  status: transferStatusEnum("status").default("pendente").notNull(),
+  notes: text("notes"),
+  authorizedAt: timestamp("authorized_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTransferSchema = createInsertSchema(transfers).omit({
+  id: true,
+  createdAt: true,
+  authorizedAt: true,
+  completedAt: true,
+  authorizedBy: true,
+}).extend({
+  vehicleChassi: z.string().min(1, "Chassi é obrigatório"),
+  originYardId: z.string().min(1, "Pátio de origem é obrigatório"),
+  destinationYardId: z.string().min(1, "Pátio de destino é obrigatório"),
+});
+
+export type InsertTransfer = z.infer<typeof insertTransferSchema>;
+export type Transfer = typeof transfers.$inferSelect;

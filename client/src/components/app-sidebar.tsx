@@ -40,6 +40,7 @@ import {
   Sparkles,
   FileText,
   Activity,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -85,6 +86,11 @@ const operationItems: MenuItem[] = [
     title: "Localizar Motorista",
     url: "/localizar-motorista",
     icon: MapPin,
+  },
+  {
+    title: "Transferências",
+    url: "/transferencias",
+    icon: ArrowLeftRight,
   },
   {
     title: "Portaria",

@@ -50,6 +50,7 @@ import {
   insertFreightQuoteSchema,
   freightContracts,
   insertFreightContractSchema,
+  transfers,
   type FeatureKey,
 } from "@shared/schema";
 import { db } from "./db";
@@ -3821,6 +3822,142 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting freight contract:", error);
       res.status(500).json({ message: "Failed to delete freight contract" });
+    }
+  });
+
+  // ============ TRANSFERS ============
+
+  app.get("/api/transfers", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const transfersList = await storage.getTransfers();
+      const enriched = await Promise.all(
+        transfersList.map(async (t) => {
+          const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.chassi, t.vehicleChassi));
+          const [originYard] = await db.select().from(yards).where(eq(yards.id, t.originYardId));
+          const [destinationYard] = await db.select().from(yards).where(eq(yards.id, t.destinationYardId));
+          return { ...t, vehicle, originYard, destinationYard };
+        })
+      );
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching transfers:", error);
+      res.status(500).json({ message: "Failed to fetch transfers" });
+    }
+  });
+
+  app.get("/api/transfers/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const transfer = await storage.getTransfer(req.params.id);
+      if (!transfer) return res.status(404).json({ message: "Transferência não encontrada" });
+      res.json(transfer);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch transfer" });
+    }
+  });
+
+  app.post("/api/transfers", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { vehicleChassi, originYardId, destinationYardId, notes } = req.body;
+      if (!vehicleChassi || !originYardId || !destinationYardId) {
+        return res.status(400).json({ message: "Chassi, pátio de origem e destino são obrigatórios" });
+      }
+      if (originYardId === destinationYardId) {
+        return res.status(400).json({ message: "Pátio de origem e destino devem ser diferentes" });
+      }
+      const vehicle = await storage.getVehicle(vehicleChassi);
+      if (!vehicle) return res.status(404).json({ message: "Veículo não encontrado" });
+      if (vehicle.status !== "em_estoque") {
+        return res.status(400).json({ message: "Apenas veículos Em Estoque podem ser transferidos" });
+      }
+      const userId = (req as any).user?.id;
+      const transfer = await storage.createTransfer({
+        vehicleChassi,
+        originYardId,
+        destinationYardId,
+        notes: notes || null,
+        requestedBy: userId || null,
+        status: "pendente",
+      });
+      res.status(201).json(transfer);
+    } catch (error: any) {
+      console.error("Error creating transfer:", error);
+      res.status(500).json({ message: error.message || "Failed to create transfer" });
+    }
+  });
+
+  app.post("/api/portaria/authorize-transfer/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const transfer = await storage.getTransfer(req.params.id);
+      if (!transfer) return res.status(404).json({ message: "Transferência não encontrada" });
+      if (transfer.status !== "pendente") {
+        return res.status(400).json({ message: "Transferência não está pendente" });
+      }
+      const vehicle = await storage.getVehicle(transfer.vehicleChassi);
+      if (!vehicle) return res.status(404).json({ message: "Veículo não encontrado" });
+      if (vehicle.status !== "em_estoque") {
+        return res.status(400).json({ message: "Veículo não está em estoque" });
+      }
+      await storage.updateVehicle(transfer.vehicleChassi, { status: "em_transferencia" });
+      const userId = (req as any).user?.id;
+      await storage.updateTransfer(transfer.id, {
+        status: "em_transito",
+        authorizedBy: userId || null,
+        authorizedAt: new Date(),
+      });
+      res.json({ success: true, message: "Transferência autorizada com sucesso" });
+    } catch (error: any) {
+      console.error("Error authorizing transfer:", error);
+      res.status(500).json({ message: error.message || "Erro ao autorizar transferência" });
+    }
+  });
+
+  app.post("/api/transfers/:id/complete", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const transfer = await storage.getTransfer(req.params.id);
+      if (!transfer) return res.status(404).json({ message: "Transferência não encontrada" });
+      if (transfer.status !== "em_transito") {
+        return res.status(400).json({ message: "Transferência não está em trânsito" });
+      }
+      await storage.updateVehicle(transfer.vehicleChassi, {
+        status: "em_estoque",
+        yardId: transfer.destinationYardId,
+        yardEntryDateTime: new Date(),
+      });
+      await storage.updateTransfer(transfer.id, {
+        status: "concluida",
+        completedAt: new Date(),
+      });
+      res.json({ success: true, message: "Transferência concluída. Veículo agora em estoque no pátio de destino." });
+    } catch (error: any) {
+      console.error("Error completing transfer:", error);
+      res.status(500).json({ message: error.message || "Erro ao concluir transferência" });
+    }
+  });
+
+  app.patch("/api/transfers/:id/cancel", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const transfer = await storage.getTransfer(req.params.id);
+      if (!transfer) return res.status(404).json({ message: "Transferência não encontrada" });
+      if (transfer.status === "concluida") {
+        return res.status(400).json({ message: "Não é possível cancelar uma transferência concluída" });
+      }
+      if (transfer.status === "em_transito") {
+        await storage.updateVehicle(transfer.vehicleChassi, { status: "em_estoque" });
+      }
+      await storage.updateTransfer(transfer.id, { status: "cancelada" });
+      res.json({ success: true, message: "Transferência cancelada" });
+    } catch (error: any) {
+      console.error("Error cancelling transfer:", error);
+      res.status(500).json({ message: error.message || "Erro ao cancelar transferência" });
+    }
+  });
+
+  app.delete("/api/transfers/:id", isAuthenticatedJWT, async (req, res) => {
+    try {
+      await storage.deleteTransfer(req.params.id);
+      res.json({ message: "Transfer deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete transfer" });
     }
   });
 

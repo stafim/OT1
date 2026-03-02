@@ -59,6 +59,7 @@ import CotacaoFreteProPage from "@/pages/cotacao-frete-pro/index";
 import ContratosFreteePage from "@/pages/contratos-frete/index";
 import JornadaVeiculoPage from "@/pages/jornada-veiculo/index";
 import RastreadoresPage from "@/pages/rastreadores/index";
+import TransferenciasPage from "@/pages/transferencias/index";
 
 function AuthenticatedRouter() {
   return (
@@ -98,6 +99,7 @@ function AuthenticatedRouter() {
       <Route path="/contratos-frete" component={ContratosFreteePage} />
       <Route path="/jornada-veiculo" component={JornadaVeiculoPage} />
       <Route path="/rastreadores" component={RastreadoresPage} />
+      <Route path="/transferencias" component={TransferenciasPage} />
       <Route path="/contratos" component={ContractsPage} />
       <Route path="/usuarios" component={UsersPage} />
       <Route path="/usuarios/:id" component={UserFormPage} />

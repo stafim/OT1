@@ -16,6 +16,7 @@ import {
   checkpoints, type Checkpoint, type InsertCheckpoint,
   contracts, type Contract, type InsertContract,
   freightContracts, type FreightContract, type InsertFreightContract,
+  transfers, type Transfer, type InsertTransfer,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -143,6 +144,13 @@ export interface IStorage {
   updateFreightContract(id: string, contract: Partial<InsertFreightContract>): Promise<FreightContract | undefined>;
   deleteFreightContract(id: string): Promise<void>;
   getNextFreightContractNumber(): Promise<string>;
+
+  // Transfers
+  getTransfers(): Promise<Transfer[]>;
+  getTransfer(id: string): Promise<Transfer | undefined>;
+  createTransfer(transfer: InsertTransfer): Promise<Transfer>;
+  updateTransfer(id: string, transfer: Partial<Transfer>): Promise<Transfer | undefined>;
+  deleteTransfer(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -632,6 +640,30 @@ export class DatabaseStorage implements IStorage {
       .from(freightContracts);
     const next = (Number(result?.count ?? 0) + 1).toString().padStart(4, "0");
     return `CTF-${next}`;
+  }
+
+  // Transfers
+  async getTransfers(): Promise<Transfer[]> {
+    return db.select().from(transfers).orderBy(desc(transfers.createdAt));
+  }
+
+  async getTransfer(id: string): Promise<Transfer | undefined> {
+    const [transfer] = await db.select().from(transfers).where(eq(transfers.id, id));
+    return transfer;
+  }
+
+  async createTransfer(transfer: InsertTransfer): Promise<Transfer> {
+    const [created] = await db.insert(transfers).values(transfer).returning();
+    return created;
+  }
+
+  async updateTransfer(id: string, data: Partial<Transfer>): Promise<Transfer | undefined> {
+    const [updated] = await db.update(transfers).set(data).where(eq(transfers.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTransfer(id: string): Promise<void> {
+    await db.delete(transfers).where(eq(transfers.id, id));
   }
 }
 
