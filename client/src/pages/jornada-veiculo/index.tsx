@@ -348,12 +348,23 @@ export default function JornadaVeiculoPage() {
     queryKey: ["/api/vehicles"],
   });
 
+  const { data: transportsList } = useQuery<Array<{ vehicleChassi: string; status: string }>>({
+    queryKey: ["/api/transports"],
+  });
+
   const { data: journey, isLoading: journeyLoading } = useQuery<VehicleJourney>({
     queryKey: ["/api/vehicle-journey", selectedChassi],
     enabled: !!selectedChassi,
   });
 
+  const deliveredChassiSet = new Set(
+    (transportsList ?? [])
+      .filter((t) => t.status === "entregue")
+      .map((t) => t.vehicleChassi)
+  );
+
   const filteredVehicles = (vehiclesList ?? []).filter((v) => {
+    if (!deliveredChassiSet.has(v.chassi)) return false;
     const q = search.toLowerCase();
     if (!q) return true;
     return (
