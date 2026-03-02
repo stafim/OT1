@@ -148,7 +148,7 @@ export default function DamageReportPage() {
 
       const pageW = 210;
       const pageH = 297;
-      const margin = 18;
+      const margin = 15;
       const contentW = pageW - margin * 2;
       const orange: [number, number, number] = [234, 88, 12];
       const red: [number, number, number] = [220, 38, 38];
@@ -156,6 +156,7 @@ export default function DamageReportPage() {
       const medGray: [number, number, number] = [100, 100, 100];
       const lightGray: [number, number, number] = [245, 245, 245];
       const white: [number, number, number] = [255, 255, 255];
+      const blue: [number, number, number] = [37, 99, 235];
 
       let y = 0;
       let pageNum = 1;
@@ -165,22 +166,23 @@ export default function DamageReportPage() {
           doc.addPage();
           pageNum++;
           drawFooter();
-          y = 18;
+          y = 15;
         }
       };
 
       const drawFooter = () => {
-        doc.setFontSize(7.5);
+        doc.setFontSize(7);
         doc.setTextColor(...medGray);
         doc.setFont("helvetica", "normal");
-        doc.text("OTD Logistics — Relatório de Avarias", margin, pageH - 8);
-        doc.text(`Página ${pageNum}`, pageW - margin, pageH - 8, { align: "right" });
+        doc.text("OTD Logistics — Relatório de Avarias — Documento Confidencial", margin, pageH - 8);
+        doc.text(`Pág. ${pageNum}`, pageW - margin, pageH - 8, { align: "right" });
         doc.setDrawColor(220, 220, 220);
         doc.setLineWidth(0.3);
         doc.line(margin, pageH - 12, pageW - margin, pageH - 12);
       };
 
       const loadImage = async (url: string): Promise<string | null> => {
+        if (!url || url.trim() === "") return null;
         try {
           const img = new window.Image();
           img.crossOrigin = "anonymous";
@@ -191,21 +193,62 @@ export default function DamageReportPage() {
           });
           if (!img.complete || img.naturalWidth === 0) return null;
           const canvas = document.createElement("canvas");
-          canvas.width = img.naturalWidth;
-          canvas.height = img.naturalHeight;
+          const maxSize = 800;
+          let w = img.naturalWidth;
+          let h = img.naturalHeight;
+          if (w > maxSize || h > maxSize) {
+            const ratio = Math.min(maxSize / w, maxSize / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+          canvas.width = w;
+          canvas.height = h;
           const ctx = canvas.getContext("2d");
           if (!ctx) return null;
-          ctx.drawImage(img, 0, 0);
-          return canvas.toDataURL("image/jpeg", 0.75);
+          ctx.drawImage(img, 0, 0, w, h);
+          return canvas.toDataURL("image/jpeg", 0.72);
         } catch {
           return null;
         }
       };
 
-      // ── HEADER ──────────────────────────────────────────────
-      doc.setFillColor(...orange);
-      doc.rect(0, 0, pageW, 42, "F");
+      const drawSectionTitle = (title: string, color: [number, number, number] = orange) => {
+        checkPageBreak(12);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...color);
+        doc.text(title.toUpperCase(), margin, y);
+        doc.setDrawColor(...color);
+        doc.setLineWidth(0.35);
+        doc.line(margin, y + 1.5, margin + contentW, y + 1.5);
+        y += 8;
+      };
 
+      const drawField = (label: string, value: string, x: number, w: number, multiline = false) => {
+        doc.setFontSize(6.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...medGray);
+        doc.text(label.toUpperCase(), x, y);
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...darkGray);
+        if (multiline) {
+          const lines = doc.splitTextToSize(value || "—", w - 2);
+          doc.text(lines.slice(0, 2), x, y + 5);
+          return lines.length > 1 ? 14 : 11;
+        } else {
+          const maxC = Math.floor(w / 1.9);
+          const v = (value || "—").length > maxC ? (value || "—").slice(0, maxC - 1) + "…" : (value || "—");
+          doc.text(v, x, y + 5);
+          return 11;
+        }
+      };
+
+      // ── FIRST PAGE HEADER ──────────────────────────────────
+      doc.setFillColor(...orange);
+      doc.rect(0, 0, pageW, 48, "F");
+
+      let logoDataUrl: string | null = null;
       try {
         const logoImg = new window.Image();
         logoImg.crossOrigin = "anonymous";
@@ -221,205 +264,307 @@ export default function DamageReportPage() {
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.drawImage(logoImg, 0, 0);
-            const dataUrl = canvas.toDataURL("image/png");
-            const aspectRatio = logoImg.naturalWidth / logoImg.naturalHeight;
-            const logoH = 26;
-            const logoW = logoH * aspectRatio;
-            doc.addImage(dataUrl, "PNG", margin, 8, logoW, logoH);
+            logoDataUrl = canvas.toDataURL("image/png");
+            const ar = logoImg.naturalWidth / logoImg.naturalHeight;
+            const lh = 28;
+            const lw = lh * ar;
+            doc.addImage(logoDataUrl, "PNG", margin, 9, lw, lh);
           }
         }
       } catch {}
 
-      doc.setFontSize(14);
+      doc.setFontSize(15);
       doc.setTextColor(...white);
       doc.setFont("helvetica", "bold");
-      doc.text("RELATÓRIO DE AVARIAS", pageW - margin, 17, { align: "right" });
+      doc.text("RELATÓRIO DE AVARIAS", pageW - margin, 19, { align: "right" });
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "normal");
-      doc.text("OTD Logistics", pageW - margin, 25, { align: "right" });
-      doc.setFontSize(8);
-      doc.text(`Emitido em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageW - margin, 32, { align: "right" });
+      doc.text("OTD Logistics — Gestão de Entregas de Veículos", pageW - margin, 27, { align: "right" });
+      doc.setFontSize(7.5);
+      doc.text("CNPJ: 12.345.678/0001-99  |  (41) 3030-2315  |  contato@otdlogistics.com.br", pageW - margin, 34, { align: "right" });
+      doc.text(`Emitido em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageW - margin, 41, { align: "right" });
 
-      y = 52;
+      y = 58;
 
       // ── SUMMARY ─────────────────────────────────────────────
       doc.setFillColor(...lightGray);
-      doc.roundedRect(margin, y, contentW, 20, 2, 2, "F");
+      doc.roundedRect(margin, y, contentW, 22, 2, 2, "F");
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, contentW, 22, 2, 2);
 
-      const col = contentW / 4;
-      const summaryItems = [
-        { label: "Registros com Avaria", value: String(totalDamageRecords) },
+      const sumItems = [
+        { label: "Total de Registros", value: String(totalDamageRecords) },
         { label: "Fotos de Avaria", value: String(totalDamagePhotos) },
-        { label: "Coletas", value: String(collectsWithDamage.length) },
-        { label: "Transportes", value: String(transportsWithDamage.length) },
+        { label: "Coletas c/ Avaria", value: String(collectsWithDamage.length) },
+        { label: "Transportes c/ Avaria", value: String(transportsWithDamage.length) },
       ];
-      summaryItems.forEach((item, i) => {
-        const x = margin + col * i + col / 2;
-        doc.setFontSize(14);
+      const sc = contentW / 4;
+      sumItems.forEach((item, i) => {
+        const sx = margin + sc * i + sc / 2;
+        if (i > 0) {
+          doc.setDrawColor(210, 210, 210);
+          doc.setLineWidth(0.2);
+          doc.line(margin + sc * i, y + 3, margin + sc * i, y + 19);
+        }
+        doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...red);
-        doc.text(item.value, x, y + 10, { align: "center" });
-        doc.setFontSize(7);
+        doc.text(item.value, sx, y + 12, { align: "center" });
+        doc.setFontSize(6.5);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(...medGray);
-        doc.text(item.label, x, y + 16, { align: "center" });
+        doc.text(item.label, sx, y + 18, { align: "center" });
       });
 
-      y += 28;
+      y += 30;
 
-      // ── RECORDS ─────────────────────────────────────────────
-      const allRecords: Array<{
-        type: "coleta" | "transporte";
-        id: string;
-        identifier: string;
-        chassi: string;
-        driver: string;
-        origin: string;
-        destination: string;
-        date: string;
-        checkinPhotos: string[];
-        checkoutPhotos: string[];
-      }> = [
-        ...collectsWithDamage.map((c) => ({
-          type: "coleta" as const,
-          id: c.id,
-          identifier: c.vehicleChassi || "-",
-          chassi: c.vehicleChassi || "-",
-          driver: c.driver?.name || "-",
-          origin: c.manufacturer?.name || "-",
-          destination: c.yard?.name || "-",
-          date: formatDate(c.collectDate),
-          checkinPhotos: getCheckinPhotos(c),
-          checkoutPhotos: getCheckoutPhotos(c),
-        })),
-        ...transportsWithDamage.map((t) => ({
-          type: "transporte" as const,
-          id: t.id,
-          identifier: t.requestNumber || "-",
-          chassi: t.vehicleChassi || "-",
-          driver: (t as any).driver?.name || "-",
-          origin: (t as any).originYard?.name || "-",
-          destination: (t as any).deliveryLocation
-            ? `${(t as any).deliveryLocation.city}/${(t as any).deliveryLocation.state}`
-            : (t as any).client?.name || "-",
-          date: formatDate(t.checkinDateTime || t.createdAt),
-          checkinPhotos: getCheckinPhotos(t),
-          checkoutPhotos: getCheckoutPhotos(t),
-        })),
-      ];
+      // ── PER-RECORD SECTIONS ──────────────────────────────────
+      const renderPhotoGrid = async (
+        photos: Array<{ url: string; label: string }>,
+        isDamage = false
+      ) => {
+        const validPhotos = photos.filter(p => p.url && p.url.trim() !== "");
+        if (validPhotos.length === 0) return;
 
-      for (let ri = 0; ri < allRecords.length; ri++) {
-        const rec = allRecords[ri];
-        const totalPhotos = rec.checkinPhotos.length + rec.checkoutPhotos.length;
+        const photoW = 40;
+        const photoH = 30;
+        const labelH = 5;
+        const gap = 3;
+        const perRow = Math.floor(contentW / (photoW + gap));
 
-        checkPageBreak(36);
+        let col = 0;
+        for (const { url, label } of validPhotos) {
+          if (col === 0) checkPageBreak(photoH + labelH + gap + 4);
+          const px = margin + col * (photoW + gap);
+          const dataUrl = await loadImage(url);
 
-        // Record header bar
-        doc.setFillColor(240, 240, 240);
-        doc.roundedRect(margin, y, contentW, 12, 1.5, 1.5, "F");
+          if (isDamage) {
+            doc.setFillColor(255, 240, 240);
+            doc.rect(px - 1, y - 1, photoW + 2, photoH + labelH + 3, "F");
+            doc.setDrawColor(...red);
+            doc.setLineWidth(0.5);
+            doc.rect(px - 1, y - 1, photoW + 2, photoH + labelH + 3);
+          }
 
-        // Type badge
-        doc.setFillColor(...(rec.type === "coleta" ? ([59, 130, 246] as [number, number, number]) : ([107, 114, 128] as [number, number, number])));
-        doc.roundedRect(margin + 2, y + 1.5, 28, 9, 1, 1, "F");
-        doc.setFontSize(7.5);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...white);
-        doc.text(rec.type === "coleta" ? "COLETA" : "TRANSPORTE", margin + 16, y + 7.5, { align: "center" });
+          if (dataUrl) {
+            doc.addImage(dataUrl, "JPEG", px, y, photoW, photoH);
+            if (!isDamage) {
+              doc.setDrawColor(200, 200, 200);
+              doc.setLineWidth(0.2);
+              doc.rect(px, y, photoW, photoH);
+            }
+          } else {
+            doc.setFillColor(238, 238, 238);
+            doc.rect(px, y, photoW, photoH, "F");
+            doc.setFontSize(6.5);
+            doc.setTextColor(...medGray);
+            doc.text("indisponível", px + photoW / 2, y + photoH / 2, { align: "center" });
+          }
 
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...darkGray);
-        doc.text(rec.identifier, margin + 34, y + 8);
+          doc.setFontSize(6);
+          doc.setFont("helvetica", isDamage ? "bold" : "normal");
+          doc.setTextColor(isDamage ? red[0] : medGray[0], isDamage ? red[1] : medGray[1], isDamage ? red[2] : medGray[2]);
+          doc.text(label, px + photoW / 2, y + photoH + 4, { align: "center" });
 
-        doc.setFontSize(7.5);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(...medGray);
-        doc.text(`${totalPhotos} foto${totalPhotos !== 1 ? "s" : ""} de avaria`, pageW - margin - 2, y + 8, { align: "right" });
+          col++;
+          if (col >= perRow) {
+            col = 0;
+            y += photoH + labelH + gap;
+          }
+        }
+        if (col > 0) y += photoH + labelH + gap;
+        y += 2;
+      };
 
-        y += 16;
+      const renderCheckSection = async (
+        sectionTitle: string,
+        dateTime: string | null | undefined,
+        lat: string | null | undefined,
+        lng: string | null | undefined,
+        notes: string | null | undefined,
+        frontal: string | null | undefined,
+        lateral1: string | null | undefined,
+        lateral2: string | null | undefined,
+        traseira: string | null | undefined,
+        odometer: string | null | undefined,
+        fuel: string | null | undefined,
+        selfie: string | null | undefined,
+        damagePhotos: string[]
+      ) => {
+        drawSectionTitle(sectionTitle, blue);
 
-        // Fields row
-        checkPageBreak(16);
-        const fw = contentW / 4;
-        const fields = [
-          { label: "Chassi", value: rec.chassi },
-          { label: "Motorista", value: rec.driver },
-          { label: "Origem", value: rec.origin },
-          { label: "Destino / Data", value: `${rec.destination} · ${rec.date}` },
+        // Date + coords + notes row
+        checkPageBreak(18);
+        const hw = contentW / 3;
+        drawField("Data/Hora", dateTime || "—", margin, hw);
+        const coordStr = lat && lng ? `${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}` : "—";
+        drawField("Coordenadas GPS", coordStr, margin + hw, hw);
+        drawField("Observações", notes || "—", margin + hw * 2, hw);
+        y += 13;
+
+        // Standard photos
+        const standardPhotos = [
+          { url: frontal || "", label: "Frontal" },
+          { url: lateral1 || "", label: "Lateral Esq." },
+          { url: lateral2 || "", label: "Lateral Dir." },
+          { url: traseira || "", label: "Traseira" },
+          { url: odometer || "", label: "Hodômetro" },
+          { url: fuel || "", label: "Combustível" },
+          { url: selfie || "", label: "Selfie" },
         ];
-        fields.forEach((f, fi) => {
-          const fx = margin + fw * fi;
-          doc.setFontSize(7);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(...medGray);
-          doc.text(f.label.toUpperCase(), fx, y);
-          doc.setFontSize(8.5);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(...darkGray);
-          const maxChars = Math.floor(fw / 2);
-          const truncated = f.value.length > maxChars ? f.value.slice(0, maxChars - 1) + "…" : f.value;
-          doc.text(truncated, fx, y + 5.5);
-        });
-        y += 12;
+        await renderPhotoGrid(standardPhotos, false);
 
-        // Photos
-        const renderPhotos = async (photos: string[], sectionLabel: string) => {
-          if (photos.length === 0) return;
+        // Damage photos
+        if (damagePhotos.length > 0) {
           checkPageBreak(10);
           doc.setFontSize(7.5);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(...red);
-          doc.text(sectionLabel.toUpperCase(), margin, y);
+          doc.text(`⚠  AVARIAS REGISTRADAS (${damagePhotos.length} foto${damagePhotos.length !== 1 ? "s" : ""})`, margin, y);
           y += 6;
+          const dmgPhotos = damagePhotos.map((url, i) => ({ url, label: `Avaria ${i + 1}` }));
+          await renderPhotoGrid(dmgPhotos, true);
+        }
+      };
 
-          const photoW = 38;
-          const photoH = 28;
-          const gap = 4;
-          const perRow = Math.floor(contentW / (photoW + gap));
-          let col = 0;
+      for (let ri = 0; ri < collectsWithDamage.length + transportsWithDamage.length; ri++) {
+        const isCollect = ri < collectsWithDamage.length;
+        const rec = isCollect
+          ? collectsWithDamage[ri]
+          : transportsWithDamage[ri - collectsWithDamage.length];
 
-          for (const photoUrl of photos) {
-            if (col === 0) checkPageBreak(photoH + 6);
-            const px = margin + col * (photoW + gap);
-            const dataUrl = await loadImage(photoUrl);
-            if (dataUrl) {
-              doc.addImage(dataUrl, "JPEG", px, y, photoW, photoH);
-              doc.setDrawColor(200, 200, 200);
-              doc.setLineWidth(0.2);
-              doc.rect(px, y, photoW, photoH);
-            } else {
-              doc.setFillColor(240, 240, 240);
-              doc.rect(px, y, photoW, photoH, "F");
-              doc.setFontSize(7);
-              doc.setTextColor(...medGray);
-              doc.text("Foto indisponível", px + photoW / 2, y + photoH / 2, { align: "center" });
-            }
-            col++;
-            if (col >= perRow) {
-              col = 0;
-              y += photoH + gap;
-            }
-          }
-          if (col > 0) y += photoH + gap;
-          y += 2;
-        };
+        // Start each record on fresh area with enough space
+        checkPageBreak(60);
 
-        await renderPhotos(rec.checkinPhotos, `Avarias no Check-in (${rec.checkinPhotos.length})`);
-        await renderPhotos(rec.checkoutPhotos, `Avarias no Check-out (${rec.checkoutPhotos.length})`);
+        // ── Record Header ─────────────────────────────────────
+        doc.setFillColor(248, 248, 248);
+        doc.roundedRect(margin, y, contentW, 14, 2, 2, "F");
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(margin, y, contentW, 14, 2, 2);
+
+        const badgeColor: [number, number, number] = isCollect ? [37, 99, 235] : [107, 114, 128];
+        doc.setFillColor(...badgeColor);
+        doc.roundedRect(margin + 2, y + 2.5, 34, 9, 1.5, 1.5, "F");
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...white);
+        doc.text(isCollect ? "COLETA" : "TRANSPORTE", margin + 19, y + 8.5, { align: "center" });
+
+        const identifier = isCollect
+          ? (rec as CollectWithRelations).vehicleChassi || "-"
+          : (rec as TransportWithRelations).requestNumber || "-";
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...darkGray);
+        doc.text(`#${identifier}`, margin + 40, y + 9);
+
+        const totalDmg = getDamagePhotos(rec).length;
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...red);
+        doc.text(`⚠  ${totalDmg} foto${totalDmg !== 1 ? "s" : ""} de avaria`, pageW - margin - 2, y + 9, { align: "right" });
+
+        y += 18;
+
+        // ── Vehicle & Operation Info ──────────────────────────
+        drawSectionTitle("Informações do Veículo e Operação");
+
+        checkPageBreak(24);
+        if (isCollect) {
+          const c = rec as CollectWithRelations;
+          const fw4 = contentW / 4;
+          drawField("Chassi", c.vehicleChassi || "—", margin, fw4);
+          drawField("Motorista", c.driver?.name || "—", margin + fw4, fw4);
+          drawField("Origem (Montadora)", c.manufacturer?.name || "—", margin + fw4 * 2, fw4);
+          drawField("Destino (Pátio)", c.yard?.name || "—", margin + fw4 * 3, fw4);
+          y += 13;
+          const fw3 = contentW / 3;
+          drawField("Data da Coleta", formatDate(c.collectDate), margin, fw3);
+          drawField("Status", c.status || "—", margin + fw3, fw3);
+          y += 13;
+        } else {
+          const t = rec as TransportWithRelations;
+          const driver = (t as any).driver;
+          const client = (t as any).client;
+          const originYard = (t as any).originYard;
+          const deliveryLocation = (t as any).deliveryLocation;
+          const fw4 = contentW / 4;
+          drawField("Chassi", t.vehicleChassi || "—", margin, fw4);
+          drawField("Nº Requisição", t.requestNumber || "—", margin + fw4, fw4);
+          drawField("Status", t.status || "—", margin + fw4 * 2, fw4);
+          drawField("Data Entrega", t.deliveryDate || "—", margin + fw4 * 3, fw4);
+          y += 13;
+          drawField("Motorista", driver?.name || "—", margin, fw4);
+          drawField("Cliente", client?.name || "—", margin + fw4, fw4);
+          drawField("Pátio de Origem", originYard?.name || "—", margin + fw4 * 2, fw4);
+          drawField("Destino", deliveryLocation ? `${deliveryLocation.name} — ${deliveryLocation.city}/${deliveryLocation.state}` : "—", margin + fw4 * 3, fw4);
+          y += 13;
+        }
+
+        y += 4;
+
+        // ── CHECK-IN ──────────────────────────────────────────
+        await renderCheckSection(
+          "Check-in",
+          rec.checkinDateTime ? formatDate(rec.checkinDateTime) : undefined,
+          rec.checkinLatitude,
+          rec.checkinLongitude,
+          rec.checkinNotes,
+          rec.checkinFrontalPhoto,
+          rec.checkinLateral1Photo,
+          rec.checkinLateral2Photo,
+          rec.checkinTraseiraPhoto,
+          rec.checkinOdometerPhoto,
+          rec.checkinFuelLevelPhoto,
+          rec.checkinSelfiePhoto,
+          getCheckinPhotos(rec)
+        );
+
+        y += 4;
+
+        // ── CHECK-OUT ─────────────────────────────────────────
+        await renderCheckSection(
+          "Check-out",
+          rec.checkoutDateTime ? formatDate(rec.checkoutDateTime) : undefined,
+          rec.checkoutLatitude,
+          rec.checkoutLongitude,
+          rec.checkoutNotes,
+          rec.checkoutFrontalPhoto,
+          rec.checkoutLateral1Photo,
+          rec.checkoutLateral2Photo,
+          rec.checkoutTraseiraPhoto,
+          rec.checkoutOdometerPhoto,
+          rec.checkoutFuelLevelPhoto,
+          rec.checkoutSelfiePhoto,
+          getCheckoutPhotos(rec)
+        );
 
         y += 6;
 
-        // Divider between records
-        if (ri < allRecords.length - 1) {
-          checkPageBreak(4);
-          doc.setDrawColor(220, 220, 220);
-          doc.setLineWidth(0.3);
-          doc.line(margin, y - 3, pageW - margin, y - 3);
+        // Page break between records
+        const isLast = ri === collectsWithDamage.length + transportsWithDamage.length - 1;
+        if (!isLast) {
+          doc.addPage();
+          pageNum++;
+          drawFooter();
+          y = 15;
+
+          // Mini header on continuation pages
+          doc.setFillColor(...orange);
+          doc.rect(0, 0, pageW, 10, "F");
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...white);
+          doc.text("OTD LOGISTICS — RELATÓRIO DE AVARIAS", margin, 7);
+          doc.text(`Emitido em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, pageW - margin, 7, { align: "right" });
+          y = 18;
         }
       }
 
       drawFooter();
-
       doc.save(`relatorio-avarias-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`);
     } finally {
       setPdfGenerating(false);
