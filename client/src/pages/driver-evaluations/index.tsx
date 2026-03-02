@@ -270,14 +270,17 @@ export default function DriverEvaluationsPage() {
       const res = await apiRequest("POST", "/api/driver-evaluations", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/driver-evaluations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-evaluations/pending-transports"] });
       setShowEvaluationDialog(false);
       resetForm();
+      const isComplete = result?.status === "concluida";
       toast({
-        title: "Avaliação enviada",
-        description: "A avaliação do motorista foi registrada com sucesso.",
+        title: isComplete ? "Avaliação concluída" : "Progresso salvo",
+        description: isComplete
+          ? "A avaliação do motorista foi concluída com sucesso."
+          : "Os critérios avaliados foram salvos. Você pode continuar depois.",
       });
     },
     onError: (error: any) => {
@@ -431,16 +434,24 @@ export default function DriverEvaluationsPage() {
       ? activeCriteria
       : activeCriteria.filter(c => !alreadyScoredScores.some(s => s.criteriaId === c.id));
 
-    const scoresToSubmit = unscoredCriteria.map(c => ({
-      criteriaId: c.id,
-      severity: criteriaSeverities[c.id] || "sem_ocorrencia",
-      notes: criteriaReasons[c.id]?.trim() || null,
-    }));
+    const scoresToSubmit = editingEvaluationId
+      ? unscoredCriteria.map(c => ({
+          criteriaId: c.id,
+          severity: criteriaSeverities[c.id] || "sem_ocorrencia",
+          notes: criteriaReasons[c.id]?.trim() || null,
+        }))
+      : unscoredCriteria
+          .filter(c => criteriaSeverities[c.id] !== undefined)
+          .map(c => ({
+            criteriaId: c.id,
+            severity: criteriaSeverities[c.id]!,
+            notes: criteriaReasons[c.id]?.trim() || null,
+          }));
 
     if (!editingEvaluationId && scoresToSubmit.length === 0) {
       toast({
-        title: "Todos os critérios já foram avaliados",
-        description: "Esta avaliação já está completa.",
+        title: "Nenhum critério selecionado",
+        description: "Avalie ao menos um critério antes de salvar o progresso.",
         variant: "destructive",
       });
       return;
@@ -529,65 +540,88 @@ export default function DriverEvaluationsPage() {
               </Card>
             ) : (
               <div className="border rounded-md divide-y">
-                {filteredPending.map((transport) => (
+                {filteredPending.map((transport) => {
+                  const scoredCriteria = transport.scoredCriteria ?? 0;
+                  const totalCriteria = transport.totalCriteria ?? 0;
+                  const pct = totalCriteria > 0 ? Math.round((scoredCriteria / totalCriteria) * 100) : 0;
+                  const scoredIds = new Set(transport.partialEvaluation?.scores.map(s => s.criteriaId) ?? []);
+                  return (
                   <div
                     key={transport.id}
-                    className="flex items-center justify-between p-3 hover-elevate"
+                    className="p-3 hover-elevate"
                     data-testid={`row-transport-${transport.id}`}
                   >
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="flex items-center gap-2 min-w-[100px]">
-                        <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="font-medium text-sm">{transport.requestNumber}</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 min-w-[100px]">
+                          <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="font-medium text-sm">{transport.requestNumber}</span>
+                        </div>
+                        <div className="flex items-center gap-2 min-w-[150px]">
+                          <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm truncate">{transport.driver?.name || "Sem motorista"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 hidden md:flex">
+                          <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm text-muted-foreground truncate">{transport.deliveryLocation?.city || "-"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 hidden lg:flex">
+                          <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm text-muted-foreground">{formatDate(transport.checkoutDateTime)}</span>
+                        </div>
+                        <Badge variant="outline" className="hidden sm:inline-flex">Entregue</Badge>
                       </div>
-                      <div className="flex items-center gap-2 min-w-[150px]">
-                        <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="text-sm truncate">{transport.driver?.name || "Sem motorista"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 hidden md:flex">
-                        <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="text-sm text-muted-foreground truncate">{transport.deliveryLocation?.city || "-"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 hidden lg:flex">
-                        <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="text-sm text-muted-foreground">{formatDate(transport.checkoutDateTime)}</span>
-                      </div>
-                      <Badge variant="outline" className="hidden sm:inline-flex">Entregue</Badge>
-                      {transport.partialEvaluation && (transport.scoredCriteria ?? 0) > 0 && (
-                        <div className="flex items-center gap-1.5 hidden md:flex" data-testid={`partial-progress-${transport.id}`}>
-                          <div className="flex items-center gap-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full px-2 py-0.5 text-xs font-medium">
-                            <Circle className="h-3 w-3" />
-                            {transport.scoredCriteria}/{transport.totalCriteria} critérios
-                          </div>
-                          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <Button
+                        size="sm"
+                        variant={transport.partialEvaluation ? "outline" : "default"}
+                        onClick={() => handleOpenEvaluation(transport)}
+                        data-testid={`button-evaluate-${transport.id}`}
+                      >
+                        {transport.partialEvaluation ? (
+                          <>
+                            <Circle className="h-4 w-4 mr-1 text-orange-500" />
+                            Continuar
+                          </>
+                        ) : (
+                          <>
+                            <Award className="h-4 w-4 mr-1" />
+                            Avaliar
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {transport.partialEvaluation && scoredCriteria > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid={`partial-progress-${transport.id}`}>
+                        {(transport.activeCriteria ?? []).map((c) => {
+                          const scored = scoredIds.has(c.id);
+                          return (
+                            <div
+                              key={c.id}
+                              className={`flex items-center gap-1 text-xs rounded-full px-2 py-0.5 border ${scored
+                                ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700"
+                                : "bg-muted text-muted-foreground border-border"
+                              }`}
+                              data-testid={`criteria-status-${c.id}-${transport.id}`}
+                            >
+                              {scored ? <CheckCircle className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
+                              <span>{c.name}</span>
+                            </div>
+                          );
+                        })}
+                        <div className="flex items-center gap-1.5 ml-1">
+                          <span className="text-xs font-medium text-orange-600 dark:text-orange-400">{pct}%</span>
+                          <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full bg-orange-500 rounded-full transition-all"
-                              style={{ width: `${Math.round(((transport.scoredCriteria ?? 0) / (transport.totalCriteria || 1)) * 100)}%` }}
+                              style={{ width: `${pct}%` }}
                             />
                           </div>
                         </div>
-                      )}
-                    </div>
-                    <Button
-                      size="sm"
-                      variant={transport.partialEvaluation ? "outline" : "default"}
-                      onClick={() => handleOpenEvaluation(transport)}
-                      data-testid={`button-evaluate-${transport.id}`}
-                    >
-                      {transport.partialEvaluation ? (
-                        <>
-                          <Circle className="h-4 w-4 mr-1 text-orange-500" />
-                          Continuar
-                        </>
-                      ) : (
-                        <>
-                          <Award className="h-4 w-4 mr-1" />
-                          Avaliar
-                        </>
-                      )}
-                    </Button>
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </TabsContent>
