@@ -789,10 +789,10 @@ export default function JornadaVeiculoPage() {
         ]}
       />
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
-        <Card className="no-print">
-          <CardContent className="pt-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
-              <div className="lg:w-80 xl:w-96 shrink-0 flex flex-col gap-3">
+        {!selectedChassi ? (
+          <Card className="no-print">
+            <CardContent className="pt-5">
+              <div className="flex flex-col gap-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
@@ -804,19 +804,10 @@ export default function JornadaVeiculoPage() {
                   />
                 </div>
                 <div className="rounded-lg border overflow-hidden">
-                  <div className="bg-muted/50 px-3 py-2 border-b flex items-center justify-between">
+                  <div className="bg-muted/50 px-3 py-2 border-b">
                     <span className="text-xs font-medium text-muted-foreground">
                       {filteredVehicles.length} veículo{filteredVehicles.length !== 1 ? "s" : ""}
                     </span>
-                    {selectedChassi && (
-                      <button
-                        onClick={() => { setSelectedChassi(null); setSearch(""); setActiveTab("coleta"); }}
-                        className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                        data-testid="button-clear-selection"
-                      >
-                        Limpar seleção
-                      </button>
-                    )}
                   </div>
                   <div className="max-h-72 overflow-y-auto divide-y">
                     {filteredVehicles.length === 0 ? (
@@ -827,21 +818,15 @@ export default function JornadaVeiculoPage() {
                     ) : (
                       filteredVehicles.slice(0, 50).map((vItem) => {
                         const cfg = statusConfig[vItem.status];
-                        const isSelected = selectedChassi === vItem.chassi;
                         return (
                           <button
                             key={vItem.chassi}
-                            onClick={() => { setSelectedChassi(vItem.chassi); setActiveTab("coleta"); }}
-                            className={cn(
-                              "w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 transition-colors hover:bg-muted/60",
-                              isSelected && "bg-primary/10 hover:bg-primary/15"
-                            )}
+                            onClick={() => { setSelectedChassi(vItem.chassi); setActiveTab("coleta"); setSearch(""); }}
+                            className="w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 transition-colors hover:bg-muted/60"
                             data-testid={`option-vehicle-${vItem.chassi}`}
                           >
                             <div className="min-w-0">
-                              <p className={cn("font-mono text-sm font-medium truncate", isSelected && "text-primary")}>
-                                {vItem.chassi}
-                              </p>
+                              <p className="font-mono text-sm font-medium truncate">{vItem.chassi}</p>
                               <p className="text-xs text-muted-foreground truncate">
                                 {[vItem.manufacturer?.name, vItem.client?.name].filter(Boolean).join(" · ") || "—"}
                               </p>
@@ -856,45 +841,38 @@ export default function JornadaVeiculoPage() {
                   </div>
                 </div>
               </div>
-
-              <div className="flex-1 min-w-0">
-                {!selectedChassi ? (
-                  <div className="flex flex-col items-center justify-center h-full min-h-[180px] rounded-xl border border-dashed text-center text-muted-foreground">
-                    <Car className="mb-3 h-10 w-10 opacity-30" />
-                    <p className="text-base font-medium">Selecione um veículo</p>
-                    <p className="text-sm mt-1">Use a lista ao lado para buscar pelo chassi</p>
-                  </div>
-                ) : journeyLoading ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-5 w-40" />
-                    <Skeleton className="h-4 w-64" />
-                    <Skeleton className="h-4 w-48" />
-                  </div>
-                ) : journey ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 shrink-0">
-                        <Car className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-mono text-lg font-bold leading-tight">{journey.vehicle.chassi}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {[journey.vehicle.manufacturer?.name, journey.vehicle.client?.name].filter(Boolean).join(" · ") || "—"}
-                        </p>
-                      </div>
-                      {statusConfig[journey.vehicle.status] && (
-                        <Badge variant="outline" className={statusConfig[journey.vehicle.status].badgeClass}>
-                          {statusConfig[journey.vehicle.status].label}
-                        </Badge>
-                      )}
-                    </div>
-                    <Timeline status={journey.vehicle.status} />
-                  </div>
-                ) : null}
-              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="no-print flex items-center gap-3 rounded-lg border bg-card px-4 py-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+              <Car className="h-4 w-4 text-primary" />
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex-1 min-w-0">
+              <p className="font-mono text-sm font-semibold truncate">{selectedChassi}</p>
+              {journey?.vehicle && (
+                <p className="text-xs text-muted-foreground truncate">
+                  {[journey.vehicle.manufacturer?.name, journey.vehicle.client?.name].filter(Boolean).join(" · ") || "—"}
+                </p>
+              )}
+            </div>
+            {journey?.vehicle && statusConfig[journey.vehicle.status] && (
+              <Badge variant="outline" className={cn("shrink-0 text-xs", statusConfig[journey.vehicle.status].badgeClass)}>
+                {statusConfig[journey.vehicle.status].label}
+              </Badge>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setSelectedChassi(null); setSearch(""); setActiveTab("coleta"); }}
+              className="shrink-0"
+              data-testid="button-change-vehicle"
+            >
+              <Search className="h-3.5 w-3.5 mr-1.5" />
+              Trocar
+            </Button>
+          </div>
+        )}
 
         {selectedChassi && journeyLoading && (
           <div className="space-y-4">
