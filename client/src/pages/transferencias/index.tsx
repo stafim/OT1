@@ -299,7 +299,7 @@ export default function TransferenciasPage() {
                             data-testid={`button-complete-${t.id}`}
                           >
                             <CheckCircle2 className="h-4 w-4 mr-1" />
-                            Confirmar Chegada
+                            Finalizar Transferência
                           </Button>
                         )}
                         {(t.status === "pendente" || t.status === "em_transito") && (
@@ -431,9 +431,9 @@ export default function TransferenciasPage() {
       <AlertDialog open={!!completeId} onOpenChange={() => setCompleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Chegada</AlertDialogTitle>
+            <AlertDialogTitle>Finalizar Transferência</AlertDialogTitle>
             <AlertDialogDescription>
-              Confirmar que o veículo chegou ao pátio de destino? O veículo será atualizado para Em Estoque no pátio destino.
+              Confirmar que o veículo chegou ao pátio de destino? O veículo será atualizado para Em Estoque no novo pátio.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -442,7 +442,7 @@ export default function TransferenciasPage() {
               onClick={() => completeId && completeMutation.mutate(completeId)}
               data-testid="button-confirm-complete"
             >
-              {completeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirmar Chegada"}
+              {completeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Finalizar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
