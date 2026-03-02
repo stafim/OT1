@@ -92,16 +92,6 @@ const operationItems: MenuItem[] = [
     icon: DoorOpen,
   },
   {
-    title: "Avaliação",
-    url: "/avaliacao",
-    icon: ClipboardCheck,
-  },
-  {
-    title: "Critérios de Avaliação",
-    url: "/criterios-avaliacao",
-    icon: FileBarChart,
-  },
-  {
     title: "Relatório de Avarias",
     url: "/relatorio-avarias",
     icon: ShieldAlert,
@@ -120,6 +110,19 @@ const operationItems: MenuItem[] = [
     title: "Contratos de Frete",
     url: "/contratos-frete",
     icon: FileText,
+  },
+];
+
+const motoristaItems: MenuItem[] = [
+  {
+    title: "Avaliação",
+    url: "/avaliacao",
+    icon: ClipboardCheck,
+  },
+  {
+    title: "Critérios de Avaliação",
+    url: "/criterios-avaliacao",
+    icon: FileBarChart,
   },
   {
     title: "Ranking de Motoristas",
@@ -273,6 +276,27 @@ export function AppSidebar() {
                       ) : (
                         <item.icon className="h-4 w-4" />
                       )}
+                      <span className="flex-1">{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Motorista</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {motoristaItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.url}
+                  >
+                    <Link href={item.url} data-testid={`link-nav-${item.url.replace("/", "")}`}>
+                      <item.icon className="h-4 w-4" />
                       <span className="flex-1">{item.title}</span>
                       {item.url === "/avaliacao" && pendingCount > 0 && (
                         <Badge variant="destructive" className="text-[10px] px-1.5 py-0 min-w-[18px] h-4 flex items-center justify-center">
