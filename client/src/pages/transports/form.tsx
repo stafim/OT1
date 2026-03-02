@@ -478,7 +478,7 @@ export default function TransportFormPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-screen">
       <PageHeader
         title={isEditing ? "Editar Transporte" : "Novo Transporte"}
         breadcrumbs={[
@@ -487,21 +487,10 @@ export default function TransportFormPage() {
           { label: isEditing ? "Editar" : "Novo" },
         ]}
       />
-      {isEditing && (
-        <div className="flex justify-end px-4 md:px-6 pt-4">
-          <Button
-            type="button"
-            variant={isEditMode ? "default" : "outline"}
-            onClick={() => setIsEditMode(!isEditMode)}
-            data-testid="button-toggle-edit"
-          >
-            {isEditMode ? "Visualizar" : "Editar"}
-          </Button>
-        </div>
-      )}
-      <div className="flex-1 overflow-auto p-4 md:p-6">
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto p-4 md:p-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
+          <form id="transport-form" onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Dados do Transporte</CardTitle>
@@ -1337,17 +1326,51 @@ export default function TransportFormPage() {
               </div>
             )}
 
-            <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" onClick={() => navigate("/transportes")}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={mutation.isPending} data-testid="button-save-transport">
-                {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditing ? "Salvar" : "Criar Transporte"}
-              </Button>
-            </div>
           </form>
         </Form>
+        </div>
+        <aside className="w-56 shrink-0 border-l bg-card flex flex-col gap-4 p-4 overflow-y-auto">
+          {isEditing && transport && (
+            <div className="space-y-2 pb-4 border-b">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Transporte</p>
+              <p className="font-semibold text-sm">{(transport as any).requestNumber ?? id}</p>
+              <Badge variant="outline" className="text-xs capitalize">
+                {transport.status?.replace(/_/g, " ")}
+              </Badge>
+            </div>
+          )}
+          {isEditing && (
+            <Button
+              type="button"
+              variant={isEditMode ? "default" : "outline"}
+              onClick={() => setIsEditMode(!isEditMode)}
+              className="w-full"
+              data-testid="button-toggle-edit"
+            >
+              {isEditMode ? "Visualizar" : "Editar"}
+            </Button>
+          )}
+          <div className="mt-auto flex flex-col gap-2">
+            <Button
+              type="button"
+              className="w-full"
+              disabled={mutation.isPending || (!!isEditing && !isEditMode)}
+              onClick={() => form.handleSubmit((data) => mutation.mutate(data))()}
+              data-testid="button-save-transport"
+            >
+              {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isEditing ? "Salvar" : "Criar Transporte"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate("/transportes")}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </aside>
       </div>
     </div>
   );
