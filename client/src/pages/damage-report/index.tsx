@@ -17,7 +17,7 @@ import {
   Truck,
   Package,
   Camera,
-  Clock,
+  Printer,
   Image,
   ChevronLeft,
   ChevronRight,
@@ -70,6 +70,7 @@ export default function DamageReportPage() {
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   const { data: collects, isLoading: collectsLoading } = useQuery<CollectWithRelations[]>({
     queryKey: ["/api/collects"],
@@ -139,6 +140,292 @@ export default function DamageReportPage() {
   const showTransports = activeTab === "all" || activeTab === "transports";
   const hasResults = (showCollects && filteredCollects.length > 0) || (showTransports && filteredTransports.length > 0);
 
+  const generatePdf = async () => {
+    setPdfGenerating(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+      const pageW = 210;
+      const pageH = 297;
+      const margin = 18;
+      const contentW = pageW - margin * 2;
+      const orange: [number, number, number] = [234, 88, 12];
+      const red: [number, number, number] = [220, 38, 38];
+      const darkGray: [number, number, number] = [30, 30, 30];
+      const medGray: [number, number, number] = [100, 100, 100];
+      const lightGray: [number, number, number] = [245, 245, 245];
+      const white: [number, number, number] = [255, 255, 255];
+
+      let y = 0;
+      let pageNum = 1;
+
+      const checkPageBreak = (needed: number) => {
+        if (y + needed > pageH - 18) {
+          doc.addPage();
+          pageNum++;
+          drawFooter();
+          y = 18;
+        }
+      };
+
+      const drawFooter = () => {
+        doc.setFontSize(7.5);
+        doc.setTextColor(...medGray);
+        doc.setFont("helvetica", "normal");
+        doc.text("OTD Logistics — Relatório de Avarias", margin, pageH - 8);
+        doc.text(`Página ${pageNum}`, pageW - margin, pageH - 8, { align: "right" });
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.3);
+        doc.line(margin, pageH - 12, pageW - margin, pageH - 12);
+      };
+
+      const loadImage = async (url: string): Promise<string | null> => {
+        try {
+          const img = new window.Image();
+          img.crossOrigin = "anonymous";
+          await new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = normalizeImageUrl(url);
+          });
+          if (!img.complete || img.naturalWidth === 0) return null;
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return null;
+          ctx.drawImage(img, 0, 0);
+          return canvas.toDataURL("image/jpeg", 0.75);
+        } catch {
+          return null;
+        }
+      };
+
+      // ── HEADER ──────────────────────────────────────────────
+      doc.setFillColor(...orange);
+      doc.rect(0, 0, pageW, 42, "F");
+
+      try {
+        const logoImg = new window.Image();
+        logoImg.crossOrigin = "anonymous";
+        await new Promise<void>((resolve) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = () => resolve();
+          logoImg.src = "/logo-otd.png";
+        });
+        if (logoImg.complete && logoImg.naturalWidth > 0) {
+          const canvas = document.createElement("canvas");
+          canvas.width = logoImg.naturalWidth;
+          canvas.height = logoImg.naturalHeight;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(logoImg, 0, 0);
+            const dataUrl = canvas.toDataURL("image/png");
+            const aspectRatio = logoImg.naturalWidth / logoImg.naturalHeight;
+            const logoH = 26;
+            const logoW = logoH * aspectRatio;
+            doc.addImage(dataUrl, "PNG", margin, 8, logoW, logoH);
+          }
+        }
+      } catch {}
+
+      doc.setFontSize(14);
+      doc.setTextColor(...white);
+      doc.setFont("helvetica", "bold");
+      doc.text("RELATÓRIO DE AVARIAS", pageW - margin, 17, { align: "right" });
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "normal");
+      doc.text("OTD Logistics", pageW - margin, 25, { align: "right" });
+      doc.setFontSize(8);
+      doc.text(`Emitido em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageW - margin, 32, { align: "right" });
+
+      y = 52;
+
+      // ── SUMMARY ─────────────────────────────────────────────
+      doc.setFillColor(...lightGray);
+      doc.roundedRect(margin, y, contentW, 20, 2, 2, "F");
+
+      const col = contentW / 4;
+      const summaryItems = [
+        { label: "Registros com Avaria", value: String(totalDamageRecords) },
+        { label: "Fotos de Avaria", value: String(totalDamagePhotos) },
+        { label: "Coletas", value: String(collectsWithDamage.length) },
+        { label: "Transportes", value: String(transportsWithDamage.length) },
+      ];
+      summaryItems.forEach((item, i) => {
+        const x = margin + col * i + col / 2;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...red);
+        doc.text(item.value, x, y + 10, { align: "center" });
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...medGray);
+        doc.text(item.label, x, y + 16, { align: "center" });
+      });
+
+      y += 28;
+
+      // ── RECORDS ─────────────────────────────────────────────
+      const allRecords: Array<{
+        type: "coleta" | "transporte";
+        id: string;
+        identifier: string;
+        chassi: string;
+        driver: string;
+        origin: string;
+        destination: string;
+        date: string;
+        checkinPhotos: string[];
+        checkoutPhotos: string[];
+      }> = [
+        ...collectsWithDamage.map((c) => ({
+          type: "coleta" as const,
+          id: c.id,
+          identifier: c.vehicleChassi || "-",
+          chassi: c.vehicleChassi || "-",
+          driver: c.driver?.name || "-",
+          origin: c.manufacturer?.name || "-",
+          destination: c.yard?.name || "-",
+          date: formatDate(c.collectDate),
+          checkinPhotos: getCheckinPhotos(c),
+          checkoutPhotos: getCheckoutPhotos(c),
+        })),
+        ...transportsWithDamage.map((t) => ({
+          type: "transporte" as const,
+          id: t.id,
+          identifier: t.requestNumber || "-",
+          chassi: t.vehicleChassi || "-",
+          driver: (t as any).driver?.name || "-",
+          origin: (t as any).originYard?.name || "-",
+          destination: (t as any).deliveryLocation
+            ? `${(t as any).deliveryLocation.city}/${(t as any).deliveryLocation.state}`
+            : (t as any).client?.name || "-",
+          date: formatDate(t.checkinDateTime || t.createdAt),
+          checkinPhotos: getCheckinPhotos(t),
+          checkoutPhotos: getCheckoutPhotos(t),
+        })),
+      ];
+
+      for (let ri = 0; ri < allRecords.length; ri++) {
+        const rec = allRecords[ri];
+        const totalPhotos = rec.checkinPhotos.length + rec.checkoutPhotos.length;
+
+        checkPageBreak(36);
+
+        // Record header bar
+        doc.setFillColor(240, 240, 240);
+        doc.roundedRect(margin, y, contentW, 12, 1.5, 1.5, "F");
+
+        // Type badge
+        doc.setFillColor(...(rec.type === "coleta" ? ([59, 130, 246] as [number, number, number]) : ([107, 114, 128] as [number, number, number])));
+        doc.roundedRect(margin + 2, y + 1.5, 28, 9, 1, 1, "F");
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...white);
+        doc.text(rec.type === "coleta" ? "COLETA" : "TRANSPORTE", margin + 16, y + 7.5, { align: "center" });
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...darkGray);
+        doc.text(rec.identifier, margin + 34, y + 8);
+
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...medGray);
+        doc.text(`${totalPhotos} foto${totalPhotos !== 1 ? "s" : ""} de avaria`, pageW - margin - 2, y + 8, { align: "right" });
+
+        y += 16;
+
+        // Fields row
+        checkPageBreak(16);
+        const fw = contentW / 4;
+        const fields = [
+          { label: "Chassi", value: rec.chassi },
+          { label: "Motorista", value: rec.driver },
+          { label: "Origem", value: rec.origin },
+          { label: "Destino / Data", value: `${rec.destination} · ${rec.date}` },
+        ];
+        fields.forEach((f, fi) => {
+          const fx = margin + fw * fi;
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...medGray);
+          doc.text(f.label.toUpperCase(), fx, y);
+          doc.setFontSize(8.5);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...darkGray);
+          const maxChars = Math.floor(fw / 2);
+          const truncated = f.value.length > maxChars ? f.value.slice(0, maxChars - 1) + "…" : f.value;
+          doc.text(truncated, fx, y + 5.5);
+        });
+        y += 12;
+
+        // Photos
+        const renderPhotos = async (photos: string[], sectionLabel: string) => {
+          if (photos.length === 0) return;
+          checkPageBreak(10);
+          doc.setFontSize(7.5);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...red);
+          doc.text(sectionLabel.toUpperCase(), margin, y);
+          y += 6;
+
+          const photoW = 38;
+          const photoH = 28;
+          const gap = 4;
+          const perRow = Math.floor(contentW / (photoW + gap));
+          let col = 0;
+
+          for (const photoUrl of photos) {
+            if (col === 0) checkPageBreak(photoH + 6);
+            const px = margin + col * (photoW + gap);
+            const dataUrl = await loadImage(photoUrl);
+            if (dataUrl) {
+              doc.addImage(dataUrl, "JPEG", px, y, photoW, photoH);
+              doc.setDrawColor(200, 200, 200);
+              doc.setLineWidth(0.2);
+              doc.rect(px, y, photoW, photoH);
+            } else {
+              doc.setFillColor(240, 240, 240);
+              doc.rect(px, y, photoW, photoH, "F");
+              doc.setFontSize(7);
+              doc.setTextColor(...medGray);
+              doc.text("Foto indisponível", px + photoW / 2, y + photoH / 2, { align: "center" });
+            }
+            col++;
+            if (col >= perRow) {
+              col = 0;
+              y += photoH + gap;
+            }
+          }
+          if (col > 0) y += photoH + gap;
+          y += 2;
+        };
+
+        await renderPhotos(rec.checkinPhotos, `Avarias no Check-in (${rec.checkinPhotos.length})`);
+        await renderPhotos(rec.checkoutPhotos, `Avarias no Check-out (${rec.checkoutPhotos.length})`);
+
+        y += 6;
+
+        // Divider between records
+        if (ri < allRecords.length - 1) {
+          checkPageBreak(4);
+          doc.setDrawColor(220, 220, 220);
+          doc.setLineWidth(0.3);
+          doc.line(margin, y - 3, pageW - margin, y - 3);
+        }
+      }
+
+      drawFooter();
+
+      doc.save(`relatorio-avarias-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`);
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
@@ -147,6 +434,25 @@ export default function DamageReportPage() {
           { label: "Operação", href: "/" },
           { label: "Relatório de Avarias" },
         ]}
+        actions={
+          <Button
+            onClick={generatePdf}
+            disabled={pdfGenerating || isLoading || totalDamageRecords === 0}
+            data-testid="button-generate-pdf"
+          >
+            {pdfGenerating ? (
+              <>
+                <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full inline-block" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <Printer className="h-4 w-4 mr-2" />
+                Gerar PDF
+              </>
+            )}
+          </Button>
+        }
       />
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
         <div className="grid gap-4 sm:grid-cols-3">
