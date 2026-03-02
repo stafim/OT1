@@ -590,7 +590,7 @@ export default function DriverEvaluationsPage() {
                         )}
                       </Button>
                     </div>
-                    {transport.partialEvaluation && scoredCriteria > 0 && (
+                    {(transport.activeCriteria ?? []).length > 0 && (
                       <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid={`partial-progress-${transport.id}`}>
                         {(transport.activeCriteria ?? []).map((c) => {
                           const scored = scoredIds.has(c.id);
