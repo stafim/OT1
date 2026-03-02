@@ -15,6 +15,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -100,6 +101,7 @@ export default function PortariaPage() {
   const [showNewCollectDialog, setShowNewCollectDialog] = useState(false);
   const [selectedTransportId, setSelectedTransportId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [selectedYardId, setSelectedYardId] = useState<string>("all");
   const [openManufacturer, setOpenManufacturer] = useState(false);
   const [openYard, setOpenYard] = useState(false);
   const [openDriver, setOpenDriver] = useState(false);
@@ -137,7 +139,11 @@ export default function PortariaPage() {
     queryKey: ["/api/transfers"],
   });
 
-  const pendingTransfersList = transfers.filter((t) => t.status === "pendente");
+  const pendingTransfersList = transfers.filter((t) => {
+    if (t.status !== "pendente") return false;
+    if (selectedYardId !== "all" && t.originYardId !== selectedYardId) return false;
+    return true;
+  });
 
   const authorizeTransferMutation = useMutation({
     mutationFn: async (transferId: string) => {
@@ -233,27 +239,23 @@ export default function PortariaPage() {
 
   const pendingCollects = collects?.filter((c) => {
     if (c.status !== "em_transito") return false;
-    
+    if (selectedYardId !== "all" && c.yardId !== selectedYardId) return false;
     if (!searchTerm.trim()) return true;
-    
     const search = searchTerm.toLowerCase().trim();
     const chassiMatch = c.vehicleChassi?.toLowerCase().includes(search);
     const driver = c.driverId ? getDriver(c.driverId) : null;
     const driverMatch = driver?.name?.toLowerCase().includes(search);
-    
     return chassiMatch || driverMatch;
   }) || [];
 
   const finalizedCollects = collects?.filter((c) => {
     if (c.status !== "finalizada") return false;
-    
+    if (selectedYardId !== "all" && c.yardId !== selectedYardId) return false;
     if (!searchTerm.trim()) return true;
-    
     const search = searchTerm.toLowerCase().trim();
     const chassiMatch = c.vehicleChassi?.toLowerCase().includes(search);
     const driver = c.driverId ? getDriver(c.driverId) : null;
     const driverMatch = driver?.name?.toLowerCase().includes(search);
-    
     return chassiMatch || driverMatch;
   }).sort((a, b) => {
     const dateA = a.checkoutDateTime ? new Date(a.checkoutDateTime).getTime() : 0;
@@ -269,15 +271,13 @@ export default function PortariaPage() {
 
   const pendingTransports = transports?.filter((t) => {
     if (t.status !== "aguardando_saida" && t.status !== "pendente") return false;
-    
+    if (selectedYardId !== "all" && t.originYardId !== selectedYardId) return false;
     if (!transportSearchTerm.trim()) return true;
-    
     const search = transportSearchTerm.toLowerCase().trim();
     const chassiMatch = t.vehicleChassi?.toLowerCase().includes(search);
     const driver = t.driverId ? getDriver(t.driverId) : null;
     const driverMatch = driver?.name?.toLowerCase().includes(search);
     const requestNumberMatch = t.requestNumber?.toLowerCase().includes(search);
-    
     return chassiMatch || driverMatch || requestNumberMatch;
   }) || [];
 
@@ -295,7 +295,21 @@ export default function PortariaPage() {
         ]}
       />
       <div className="flex-1 overflow-auto p-4 md:p-6">
-        <div className="flex justify-end mb-4">
+        <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Building className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Select value={selectedYardId} onValueChange={setSelectedYardId}>
+              <SelectTrigger className="w-64" data-testid="select-yard-filter">
+                <SelectValue placeholder="Filtrar por pátio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os pátios</SelectItem>
+                {(yards ?? []).map((y) => (
+                  <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center border rounded-md overflow-hidden">
             <Button
               variant={viewMode === "cards" ? "secondary" : "ghost"}
