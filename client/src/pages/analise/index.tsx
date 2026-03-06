@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useVoiceRecorder } from "../../../replit_integrations/audio/useVoiceRecorder";
 import {
   Table,
   TableBody,
@@ -37,6 +38,9 @@ import {
   Code2,
   ChevronDown,
   ChevronUp,
+  Mic,
+  MicOff,
+  BrainCircuit,
 } from "lucide-react";
 
 interface QueryResult {
@@ -73,8 +77,34 @@ export default function AnalisePage() {
   const [viewMode, setViewMode] = useState<"table" | "chart">("table");
   const [showSql, setShowSql] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { state: recordingState, startRecording, stopRecording } = useVoiceRecorder();
 
-  const mutation = useMutation({
+  const transcribeMutation = useMutation({
+    mutationFn: async (blob: Blob): Promise<string> => {
+      const arrayBuffer = await blob.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+      );
+      const res = await apiRequest("POST", "/api/transcribe", { audio: base64 });
+      const data = await res.json();
+      return data.text as string;
+    },
+    onSuccess: (text) => {
+      setQuestion(text);
+      if (text.trim()) {
+        queryMutation.mutate(text.trim());
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Erro ao transcrever",
+        description: "Não foi possível converter o áudio em texto. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const queryMutation = useMutation({
     mutationFn: async (q: string) => {
       const res = await apiRequest("POST", "/api/ai-query", { question: q });
       return res.json() as Promise<QueryResult>;
@@ -95,7 +125,7 @@ export default function AnalisePage() {
   const handleSubmit = () => {
     const q = question.trim();
     if (!q) return;
-    mutation.mutate(q);
+    queryMutation.mutate(q);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -106,7 +136,26 @@ export default function AnalisePage() {
 
   const handleExample = (example: string) => {
     setQuestion(example);
-    mutation.mutate(example);
+    queryMutation.mutate(example);
+  };
+
+  const handleMicClick = async () => {
+    if (recordingState === "recording") {
+      const blob = await stopRecording();
+      if (blob.size > 0) {
+        transcribeMutation.mutate(blob);
+      }
+    } else {
+      try {
+        await startRecording();
+      } catch {
+        toast({
+          title: "Microfone indisponível",
+          description: "Permita o acesso ao microfone no navegador para usar essa função.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const downloadCSV = () => {
@@ -295,16 +344,18 @@ export default function AnalisePage() {
     );
   };
 
+  const isLoading = queryMutation.isPending || transcribeMutation.isPending;
   const hasChart = result && result.chartType !== "table";
+  const isRecording = recordingState === "recording";
 
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="flex items-center gap-3 px-6 py-4 border-b border-border">
-        <Sparkles className="h-5 w-5 text-primary" />
+        <BrainCircuit className="h-5 w-5 text-primary" />
         <div>
           <h1 className="text-lg font-semibold">Análise IA</h1>
           <p className="text-xs text-muted-foreground">
-            Faça perguntas em português e obtenha análises dos dados
+            Faça perguntas em português ou por voz e obtenha análises dos dados
           </p>
         </div>
       </div>
@@ -318,30 +369,71 @@ export default function AnalisePage() {
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ex: Quantos veículos estão em estoque por pátio?"
+              placeholder={
+                isRecording
+                  ? "Ouvindo... fale sua pergunta"
+                  : transcribeMutation.isPending
+                  ? "Transcrevendo áudio..."
+                  : "Ex: Quantos veículos estão em estoque por pátio?"
+              }
               className="pr-28 resize-none min-h-[80px] text-sm"
               rows={3}
+              disabled={isRecording || transcribeMutation.isPending}
             />
-            <Button
-              data-testid="button-submit-query"
-              size="sm"
-              className="absolute bottom-3 right-3"
-              onClick={handleSubmit}
-              disabled={mutation.isPending || !question.trim()}
-            >
-              {mutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              <span className="ml-1.5">Analisar</span>
-            </Button>
+            <div className="absolute bottom-3 right-3 flex items-center gap-2">
+              <Button
+                type="button"
+                size="icon"
+                variant={isRecording ? "destructive" : "outline"}
+                className={`h-8 w-8 shrink-0 ${isRecording ? "animate-pulse" : ""}`}
+                onClick={handleMicClick}
+                disabled={transcribeMutation.isPending || queryMutation.isPending}
+                data-testid="button-voice-input"
+                title={isRecording ? "Parar gravação" : "Gravar pergunta por voz"}
+              >
+                {isRecording ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                data-testid="button-submit-query"
+                size="sm"
+                onClick={handleSubmit}
+                disabled={isLoading || !question.trim() || isRecording}
+              >
+                {queryMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                <span className="ml-1.5">Analisar</span>
+              </Button>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground text-right">
-            Ctrl+Enter para enviar
-          </p>
 
-          {!result && !mutation.isPending && (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              {isRecording ? (
+                <span className="flex items-center gap-1.5 text-destructive font-medium">
+                  <span className="inline-block h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                  Gravando… clique em
+                  <MicOff className="inline h-3 w-3" />
+                  para parar
+                </span>
+              ) : transcribeMutation.isPending ? (
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Loader2 className="inline h-3 w-3 animate-spin" />
+                  Convertendo voz em texto…
+                </span>
+              ) : (
+                "Ctrl+Enter para enviar · Clique no microfone para falar"
+              )}
+            </p>
+          </div>
+
+          {!result && !isLoading && (
             <div className="mt-4">
               <p className="text-xs font-medium text-muted-foreground mb-2">Sugestões:</p>
               <div className="flex flex-wrap gap-2">
@@ -360,14 +452,18 @@ export default function AnalisePage() {
           )}
         </div>
 
-        {mutation.isPending && (
+        {isLoading && (
           <div className="max-w-3xl mx-auto flex items-center gap-3 text-muted-foreground py-8">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">A IA está analisando sua pergunta...</span>
+            <span className="text-sm">
+              {transcribeMutation.isPending
+                ? "Convertendo voz em texto..."
+                : "A IA está analisando sua pergunta..."}
+            </span>
           </div>
         )}
 
-        {result && !mutation.isPending && (
+        {result && !isLoading && (
           <div className="max-w-5xl mx-auto space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

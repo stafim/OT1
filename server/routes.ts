@@ -4019,6 +4019,24 @@ export async function registerRoutes(
     }
   });
 
+  // ============== VOICE TRANSCRIPTION ==============
+  app.post("/api/transcribe", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { audio } = req.body;
+      if (!audio || typeof audio !== "string") {
+        return res.status(400).json({ message: "audio (base64) é obrigatório" });
+      }
+      const { ensureCompatibleFormat, speechToText } = await import("./replit_integrations/audio/client");
+      const rawBuffer = Buffer.from(audio, "base64");
+      const { buffer, format } = await ensureCompatibleFormat(rawBuffer);
+      const text = await speechToText(buffer, format);
+      res.json({ text });
+    } catch (error: any) {
+      console.error("Error in transcribe:", error);
+      res.status(500).json({ message: error.message || "Erro ao transcrever áudio" });
+    }
+  });
+
   // ============== AI QUERY ==============
   app.post("/api/ai-query", isAuthenticatedJWT, async (req, res) => {
     try {
