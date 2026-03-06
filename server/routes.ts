@@ -54,7 +54,8 @@ import {
   type FeatureKey,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql as drizzleSql } from "drizzle-orm";
+import OpenAI from "openai";
 import { users } from "@shared/models/auth";
 
 async function createDefaultAdmin() {
@@ -4015,6 +4016,120 @@ export async function registerRoutes(
       res.json({ message: "Transfer deleted" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete transfer" });
+    }
+  });
+
+  // ============== AI QUERY ==============
+  app.post("/api/ai-query", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { question } = req.body;
+      if (!question || typeof question !== "string") {
+        return res.status(400).json({ message: "question é obrigatório" });
+      }
+
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      const schemaContext = `
+Banco de dados PostgreSQL do sistema OTD Logistics. Tabelas disponíveis:
+
+drivers (motoristas): id, name, cpf, phone, email, birth_date, cep, address, address_number, complement, neighborhood, city, state, cnh_type, cnh_expiry, driver_type (coleta|transporte), driver_modality (pj|clt|agregado), is_active, freight_contract_id, created_at
+
+vehicles (veículos/estoque): chassi (PK), model_id, manufacturer_id, color, year, status (pre_estoque|em_estoque|em_transferencia|despachado|entregue|retirado), yard_id, client_id, delivery_location_id, entry_date, yard_entry_date_time, created_at
+
+transports (transportes): id, vehicle_chassi, driver_id, origin_yard_id, destination_yard_id, client_id, delivery_location_id, status (pendente|aguardando_saida|em_transito|entregue|cancelado), started_at, delivered_at, notes, created_at
+
+collects (coletas): id, driver_id, vehicle_chassi, origin_manufacturer_id, destination_yard_id, status (em_transito|aguardando_checkout|finalizada), created_at
+
+yards (pátios): id, name, city, state, cep, address, capacity, manager_name, manager_phone, latitude, longitude
+
+manufacturers (montadoras): id, name, city, state, address, contact_name, contact_phone
+
+clients (clientes): id, name, cnpj, email, phone, city, state, address
+
+truck_models (modelos): id, name, manufacturer_id, category
+
+contracts (contratos): id, driver_id, start_date, end_date, value, status, type, notes
+
+freight_quotes (cotações de frete): id, origin, destination, distance_km, weight_kg, vehicle_type, quote_value, status, created_at
+
+freight_contracts (contratos de frete): id, name, base_rate, rate_per_km, rate_per_kg, valid_from, valid_until, is_active
+
+transfers (transferências): id, vehicle_chassi, origin_yard_id, destination_yard_id, driver_id, status (pendente|autorizada|em_transito|concluida|cancelada), authorized_at, started_at, completed_at
+
+damage_photos (fotos de avarias): id, transport_id, collect_id, vehicle_chassi, photo_url, description, created_at
+
+driver_evaluations (avaliações de motorista): id, driver_id, transport_id, score, punctuality, cargo_care, documentation, notes, created_at
+
+system_users (usuários do sistema): id, email, first_name, last_name, role (admin|operador|visualizador|motorista|portaria)
+
+Sempre retorne apenas consultas SELECT. Nunca use INSERT, UPDATE, DELETE, DROP, CREATE, ALTER.
+Para datas use funções PostgreSQL como DATE_TRUNC, EXTRACT, TO_CHAR.
+Use JOINs quando precisar de dados de múltiplas tabelas.
+Prefira aliases legíveis nas colunas (AS "Nome Coluna").
+`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Você é um analista de dados especialista em SQL PostgreSQL para o sistema OTD Logistics.
+Dado o schema do banco e uma pergunta em português, gere uma consulta SQL válida.
+Responda SOMENTE com JSON no formato: { "sql": "SELECT ...", "chartType": "bar"|"line"|"pie"|"table"|"kpi" }
+- Use "kpi" quando a resposta for um único valor numérico agregado
+- Use "bar" para comparações entre categorias
+- Use "line" para tendências ao longo do tempo
+- Use "pie" para distribuições percentuais
+- Use "table" para listagens detalhadas com muitas colunas
+Não inclua explicações, apenas o JSON.`,
+          },
+          {
+            role: "user",
+            content: `Schema:\n${schemaContext}\n\nPergunta: ${question}`,
+          },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0,
+      });
+
+      const content = completion.choices[0]?.message?.content || "{}";
+      let parsed: { sql?: string; chartType?: string };
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        return res.status(500).json({ message: "Resposta inválida da IA" });
+      }
+
+      const generatedSql = parsed.sql?.trim();
+      const chartType = parsed.chartType || "table";
+
+      if (!generatedSql) {
+        return res.status(400).json({ message: "A IA não gerou SQL para essa pergunta" });
+      }
+
+      const sqlUpper = generatedSql.toUpperCase().replace(/\s+/g, " ").trim();
+      if (!sqlUpper.startsWith("SELECT")) {
+        return res.status(400).json({ message: "Apenas consultas SELECT são permitidas" });
+      }
+
+      const forbidden = ["INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER", "TRUNCATE", "GRANT", "REVOKE"];
+      for (const kw of forbidden) {
+        if (sqlUpper.includes(kw)) {
+          return res.status(400).json({ message: `SQL contém operação proibida: ${kw}` });
+        }
+      }
+
+      const result = await db.execute(drizzleSql.raw(generatedSql));
+      const rows = result.rows as Record<string, unknown>[];
+      const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+      res.json({ sql: generatedSql, columns, rows, chartType });
+    } catch (error: any) {
+      console.error("Error in ai-query:", error);
+      res.status(500).json({ message: error.message || "Erro ao processar consulta IA" });
     }
   });
 

@@ -41,6 +41,7 @@ import {
   FileText,
   Activity,
   ArrowLeftRight,
+  BrainCircuit,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -116,6 +117,11 @@ const operationItems: MenuItem[] = [
     title: "Contratos de Frete",
     url: "/contratos-frete",
     icon: FileText,
+  },
+  {
+    title: "Análise IA",
+    url: "/analise",
+    icon: BrainCircuit,
   },
 ];
 

@@ -60,6 +60,7 @@ import ContratosFreteePage from "@/pages/contratos-frete/index";
 import JornadaVeiculoPage from "@/pages/jornada-veiculo/index";
 import RastreadoresPage from "@/pages/rastreadores/index";
 import TransferenciasPage from "@/pages/transferencias/index";
+import AnalisePage from "@/pages/analise/index";
 
 function AuthenticatedRouter() {
   return (
@@ -100,6 +101,7 @@ function AuthenticatedRouter() {
       <Route path="/jornada-veiculo" component={JornadaVeiculoPage} />
       <Route path="/rastreadores" component={RastreadoresPage} />
       <Route path="/transferencias" component={TransferenciasPage} />
+      <Route path="/analise" component={AnalisePage} />
       <Route path="/contratos" component={ContractsPage} />
       <Route path="/usuarios" component={UsersPage} />
       <Route path="/usuarios/:id" component={UserFormPage} />
