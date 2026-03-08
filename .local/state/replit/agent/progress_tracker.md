@@ -10,3 +10,4 @@
 [x] 10. Dump do banco de dados restaurado com sucesso
 [x] 11. Botão de download PDF nas cotações salvas com logo OTD, dados do cliente e valor final
 [x] 12. Nova funcionalidade: Contratos de Frete - cotações podem ser convertidas em contratos
+[x] 13. Migration to Replit environment completed - workflow running successfully on port 5000
