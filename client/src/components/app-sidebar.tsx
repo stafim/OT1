@@ -64,6 +64,11 @@ const operationItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
+    title: "Análise IA",
+    url: "/analise",
+    icon: BrainCircuit,
+  },
+  {
     title: "Check Points (Em dev)",
     url: "/timeline-checkpoints",
     icon: Route,
@@ -117,11 +122,6 @@ const operationItems: MenuItem[] = [
     title: "Contratos de Frete",
     url: "/contratos-frete",
     icon: FileText,
-  },
-  {
-    title: "Análise IA",
-    url: "/analise",
-    icon: BrainCircuit,
   },
 ];
 
