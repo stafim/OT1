@@ -353,7 +353,7 @@ export default function AnalisePage() {
       <div className="flex items-center gap-3 px-6 py-4 border-b border-border">
         <BrainCircuit className="h-5 w-5 text-primary" />
         <div>
-          <h1 className="text-lg font-semibold">Análise IA</h1>
+          <h1 className="text-lg font-semibold">Consulta Inteligente</h1>
           <p className="text-xs text-muted-foreground">
             Faça perguntas em português ou por voz e obtenha análises dos dados
           </p>

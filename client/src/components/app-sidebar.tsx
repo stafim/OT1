@@ -64,7 +64,7 @@ const operationItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
-    title: "Análise IA",
+    title: "Consulta Inteligente",
     url: "/analise",
     icon: BrainCircuit,
   },
