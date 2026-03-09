@@ -238,7 +238,19 @@ export default function RouteManagementPage() {
       suggestedPrice,
       netProfit,
     });
-  }, [watchedValues]);
+  }, [
+    watchedValues.distanceKm,
+    watchedValues.dieselPrice,
+    watchedValues.fuelConsumption,
+    watchedValues.tollCost,
+    watchedValues.driverDailyCost,
+    watchedValues.returnTicket,
+    watchedValues.extraExpenses,
+    watchedValues.adValoremPercentage,
+    watchedValues.vehicleValue,
+    watchedValues.profitMarginPercentage,
+    watchedValues.adminFee,
+  ]);
 
   // Track last calculated route to avoid duplicate API calls (using ref to avoid triggering re-renders)
   const lastCalculatedKeyRef = useRef("");
