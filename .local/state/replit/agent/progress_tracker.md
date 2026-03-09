@@ -11,3 +11,4 @@
 [x] 11. Botão de download PDF nas cotações salvas com logo OTD, dados do cliente e valor final
 [x] 12. Nova funcionalidade: Contratos de Frete - cotações podem ser convertidas em contratos
 [x] 13. Migration to Replit environment completed - workflow running successfully on port 5000
+[x] 14. Seed de cadastros em massa: 30 motoristas, 3 montadoras (Volvo/VW/Ford), 20 clientes com 40 locais de entrega, 300 veículos com status variados, 30 modelos de caminhão (10 por montadora), 5 pátios
