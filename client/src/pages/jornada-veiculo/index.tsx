@@ -1,17 +1,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
   Search,
   Printer,
-  Check,
   Truck,
   Warehouse,
   Package,
@@ -24,6 +22,14 @@ import {
   Clock,
   Car,
   Loader2,
+  ChevronDown,
+  ChevronUp,
+  Factory,
+  ArrowRight,
+  Route,
+  Flag,
+  FuelIcon,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizeImageUrl } from "@/lib/utils";
@@ -101,9 +107,10 @@ type VehicleJourney = {
     checkoutDamagePhotos?: string[] | null;
     checkoutSelfiePhoto?: string | null;
     originYard?: { id: number; name: string; city?: string | null; state?: string | null } | null;
-    deliveryLocation?: { id: string; name: string; address?: string | null; city?: string | null; state?: string | null } | null;
+    deliveryLocation?: { id: string; name: string; address?: string | null; addressNumber?: string | null; city?: string | null; state?: string | null } | null;
     driver?: { id: number; firstName: string; lastName: string } | null;
     client?: { id: number; name: string } | null;
+    deliveryDate?: string | null;
   }>;
 };
 
@@ -114,227 +121,116 @@ type VehicleItem = {
   client?: { name: string } | null;
 };
 
-const statusConfig: Record<string, { label: string; color: string; badgeClass: string }> = {
-  pre_estoque:      { label: "Aguardando Coleta",  color: "text-yellow-600",  badgeClass: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400" },
-  em_estoque:       { label: "No Pátio",           color: "text-blue-600",    badgeClass: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400" },
-  despachado:       { label: "Em Trânsito",        color: "text-blue-700",    badgeClass: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400" },
-  entregue:         { label: "Entregue",           color: "text-green-600",   badgeClass: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400" },
-  retirado:         { label: "Retirado",           color: "text-gray-600",    badgeClass: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400" },
+const vehicleStatusConfig: Record<string, { label: string; color: string; bg: string; border: string; dot: string }> = {
+  pre_estoque: { label: "Aguardando Coleta", color: "text-amber-700 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-200 dark:border-amber-800", dot: "bg-amber-400" },
+  em_estoque:  { label: "No Pátio",          color: "text-blue-700 dark:text-blue-400",  bg: "bg-blue-50 dark:bg-blue-950/30",  border: "border-blue-200 dark:border-blue-800",  dot: "bg-blue-400" },
+  despachado:  { label: "Em Trânsito",        color: "text-indigo-700 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-950/30", border: "border-indigo-200 dark:border-indigo-800", dot: "bg-indigo-400" },
+  entregue:    { label: "Entregue",           color: "text-green-700 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/30", border: "border-green-200 dark:border-green-800", dot: "bg-green-400" },
+  retirado:    { label: "Retirado",           color: "text-gray-700 dark:text-gray-400",  bg: "bg-gray-50 dark:bg-gray-950/30",  border: "border-gray-200 dark:border-gray-800",  dot: "bg-gray-400" },
+  em_transferencia: { label: "Em Transferência", color: "text-purple-700 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-950/30", border: "border-purple-200 dark:border-purple-800", dot: "bg-purple-400" },
 };
 
-const collectStatusConfig: Record<string, { label: string; badgeClass: string }> = {
-  em_transito:        { label: "Em Trânsito",       badgeClass: "bg-blue-100 text-blue-800 border-blue-200" },
-  aguardando_checkout: { label: "Aguard. Check-out", badgeClass: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-  finalizada:         { label: "Finalizada",         badgeClass: "bg-green-100 text-green-800 border-green-200" },
+const collectStatusLabel: Record<string, string> = {
+  em_transito: "Em Trânsito",
+  aguardando_checkout: "Aguard. Check-out",
+  finalizada: "Finalizada",
 };
 
-const transportStatusConfig: Record<string, { label: string; badgeClass: string }> = {
-  pendente:         { label: "Pendente",         badgeClass: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-  aguardando_saida: { label: "Aguard. Saída",    badgeClass: "bg-orange-100 text-orange-800 border-orange-200" },
-  em_transito:      { label: "Em Trânsito",      badgeClass: "bg-blue-100 text-blue-800 border-blue-200" },
-  entregue:         { label: "Entregue",         badgeClass: "bg-green-100 text-green-800 border-green-200" },
-  cancelado:        { label: "Cancelado",        badgeClass: "bg-red-100 text-red-800 border-red-200" },
+const transportStatusLabel: Record<string, string> = {
+  pendente: "Pendente",
+  aguardando_saida: "Aguard. Saída",
+  em_transito: "Em Trânsito",
+  entregue: "Entregue",
+  cancelado: "Cancelado",
 };
 
 function fmtDate(val?: string | null) {
   if (!val) return "—";
-  try {
-    return format(new Date(val), "dd/MM/yyyy HH:mm", { locale: ptBR });
-  } catch {
-    return val;
-  }
+  try { return format(new Date(val), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }); }
+  catch { return val; }
 }
 
 function fmtDateOnly(val?: string | null) {
   if (!val) return "—";
-  try {
-    return format(new Date(val), "dd/MM/yyyy", { locale: ptBR });
-  } catch {
-    return val;
-  }
+  try { return format(new Date(val), "dd/MM/yyyy", { locale: ptBR }); }
+  catch { return val; }
 }
 
-function getTimelineStep(status: string): number {
-  const steps: Record<string, number> = {
-    pre_estoque: 0,
-    em_estoque:  1,
-    despachado:  2,
-    entregue:    3,
-    retirado:    3,
-  };
-  return steps[status] ?? 0;
-}
-
-function Timeline({ status }: { status: string }) {
-  const currentStep = getTimelineStep(status);
-  const steps = [
-    { label: "Coleta",     icon: Package,   step: 0 },
-    { label: "Pátio",      icon: Warehouse,  step: 1 },
-    { label: "Transporte", icon: Truck,      step: 2 },
-    { label: "Entrega",    icon: CheckCircle2, step: 3 },
-  ];
-
+function InfoItem({ icon: Icon, label, value, href }: { icon: React.ElementType; label: string; value: string; href?: string }) {
   return (
-    <div className="flex items-center justify-between w-full" data-testid="timeline-progress">
-      {steps.map((s, idx) => {
-        const done      = currentStep > s.step;
-        const active    = currentStep === s.step;
-        const isLast    = idx === steps.length - 1;
-        const Icon      = s.icon;
-        return (
-          <div key={s.label} className="flex flex-1 items-center">
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors",
-                  done   && "border-green-500 bg-green-500 text-white",
-                  active && "border-primary bg-primary text-primary-foreground",
-                  !done && !active && "border-muted bg-muted text-muted-foreground"
-                )}
-              >
-                {done ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
-              </div>
-              <span className={cn(
-                "text-xs font-medium",
-                done   && "text-green-600",
-                active && "text-primary",
-                !done && !active && "text-muted-foreground"
-              )}>
-                {s.label}
-              </span>
-            </div>
-            {!isLast && (
-              <div className={cn(
-                "h-0.5 flex-1 mx-2 transition-colors",
-                currentStep > s.step ? "bg-green-400" : "bg-muted"
-              )} />
-            )}
-          </div>
-        );
-      })}
+    <div className="flex items-start gap-2.5">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+        {href ? (
+          <a href={href} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-primary underline underline-offset-2">{value}</a>
+        ) : (
+          <p className="text-sm font-semibold text-foreground truncate">{value}</p>
+        )}
+      </div>
     </div>
   );
 }
 
-function PhotoGrid({ photos }: { photos: { label: string; url: string | null | undefined }[] }) {
+function PhotoGallery({ photos, title }: { photos: { label: string; url: string | null | undefined }[]; title?: string }) {
   const [viewing, setViewing] = useState<string | null>(null);
   const valid = photos.filter((p) => p.url);
 
-  if (valid.length === 0) {
-    return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed p-8 text-sm text-muted-foreground">
-        <Camera className="mr-2 h-4 w-4" />
-        Sem fotos registradas
-      </div>
-    );
-  }
-
   return (
-    <>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-        {valid.map((p) => (
-          <button
-            key={p.label}
-            data-testid={`photo-${p.label.toLowerCase().replace(/\s/g, "-")}`}
-            onClick={() => setViewing(normalizeImageUrl(p.url))}
-            className="group relative overflow-hidden rounded-lg border bg-muted aspect-square cursor-pointer hover:ring-2 hover:ring-primary transition"
-          >
-            <img
-              src={normalizeImageUrl(p.url)}
-              alt={p.label}
-              className="h-full w-full object-cover transition group-hover:scale-105"
-            />
-            <div className="absolute inset-x-0 bottom-0 bg-black/50 px-2 py-1">
-              <p className="truncate text-center text-[10px] text-white">{p.label}</p>
-            </div>
-          </button>
-        ))}
-      </div>
-      {viewing && (
-        <Dialog open onOpenChange={() => setViewing(null)}>
-          <DialogContent className="max-w-3xl p-2">
-            <img src={viewing} alt="Foto ampliada" className="w-full rounded object-contain max-h-[80vh]" />
-          </DialogContent>
-        </Dialog>
+    <div>
+      {title && (
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 mb-3">
+          <Camera className="h-3.5 w-3.5" />
+          {title}
+        </p>
       )}
-    </>
+      {valid.length === 0 ? (
+        <div className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed py-8 text-sm text-muted-foreground">
+          <Camera className="h-4 w-4 opacity-50" />
+          Sem fotos registradas
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+            {valid.map((p) => (
+              <button
+                key={p.label}
+                data-testid={`photo-${p.label.toLowerCase().replace(/\s/g, "-")}`}
+                onClick={() => setViewing(normalizeImageUrl(p.url))}
+                className="group relative aspect-square overflow-hidden rounded-xl border-2 border-transparent bg-muted transition-all hover:border-primary hover:shadow-md"
+              >
+                <img src={normalizeImageUrl(p.url)} alt={p.label} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                <div className="absolute inset-x-0 bottom-0 translate-y-full p-1.5 transition-transform group-hover:translate-y-0">
+                  <p className="truncate text-center text-[9px] font-medium text-white">{p.label}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+          {viewing && (
+            <Dialog open onOpenChange={() => setViewing(null)}>
+              <DialogContent className="max-w-3xl p-2 bg-black/95">
+                <img src={viewing} alt="Foto ampliada" className="w-full rounded-lg object-contain max-h-[82vh]" />
+              </DialogContent>
+            </Dialog>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
-function MovementsTable({ journey }: { journey: VehicleJourney }) {
-  type Row = {
-    tipo: string;
-    origem: string;
-    destino: string;
-    dataEntrada: string | null | undefined;
-    dataSaida: string | null | undefined;
-    status: string;
-    badgeClass: string;
-  };
-
-  const rows: Row[] = [];
-  for (const c of journey.collects) {
-    const cfg = collectStatusConfig[c.status] ?? { label: c.status, badgeClass: "" };
-    rows.push({
-      tipo: "Coleta",
-      origem: c.manufacturer?.name ?? "—",
-      destino: c.yard ? `${c.yard.name}${c.yard.city ? " – " + c.yard.city : ""}` : "—",
-      dataEntrada: c.collectDate,
-      dataSaida: null,
-      status: cfg.label,
-      badgeClass: cfg.badgeClass,
-    });
-  }
-  for (const t of journey.transports) {
-    const cfg = transportStatusConfig[t.status] ?? { label: t.status, badgeClass: "" };
-    const destino = t.deliveryLocation
-      ? [t.deliveryLocation.name, t.deliveryLocation.city, t.deliveryLocation.state].filter(Boolean).join(", ")
-      : "—";
-    rows.push({
-      tipo: "Transporte",
-      origem: t.originYard ? `${t.originYard.name}${t.originYard.city ? " – " + t.originYard.city : ""}` : "—",
-      destino,
-      dataEntrada: null,
-      dataSaida: null,
-      status: cfg.label,
-      badgeClass: cfg.badgeClass,
-    });
-  }
-
-  if (rows.length === 0) {
-    return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed p-8 text-sm text-muted-foreground">
-        Sem movimentações registradas
-      </div>
-    );
-  }
-
+function StepNode({ done, active, icon: Icon, step }: { done: boolean; active: boolean; icon: React.ElementType; step: number }) {
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-4 py-3 text-left font-medium">Tipo</th>
-            <th className="px-4 py-3 text-left font-medium">Origem</th>
-            <th className="px-4 py-3 text-left font-medium">Destino</th>
-            <th className="px-4 py-3 text-left font-medium">Data</th>
-            <th className="px-4 py-3 text-left font-medium">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i} className="border-t last:border-b">
-              <td className="px-4 py-3 font-medium">{r.tipo}</td>
-              <td className="px-4 py-3 text-muted-foreground">{r.origem}</td>
-              <td className="px-4 py-3 text-muted-foreground">{r.destino}</td>
-              <td className="px-4 py-3 text-muted-foreground">{fmtDateOnly(r.dataEntrada)}</td>
-              <td className="px-4 py-3">
-                <Badge variant="outline" className={r.badgeClass}>{r.status}</Badge>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className={cn(
+      "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 shadow-sm transition-all",
+      done   && "border-green-500 bg-green-500 text-white shadow-green-200 dark:shadow-green-900",
+      active && "border-primary bg-primary text-primary-foreground shadow-primary/30",
+      !done && !active && "border-border bg-background text-muted-foreground"
+    )}>
+      {done ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
     </div>
   );
 }
@@ -342,25 +238,19 @@ function MovementsTable({ journey }: { journey: VehicleJourney }) {
 export default function JornadaVeiculoPage() {
   const [search, setSearch] = useState("");
   const [selectedChassi, setSelectedChassi] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("coleta");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ coleta: true });
 
-  const { data: vehiclesList } = useQuery<VehicleItem[]>({
-    queryKey: ["/api/vehicles"],
-  });
-
-  const { data: transportsList } = useQuery<Array<{ vehicleChassi: string; status: string }>>({
-    queryKey: ["/api/transports"],
-  });
-
+  const { data: vehiclesList } = useQuery<VehicleItem[]>({ queryKey: ["/api/vehicles"] });
+  const { data: transportsList } = useQuery<Array<{ vehicleChassi: string; status: string }>>({ queryKey: ["/api/transports"] });
   const { data: journey, isLoading: journeyLoading } = useQuery<VehicleJourney>({
     queryKey: ["/api/vehicle-journey", selectedChassi],
     enabled: !!selectedChassi,
   });
 
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+
   const deliveredChassiSet = new Set(
-    (transportsList ?? [])
-      .filter((t) => t.status === "entregue")
-      .map((t) => t.vehicleChassi)
+    (transportsList ?? []).filter((t) => t.status === "entregue").map((t) => t.vehicleChassi)
   );
 
   const filteredVehicles = (vehiclesList ?? []).filter((v) => {
@@ -374,7 +264,9 @@ export default function JornadaVeiculoPage() {
     );
   });
 
-  const [pdfGenerating, setPdfGenerating] = useState(false);
+  function toggleSection(key: string) {
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   async function handlePrint() {
     if (!journey || !v) return;
@@ -382,11 +274,7 @@ export default function JornadaVeiculoPage() {
     try {
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-      const pageW = 210;
-      const pageH = 297;
-      const margin = 18;
-      const contentW = pageW - margin * 2;
+      const pageW = 210, pageH = 297, margin = 18, contentW = pageW - margin * 2;
       const orange: [number, number, number] = [234, 88, 12];
       const darkGray: [number, number, number] = [30, 30, 30];
       const medGray: [number, number, number] = [100, 100, 100];
@@ -395,387 +283,137 @@ export default function JornadaVeiculoPage() {
       const green: [number, number, number] = [22, 163, 74];
       const blue: [number, number, number] = [37, 99, 235];
       const yellow: [number, number, number] = [202, 138, 4];
+      let y = 0, pageNum = 1;
 
-      let y = 0;
-      let pageNum = 1;
-
-      const checkPageBreak = (neededHeight: number) => {
-        if (y + neededHeight > pageH - 15) {
-          doc.addPage();
-          pageNum++;
-          drawPageFooter();
-          y = 15;
-        }
+      const checkPageBreak = (h: number) => {
+        if (y + h > pageH - 15) { doc.addPage(); pageNum++; drawFooter(); y = 15; }
       };
-
-      const drawPageFooter = () => {
-        doc.setFontSize(8);
-        doc.setTextColor(...medGray);
-        doc.setFont("helvetica", "normal");
-        doc.text(`OTD Logistics — Dossiê do Veículo — Chassi: ${v!.chassi}`, margin, pageH - 8);
-        doc.text(`Página ${pageNum}`, pageW - margin, pageH - 8, { align: "right" });
-        doc.setDrawColor(230, 230, 230);
-        doc.setLineWidth(0.3);
+      const drawFooter = () => {
+        doc.setFontSize(8); doc.setTextColor(...medGray); doc.setFont("helvetica", "normal");
+        doc.text(`OTD Logistics — Dossiê do Veículo — ${v!.chassi}`, margin, pageH - 8);
+        doc.text(`Pág. ${pageNum}`, pageW - margin, pageH - 8, { align: "right" });
+        doc.setDrawColor(220, 220, 220); doc.setLineWidth(0.3);
         doc.line(margin, pageH - 12, pageW - margin, pageH - 12);
       };
-
-      const drawSectionTitle = (title: string) => {
+      const drawSection = (title: string) => {
         checkPageBreak(14);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...orange);
+        doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...orange);
         doc.text(title.toUpperCase(), margin, y);
-        doc.setDrawColor(...orange);
-        doc.setLineWidth(0.4);
+        doc.setDrawColor(...orange); doc.setLineWidth(0.4);
         doc.line(margin, y + 1.5, margin + contentW, y + 1.5);
         y += 8;
       };
-
-      const drawField = (label: string, value: string, x: number, fieldWidth: number) => {
-        doc.setFontSize(7.5);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(...medGray);
+      const drawField = (label: string, value: string, x: number, fw: number) => {
+        doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...medGray);
         doc.text(label.toUpperCase(), x, y);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...darkGray);
-        const maxLen = Math.floor(fieldWidth / 2.2);
-        const truncated = value.length > maxLen ? value.slice(0, maxLen - 1) + "…" : value;
-        doc.text(truncated, x, y + 5);
+        doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...darkGray);
+        const max = Math.floor(fw / 2.2);
+        doc.text(value.length > max ? value.slice(0, max - 1) + "…" : value, x, y + 5);
       };
+      const sColor = (s: string): [number, number, number] =>
+        (s === "entregue" || s === "retirado") ? green : (s === "em_transito" || s === "despachado" || s === "em_estoque") ? blue : yellow;
 
-      const statusColor = (status: string): [number, number, number] => {
-        if (status === "entregue" || status === "retirado") return green;
-        if (status === "em_transito" || status === "despachado" || status === "em_estoque") return blue;
-        return yellow;
-      };
-
-      // ── HEADER ──────────────────────────────────────────────
       doc.setFillColor(...orange);
       doc.rect(0, 0, pageW, 42, "F");
-
-      // Load logo
       try {
-        const logoImg = new Image();
-        logoImg.crossOrigin = "anonymous";
-        await new Promise<void>((resolve) => {
-          logoImg.onload = () => resolve();
-          logoImg.onerror = () => resolve();
-          logoImg.src = "/logo-otd.png";
-        });
-        if (logoImg.complete && logoImg.naturalWidth > 0) {
-          const canvas = document.createElement("canvas");
-          canvas.width = logoImg.naturalWidth;
-          canvas.height = logoImg.naturalHeight;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(logoImg, 0, 0);
-            const dataUrl = canvas.toDataURL("image/png");
-            const aspectRatio = logoImg.naturalWidth / logoImg.naturalHeight;
-            const logoH = 26;
-            const logoW = logoH * aspectRatio;
-            doc.addImage(dataUrl, "PNG", margin, 8, logoW, logoH);
-          }
+        const img = new Image(); img.crossOrigin = "anonymous";
+        await new Promise<void>((res) => { img.onload = () => res(); img.onerror = () => res(); img.src = "/logo-otd.png"; });
+        if (img.complete && img.naturalWidth > 0) {
+          const cv = document.createElement("canvas"); cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+          const ctx = cv.getContext("2d"); if (ctx) { ctx.drawImage(img, 0, 0); const ar = img.naturalWidth / img.naturalHeight;
+            const lh = 26; doc.addImage(cv.toDataURL("image/png"), "PNG", margin, 8, lh * ar, lh); }
         }
       } catch {}
-
-      doc.setFontSize(13);
-      doc.setTextColor(...white);
-      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13); doc.setTextColor(...white); doc.setFont("helvetica", "bold");
       doc.text("DOSSIÊ DO VEÍCULO", pageW - margin, 16, { align: "right" });
-      doc.setFontSize(8.5);
-      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
       doc.text("Jornada Completa — OTD Logistics", pageW - margin, 23, { align: "right" });
       doc.setFontSize(8);
-      doc.text(`Emitido em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageW - margin, 30, { align: "right" });
-
+      doc.text(`Emitido: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageW - margin, 30, { align: "right" });
       y = 52;
 
-      // ── VEHICLE IDENTIFICATION ──────────────────────────────
-      drawSectionTitle("Identificação do Veículo");
-
-      const statusLbl = statusConfig[v.status]?.label ?? v.status;
-      const sColor = statusColor(v.status);
-
-      // Chassi highlight box
-      doc.setFillColor(...lightGray);
-      doc.roundedRect(margin, y - 3, contentW, 18, 2, 2, "F");
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...medGray);
+      drawSection("Identificação do Veículo");
+      doc.setFillColor(...lightGray); doc.roundedRect(margin, y - 3, contentW, 18, 2, 2, "F");
+      doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(...medGray);
       doc.text("CHASSI", margin + 4, y + 2);
-      doc.setFontSize(13);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...darkGray);
+      doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(...darkGray);
       doc.text(v.chassi, margin + 4, y + 10);
-
-      // Status badge
-      doc.setFillColor(...sColor);
-      const badgeW = 40;
-      doc.roundedRect(pageW - margin - badgeW, y - 1, badgeW, 10, 2, 2, "F");
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...white);
-      doc.text(statusLbl, pageW - margin - badgeW / 2, y + 5.5, { align: "center" });
-
+      const sc = sColor(v.status); doc.setFillColor(...sc);
+      doc.roundedRect(pageW - margin - 40, y - 1, 40, 10, 2, 2, "F");
+      doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(...white);
+      doc.text(vehicleStatusConfig[v.status]?.label ?? v.status, pageW - margin - 20, y + 5.5, { align: "center" });
       y += 23;
-
-      // Fields row
-      const colW = contentW / 4;
-      drawField("Montadora", v.manufacturer?.name ?? "—", margin, colW);
-      drawField("Cliente", v.client?.name ?? "—", margin + colW, colW);
-      drawField("Cor", v.color ?? "—", margin + colW * 2, colW);
-      drawField("Pátio Atual", v.yard?.name ?? "—", margin + colW * 3, colW);
+      const cw4 = contentW / 4;
+      drawField("Montadora", v.manufacturer?.name ?? "—", margin, cw4);
+      drawField("Cliente", v.client?.name ?? "—", margin + cw4, cw4);
+      drawField("Cor", v.color ?? "—", margin + cw4 * 2, cw4);
+      drawField("Pátio", v.yard?.name ?? "—", margin + cw4 * 3, cw4);
       y += 14;
 
-      // ── TIMELINE ────────────────────────────────────────────
-      checkPageBreak(30);
-      drawSectionTitle("Linha do Tempo");
-
+      drawSection("Linha do Tempo");
       const steps = ["Coleta", "Pátio", "Transporte", "Entrega"];
-      const stepStatuses: Record<string, number> = { pre_estoque: 0, em_estoque: 1, despachado: 2, entregue: 3, retirado: 3 };
-      const currentStep = stepStatuses[v.status] ?? 0;
-      const stepW = contentW / steps.length;
-
-      steps.forEach((step, i) => {
-        const cx = margin + stepW * i + stepW / 2;
-        const done = currentStep > i;
-        const active = currentStep === i;
-        const fill: [number, number, number] = done ? green : active ? orange : [200, 200, 200];
-        doc.setFillColor(...fill);
+      const stepMap: Record<string, number> = { pre_estoque: 0, em_estoque: 1, despachado: 2, entregue: 3, retirado: 3 };
+      const cur = stepMap[v.status] ?? 0;
+      const sw = contentW / steps.length;
+      steps.forEach((s, i) => {
+        const cx = margin + sw * i + sw / 2;
+        const done = cur > i, active = cur === i;
+        doc.setFillColor(...(done ? green : active ? orange : [200, 200, 200] as [number, number, number]));
         doc.circle(cx, y + 4, 4, "F");
-        if (done) {
-          doc.setTextColor(...white);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "bold");
-          doc.text("✓", cx, y + 6.5, { align: "center" });
-        }
-        doc.setFontSize(7.5);
-        doc.setFont("helvetica", active || done ? "bold" : "normal");
+        if (done) { doc.setTextColor(...white); doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.text("✓", cx, y + 6.5, { align: "center" }); }
+        doc.setFontSize(7.5); doc.setFont("helvetica", active || done ? "bold" : "normal");
         doc.setTextColor(done ? 22 : active ? 234 : 150, done ? 163 : active ? 88 : 150, done ? 74 : active ? 12 : 150);
-        doc.text(step, cx, y + 12, { align: "center" });
+        doc.text(s, cx, y + 12, { align: "center" });
         if (i < steps.length - 1) {
-          const lineColor: [number, number, number] = currentStep > i ? green : [200, 200, 200];
-          doc.setDrawColor(...lineColor);
-          doc.setLineWidth(1);
-          doc.line(cx + 4, y + 4, cx + stepW - 4, y + 4);
+          doc.setDrawColor(...(cur > i ? green : [200, 200, 200] as [number, number, number]));
+          doc.setLineWidth(1); doc.line(cx + 4, y + 4, cx + sw - 4, y + 4);
         }
       });
       y += 20;
 
-      // ── COLLECTS ────────────────────────────────────────────
       if (journey.collects.length > 0) {
-        checkPageBreak(20);
-        drawSectionTitle("Coleta(s)");
-
-        journey.collects.forEach((c, idx) => {
+        drawSection("Coleta(s)");
+        journey.collects.forEach((c, i) => {
           checkPageBreak(40);
-          if (journey.collects.length > 1) {
-            doc.setFontSize(8.5);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(...darkGray);
-            doc.text(`Coleta #${idx + 1}`, margin, y);
-            y += 6;
-          }
-          const fields = [
-            ["Data/Hora", c.collectDate ? fmtDate(c.collectDate) : "—"],
-            ["Motorista", c.driver ? `${c.driver.firstName} ${c.driver.lastName}` : "—"],
-            ["Origem (Montadora)", c.manufacturer?.name ?? "—"],
-            ["Destino (Pátio)", c.yard ? `${c.yard.name}${c.yard.city ? " – " + c.yard.city : ""}` : "—"],
-            ["Status", collectStatusConfig[c.status]?.label ?? c.status],
-          ];
-          const fColW = contentW / 2;
-          fields.forEach((f, fi) => {
-            const col = fi % 2;
-            const xPos = margin + col * fColW;
-            if (col === 0 && fi > 0) { y += 12; checkPageBreak(12); }
-            drawField(f[0], f[1], xPos, fColW);
-          });
-          y += 16;
-
-          const checkinPhotos = [
-            c.checkinFrontalPhoto, c.checkinLateral1Photo, c.checkinLateral2Photo,
-            c.checkinTraseiraPhoto, c.checkinOdometerPhoto, c.checkinSelfiePhoto,
-          ].filter(Boolean) as string[];
-
-          if (checkinPhotos.length > 0) {
-            checkPageBreak(8);
-            doc.setFontSize(7.5);
-            doc.setFont("helvetica", "italic");
-            doc.setTextColor(...medGray);
-            doc.text(`${checkinPhotos.length} foto(s) de check-in registrada(s)`, margin, y);
-            y += 7;
-          }
-
-          if (idx < journey.collects.length - 1) {
-            doc.setDrawColor(220, 220, 220);
-            doc.setLineWidth(0.2);
-            doc.line(margin, y, margin + contentW, y);
-            y += 5;
-          }
+          if (journey.collects.length > 1) { doc.setFontSize(8.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...darkGray); doc.text(`Coleta #${i + 1}`, margin, y); y += 6; }
+          const hw = contentW / 2;
+          [["Data/Hora", c.collectDate ? fmtDate(c.collectDate) : "—"], ["Motorista", c.driver ? `${c.driver.firstName} ${c.driver.lastName}` : "—"],
+           ["Origem", c.manufacturer?.name ?? "—"], ["Destino", c.yard?.name ?? "—"], ["Status", collectStatusLabel[c.status] ?? c.status]]
+            .forEach((f, fi) => { const col = fi % 2; if (col === 0 && fi > 0) { y += 12; checkPageBreak(12); } drawField(f[0], f[1], margin + col * hw, hw); });
+          y += 14;
         });
-        y += 4;
       }
 
-      // ── LOGISTICS ───────────────────────────────────────────
-      checkPageBreak(20);
-      drawSectionTitle("Logística e Movimentações");
-
-      const timestamps = [
-        ["Coleta",          v.collectDateTime],
-        ["Entrada no Pátio", v.yardEntryDateTime],
-        ["Despacho",         v.dispatchDateTime],
-        ["Entrega Final",    v.deliveryDateTime],
-      ].filter(([, d]) => d);
-
-      if (timestamps.length > 0) {
-        const tColW = contentW / 2;
-        timestamps.forEach(([label, date], ti) => {
-          const col = ti % 2;
-          const xPos = margin + col * tColW;
-          if (col === 0 && ti > 0) { y += 12; checkPageBreak(12); }
-          drawField(label as string, fmtDate(date), xPos, tColW);
-        });
-        y += 16;
-      }
-
-      // Movements table
-      const movements = [
-        ...journey.collects.map((c) => ({
-          tipo: "Coleta",
-          origem: c.manufacturer?.name ?? "—",
-          destino: c.yard?.name ?? "—",
-          data: c.collectDate ? fmtDateOnly(c.collectDate) : "—",
-          status: collectStatusConfig[c.status]?.label ?? c.status,
-        })),
-        ...journey.transports.map((t) => ({
-          tipo: "Transporte",
-          origem: t.originYard?.name ?? "—",
-          destino: t.deliveryLocation?.name ?? "—",
-          data: "—",
-          status: transportStatusConfig[t.status]?.label ?? t.status,
-        })),
-      ];
-
-      if (movements.length > 0) {
-        checkPageBreak(24);
-        const cols = ["Tipo", "Origem", "Destino", "Data", "Status"];
-        const colWidths = [22, 42, 42, 26, 30];
-        const rowH = 7;
-
-        doc.setFillColor(...orange);
-        doc.rect(margin, y, contentW, rowH, "F");
-        doc.setFontSize(7.5);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...white);
-        let cx = margin + 2;
-        cols.forEach((col, i) => {
-          doc.text(col, cx, y + 5);
-          cx += colWidths[i];
-        });
-        y += rowH;
-
-        movements.forEach((row, ri) => {
-          checkPageBreak(rowH + 2);
-          doc.setFillColor(ri % 2 === 0 ? 250 : 245, ri % 2 === 0 ? 250 : 245, ri % 2 === 0 ? 250 : 245);
-          doc.rect(margin, y, contentW, rowH, "F");
-          doc.setFontSize(7.5);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(...darkGray);
-          cx = margin + 2;
-          [row.tipo, row.origem, row.destino, row.data, row.status].forEach((val, i) => {
-            const maxChars = Math.floor(colWidths[i] / 1.8);
-            const txt = val.length > maxChars ? val.slice(0, maxChars - 1) + "…" : val;
-            doc.text(txt, cx, y + 5);
-            cx += colWidths[i];
-          });
-          y += rowH;
-        });
-        y += 6;
-      }
-
-      // ── TRANSPORTS ──────────────────────────────────────────
       if (journey.transports.length > 0) {
-        checkPageBreak(20);
-        drawSectionTitle("Transporte(s)");
-
-        journey.transports.forEach((t, idx) => {
+        drawSection("Transporte(s)");
+        journey.transports.forEach((t, i) => {
           checkPageBreak(50);
-          if (journey.transports.length > 1) {
-            doc.setFontSize(8.5);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(...darkGray);
-            doc.text(`OTD ${t.requestNumber ?? "#" + (idx + 1)}`, margin, y);
-            y += 6;
-          }
-
-          const tFields: [string, string][] = [
-            ["Nº OTD", t.requestNumber ?? "—"],
-            ["Status", transportStatusConfig[t.status]?.label ?? t.status],
+          if (journey.transports.length > 1) { doc.setFontSize(8.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...darkGray); doc.text(`OTD ${t.requestNumber ?? "#" + (i + 1)}`, margin, y); y += 6; }
+          const hw = contentW / 2;
+          const tf: [string, string][] = [
+            ["Nº OTD", t.requestNumber ?? "—"], ["Status", transportStatusLabel[t.status] ?? t.status],
             ["Motorista", t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : "—"],
             ["Pátio de Origem", t.originYard?.name ?? "—"],
-            ["Destino", t.deliveryLocation ? `${t.deliveryLocation.name}${t.deliveryLocation.city ? " – " + t.deliveryLocation.city : ""}` : "—"],
+            ["Destino", t.deliveryLocation ? `${t.deliveryLocation.name} – ${t.deliveryLocation.city}` : "—"],
             ["Cliente", t.client?.name ?? "—"],
           ];
-          if (t.routeDistanceKm) tFields.push(["Distância", `${t.routeDistanceKm} km`]);
-          if (t.routeDurationMinutes) tFields.push(["Duração estimada", `${Math.floor(t.routeDurationMinutes / 60)}h ${t.routeDurationMinutes % 60}min`]);
-          if (t.estimatedTolls) tFields.push(["Pedágios estimados", `R$ ${Number(t.estimatedTolls).toFixed(2)}`]);
-
-          const fColW2 = contentW / 2;
-          tFields.forEach((f, fi) => {
-            const col = fi % 2;
-            const xPos = margin + col * fColW2;
-            if (col === 0 && fi > 0) { y += 12; checkPageBreak(12); }
-            drawField(f[0], f[1], xPos, fColW2);
-          });
+          if (t.routeDistanceKm) tf.push(["Distância", `${t.routeDistanceKm} km`]);
+          if (t.routeDurationMinutes) tf.push(["Duração", `${Math.floor(t.routeDurationMinutes / 60)}h ${t.routeDurationMinutes % 60}min`]);
+          tf.forEach((f, fi) => { const col = fi % 2; if (col === 0 && fi > 0) { y += 12; checkPageBreak(12); } drawField(f[0], f[1], margin + col * hw, hw); });
           y += 14;
-
-          if (idx < journey.transports.length - 1) {
-            doc.setDrawColor(220, 220, 220);
-            doc.setLineWidth(0.2);
-            doc.line(margin, y, margin + contentW, y);
-            y += 5;
-          }
         });
-        y += 4;
       }
 
-      // ── DELIVERY ────────────────────────────────────────────
       const delivered = journey.transports.find((t) => t.status === "entregue");
       if (delivered) {
-        checkPageBreak(30);
-        drawSectionTitle("Entrega Final");
-
-        const dFields: [string, string][] = [
-          ["Data/Hora da Entrega", v.deliveryDateTime ? fmtDate(v.deliveryDateTime) : "—"],
-          ["Motorista", delivered.driver ? `${delivered.driver.firstName} ${delivered.driver.lastName}` : "—"],
-          ["Endereço", delivered.deliveryLocation?.address ? [delivered.deliveryLocation.address, delivered.deliveryLocation.addressNumber].filter(Boolean).join(", ") : "—"],
-          ["Cidade/Estado", delivered.deliveryLocation ? `${delivered.deliveryLocation.city ?? ""}${delivered.deliveryLocation.state ? " – " + delivered.deliveryLocation.state : ""}` : "—"],
-        ];
-        if (v.notes) dFields.push(["Observações", v.notes]);
-
-        const fColW3 = contentW / 2;
-        dFields.forEach((f, fi) => {
-          const col = fi % 2;
-          const xPos = margin + col * fColW3;
-          if (col === 0 && fi > 0) { y += 12; checkPageBreak(12); }
-          drawField(f[0], f[1], xPos, fColW3);
-        });
-        y += 14;
-
-        // Green delivery banner
+        drawSection("Entrega Final");
         checkPageBreak(16);
-        doc.setFillColor(...green);
-        doc.roundedRect(margin, y, contentW, 12, 2, 2, "F");
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...white);
+        doc.setFillColor(...green); doc.roundedRect(margin, y, contentW, 12, 2, 2, "F");
+        doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(...white);
         doc.text("✓  Veículo entregue ao cliente com sucesso", margin + contentW / 2, y + 8, { align: "center" });
         y += 18;
       }
-
-      drawPageFooter();
-
+      drawFooter();
       doc.save(`dossie-${v.chassi.replace(/\s/g, "_")}.pdf`);
     } catch (err) {
       console.error("Erro ao gerar PDF:", err);
@@ -785,532 +423,549 @@ export default function JornadaVeiculoPage() {
   }
 
   const v = journey?.vehicle;
-  const statusCfg = v ? (statusConfig[v.status] ?? { label: v.status, color: "text-gray-600", badgeClass: "bg-gray-100 text-gray-800 border-gray-200" }) : null;
+  const vCfg = v ? (vehicleStatusConfig[v.status] ?? vehicleStatusConfig.pre_estoque) : null;
+  const stepMap: Record<string, number> = { pre_estoque: 0, em_estoque: 1, despachado: 2, entregue: 3, retirado: 3 };
+  const currentStep = v ? (stepMap[v.status] ?? 0) : 0;
 
-  const latestCollect   = journey?.collects?.[journey.collects.length - 1];
   const latestTransport = journey?.transports?.[journey.transports.length - 1];
+  const hasDelivery = journey?.transports.some((t) => t.status === "entregue");
+
+  const totalDistKm = journey?.transports.reduce((s, t) => s + (t.routeDistanceKm ?? 0), 0) ?? 0;
 
   return (
     <>
       <PageHeader
         title="Jornada do Veículo"
-        breadcrumbs={[
-          { label: "Operação", href: "/" },
-          { label: "Jornada do Veículo" },
-        ]}
+        breadcrumbs={[{ label: "Operação", href: "/" }, { label: "Jornada do Veículo" }]}
       />
-      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6">
+
+        {/* Vehicle Selector */}
         {!selectedChassi ? (
-          <Card className="no-print">
-            <CardContent className="pt-5">
-              <div className="flex flex-col gap-3">
-                <div className="relative">
+          <div className="mx-auto max-w-xl">
+            <div className="mb-6 text-center">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                <Route className="h-7 w-7 text-primary" />
+              </div>
+              <h2 className="text-xl font-bold">Selecione um veículo</h2>
+              <p className="text-sm text-muted-foreground mt-1">Busque pelo chassi, montadora ou cliente para visualizar a jornada completa</p>
+            </div>
+            <Card className="shadow-md">
+              <CardContent className="pt-5 pb-4">
+                <div className="relative mb-3">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
-                    placeholder="Buscar por chassi, montadora ou cliente..."
+                    placeholder="Buscar chassi, montadora ou cliente..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-9"
                     data-testid="input-vehicle-search"
+                    autoFocus
                   />
                 </div>
-                <div className="rounded-lg border overflow-hidden">
-                  <div className="bg-muted/50 px-3 py-2 border-b">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {filteredVehicles.length} veículo{filteredVehicles.length !== 1 ? "s" : ""}
-                    </span>
+                <div className="rounded-xl border overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b">
+                    <span className="text-xs font-medium text-muted-foreground">Veículos entregues</span>
+                    <Badge variant="secondary" className="text-xs">{filteredVehicles.length}</Badge>
                   </div>
-                  <div className="max-h-72 overflow-y-auto divide-y">
+                  <div className="max-h-80 overflow-y-auto divide-y">
                     {filteredVehicles.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                        <Car className="h-8 w-8 mb-2 opacity-30" />
-                        <p className="text-sm">Nenhum veículo encontrado</p>
+                      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                        <Car className="h-8 w-8 mb-2 opacity-20" />
+                        <p className="text-sm font-medium">Nenhum veículo encontrado</p>
+                        <p className="text-xs mt-0.5">Tente buscar por outro termo</p>
                       </div>
                     ) : (
-                      filteredVehicles.slice(0, 50).map((vItem) => {
-                        const cfg = statusConfig[vItem.status];
+                      filteredVehicles.slice(0, 60).map((vItem) => {
+                        const cfg = vehicleStatusConfig[vItem.status];
                         return (
                           <button
                             key={vItem.chassi}
-                            onClick={() => { setSelectedChassi(vItem.chassi); setActiveTab("coleta"); setSearch(""); }}
-                            className="w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 transition-colors hover:bg-muted/60"
+                            onClick={() => { setSelectedChassi(vItem.chassi); setExpanded({ coleta: true }); setSearch(""); }}
+                            className="w-full text-left px-3 py-3 flex items-center gap-3 transition-colors hover:bg-muted/50 group"
                             data-testid={`option-vehicle-${vItem.chassi}`}
                           >
-                            <div className="min-w-0">
-                              <p className="font-mono text-sm font-medium truncate">{vItem.chassi}</p>
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
+                              <Car className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-mono text-sm font-bold truncate">{vItem.chassi}</p>
                               <p className="text-xs text-muted-foreground truncate">
                                 {[vItem.manufacturer?.name, vItem.client?.name].filter(Boolean).join(" · ") || "—"}
                               </p>
                             </div>
-                            <Badge variant="outline" className={cn("shrink-0 text-[10px] px-1.5 py-0.5", cfg?.badgeClass)}>
-                              {cfg?.label ?? vItem.status}
-                            </Badge>
+                            {cfg && (
+                              <span className={cn("shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border", cfg.color, cfg.bg, cfg.border)}>
+                                {cfg.label}
+                              </span>
+                            )}
+                            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                           </button>
                         );
                       })
                     )}
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="no-print flex items-center gap-3 rounded-lg border bg-card px-4 py-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
-              <Car className="h-4 w-4 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-mono text-sm font-semibold truncate">{selectedChassi}</p>
-              {journey?.vehicle && (
-                <p className="text-xs text-muted-foreground truncate">
-                  {[journey.vehicle.manufacturer?.name, journey.vehicle.client?.name].filter(Boolean).join(" · ") || "—"}
-                </p>
-              )}
-            </div>
-            {journey?.vehicle && statusConfig[journey.vehicle.status] && (
-              <Badge variant="outline" className={cn("shrink-0 text-xs", statusConfig[journey.vehicle.status].badgeClass)}>
-                {statusConfig[journey.vehicle.status].label}
-              </Badge>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { setSelectedChassi(null); setSearch(""); setActiveTab("coleta"); }}
-              className="shrink-0"
-              data-testid="button-change-vehicle"
-            >
-              <Search className="h-3.5 w-3.5 mr-1.5" />
-              Trocar
-            </Button>
-          </div>
-        )}
-
-        {selectedChassi && journeyLoading && (
-          <div className="space-y-4">
-            <Skeleton className="h-24 w-full rounded-xl" />
-            <Skeleton className="h-48 w-full rounded-xl" />
-          </div>
-        )}
-
-        {selectedChassi && !journeyLoading && journey && (
-          <>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-                        <Car className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Chassi</p>
-                        <p className="font-mono text-xl font-bold tracking-wide" data-testid="text-chassi">{v?.chassi}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Montadora / Modelo</p>
-                        <p className="font-medium" data-testid="text-manufacturer">{v?.manufacturer?.name ?? "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Cliente</p>
-                        <p className="font-medium" data-testid="text-client">{v?.client?.name ?? "—"}</p>
-                      </div>
-                      {v?.color && (
-                        <div>
-                          <p className="text-xs text-muted-foreground">Cor</p>
-                          <p className="font-medium" data-testid="text-color">{v.color}</p>
-                        </div>
-                      )}
-                      {v?.yard && (
-                        <div>
-                          <p className="text-xs text-muted-foreground">Pátio Atual</p>
-                          <p className="font-medium" data-testid="text-yard">{v.yard.name}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-start gap-2 sm:items-end">
-                    {statusCfg && (
-                      <Badge
-                        variant="outline"
-                        className={cn("text-sm px-3 py-1", statusCfg.badgeClass)}
-                        data-testid="badge-status"
-                      >
-                        {statusCfg.label}
-                      </Badge>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePrint}
-                      disabled={pdfGenerating}
-                      className="no-print gap-2"
-                      data-testid="button-print-dossie"
-                    >
-                      {pdfGenerating
-                        ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <Printer className="h-4 w-4" />}
-                      {pdfGenerating ? "Gerando PDF..." : "Gerar PDF do Dossiê"}
-                    </Button>
-                  </div>
-                </div>
               </CardContent>
             </Card>
+          </div>
+        ) : (
+          <div className="space-y-6">
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="no-print mb-4 w-full justify-start overflow-x-auto">
-                <TabsTrigger value="coleta" data-testid="tab-coleta">Coleta</TabsTrigger>
-                <TabsTrigger value="logistica" data-testid="tab-logistica">Logística</TabsTrigger>
-                <TabsTrigger value="transporte" data-testid="tab-transporte">Transporte</TabsTrigger>
-                <TabsTrigger value="entrega" data-testid="tab-entrega">Entrega</TabsTrigger>
-              </TabsList>
+            {/* Vehicle Header */}
+            <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+              <div className="flex items-center gap-0 border-b">
+                <div className="flex-1 px-5 py-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                      <Car className="h-5.5 w-5.5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Chassi</p>
+                      <p className="font-mono text-2xl font-black tracking-wider" data-testid="text-chassi">{v?.chassi}</p>
+                    </div>
+                    {vCfg && (
+                      <span className={cn("ml-1 shrink-0 text-xs font-semibold px-3 py-1 rounded-full border", vCfg.color, vCfg.bg, vCfg.border)} data-testid="badge-status">
+                        <span className={cn("mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle", vCfg.dot)} />
+                        {vCfg.label}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                    {v?.manufacturer && (
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Montadora</p>
+                        <p className="font-semibold" data-testid="text-manufacturer">{v.manufacturer.name}</p>
+                      </div>
+                    )}
+                    {v?.client && (
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Cliente</p>
+                        <p className="font-semibold" data-testid="text-client">{v.client.name}</p>
+                      </div>
+                    )}
+                    {v?.color && (
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Cor</p>
+                        <p className="font-semibold" data-testid="text-color">{v.color}</p>
+                      </div>
+                    )}
+                    {v?.yard && (
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Pátio Atual</p>
+                        <p className="font-semibold" data-testid="text-yard">{v.yard.name}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2 px-5 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePrint}
+                    disabled={pdfGenerating || journeyLoading}
+                    className="gap-2"
+                    data-testid="button-print-dossie"
+                  >
+                    {pdfGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                    {pdfGenerating ? "Gerando..." : "Gerar PDF"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setSelectedChassi(null); setSearch(""); }}
+                    className="text-muted-foreground gap-1.5"
+                    data-testid="button-change-vehicle"
+                  >
+                    <Search className="h-3.5 w-3.5" />
+                    Trocar veículo
+                  </Button>
+                </div>
+              </div>
 
-              <TabsContent value="coleta" className="space-y-4">
-                {journey.collects.length === 0 ? (
-                  <Card>
-                    <CardContent className="flex items-center justify-center py-12 text-muted-foreground">
-                      <Package className="mr-2 h-5 w-5" />
-                      Nenhuma coleta registrada para este veículo
-                    </CardContent>
-                  </Card>
-                ) : (
-                  journey.collects.map((c, idx) => {
-                    const cfg = collectStatusConfig[c.status] ?? { label: c.status, badgeClass: "" };
-                    const checkinPhotos = [
-                      { label: "Frontal",       url: c.checkinFrontalPhoto },
-                      { label: "Lateral 1",     url: c.checkinLateral1Photo },
-                      { label: "Lateral 2",     url: c.checkinLateral2Photo },
-                      { label: "Traseira",      url: c.checkinTraseiraPhoto },
-                      { label: "Odômetro",      url: c.checkinOdometerPhoto },
-                      { label: "Combustível",   url: c.checkinFuelLevelPhoto },
-                      { label: "Selfie",        url: c.checkinSelfiePhoto },
-                      ...(c.checkinDamagePhotos ?? []).map((url, i) => ({ label: `Avaria ${i + 1}`, url })),
-                    ];
-                    return (
-                      <Card key={c.id} data-testid={`card-collect-${idx}`}>
-                        <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-base">
-                              Coleta {journey.collects.length > 1 ? `#${idx + 1}` : ""}
-                            </CardTitle>
-                            <Badge variant="outline" className={cfg.badgeClass}>{cfg.label}</Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-5">
-                          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                            <div className="flex items-start gap-2">
-                              <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                              <div>
-                                <p className="text-xs text-muted-foreground">Data/Hora</p>
-                                <p className="text-sm font-medium" data-testid={`text-collect-date-${idx}`}>{fmtDate(c.collectDate)}</p>
+              {/* Progress bar */}
+              <div className="px-5 py-3 bg-muted/20">
+                <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  {["Coleta", "Pátio", "Transporte", "Entrega"].map((label, i) => (
+                    <span key={label} className={cn(currentStep >= i ? "text-foreground" : "")}>{label}</span>
+                  ))}
+                </div>
+                <div className="relative flex items-center">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="h-1.5 w-full rounded-full bg-muted" />
+                  </div>
+                  <div
+                    className="absolute inset-y-0 left-0 flex items-center transition-all duration-500"
+                    style={{ width: `${Math.min(100, (currentStep / 3) * 100)}%` }}
+                  >
+                    <div className="h-1.5 w-full rounded-full bg-gradient-to-r from-primary to-green-500" />
+                  </div>
+                  <div className="relative flex w-full items-center justify-between">
+                    {[Package, Warehouse, Truck, Flag].map((Icon, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all",
+                          currentStep > i  && "border-green-500 bg-green-500 text-white",
+                          currentStep === i && "border-primary bg-primary text-primary-foreground",
+                          currentStep < i  && "border-muted bg-background text-muted-foreground"
+                        )}
+                      >
+                        {currentStep > i ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats row */}
+              {!journeyLoading && journey && (
+                <div className="grid grid-cols-3 divide-x border-t">
+                  <div className="px-4 py-3 text-center">
+                    <p className="text-lg font-bold">{journey.collects.length}</p>
+                    <p className="text-[11px] text-muted-foreground">Coleta{journey.collects.length !== 1 ? "s" : ""}</p>
+                  </div>
+                  <div className="px-4 py-3 text-center">
+                    <p className="text-lg font-bold">{journey.transports.length}</p>
+                    <p className="text-[11px] text-muted-foreground">Transporte{journey.transports.length !== 1 ? "s" : ""}</p>
+                  </div>
+                  <div className="px-4 py-3 text-center">
+                    <p className="text-lg font-bold">{totalDistKm > 0 ? `${totalDistKm} km` : "—"}</p>
+                    <p className="text-[11px] text-muted-foreground">Distância total</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Loading */}
+            {journeyLoading && (
+              <div className="space-y-4">
+                <Skeleton className="h-40 w-full rounded-2xl" />
+                <Skeleton className="h-40 w-full rounded-2xl" />
+                <Skeleton className="h-40 w-full rounded-2xl" />
+              </div>
+            )}
+
+            {/* Journey Timeline */}
+            {!journeyLoading && journey && (
+              <div className="relative space-y-0">
+                {/* Vertical connecting line */}
+                <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-gradient-to-b from-primary via-border to-border z-0 hidden md:block" />
+
+                {/* ── COLETA ──────────────────────────────────── */}
+                {journey.collects.map((c, idx) => {
+                  const key = `coleta-${idx}`;
+                  const isExpanded = expanded[key] ?? idx === 0;
+                  const checkinPhotos = [
+                    { label: "Frontal", url: c.checkinFrontalPhoto },
+                    { label: "Lateral 1", url: c.checkinLateral1Photo },
+                    { label: "Lateral 2", url: c.checkinLateral2Photo },
+                    { label: "Traseira", url: c.checkinTraseiraPhoto },
+                    { label: "Odômetro", url: c.checkinOdometerPhoto },
+                    { label: "Combustível", url: c.checkinFuelLevelPhoto },
+                    { label: "Selfie", url: c.checkinSelfiePhoto },
+                    ...(c.checkinDamagePhotos ?? []).map((url, i) => ({ label: `Avaria ${i + 1}`, url })),
+                  ];
+                  const isDone = true;
+                  return (
+                    <div key={key} className="relative flex gap-4 pb-4" data-testid={`section-coleta-${idx}`}>
+                      <div className="hidden md:flex flex-col items-center shrink-0">
+                        <StepNode done={isDone} active={false} icon={Package} step={0} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <button
+                          className="w-full text-left"
+                          onClick={() => toggleSection(key)}
+                          data-testid={`toggle-coleta-${idx}`}
+                        >
+                          <div className={cn(
+                            "rounded-2xl border bg-card shadow-sm transition-all hover:shadow-md",
+                            isDone && "border-green-200 dark:border-green-800"
+                          )}>
+                            <div className="flex items-center gap-3 px-5 py-4">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-100 dark:bg-green-900/30 md:hidden">
+                                <Package className="h-4.5 w-4.5 text-green-600" />
                               </div>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <User className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                              <div>
-                                <p className="text-xs text-muted-foreground">Motorista</p>
-                                <p className="text-sm font-medium" data-testid={`text-collect-driver-${idx}`}>
-                                  {c.driver ? `${c.driver.firstName} ${c.driver.lastName}` : "—"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                              <div>
-                                <p className="text-xs text-muted-foreground">Origem → Destino</p>
-                                <p className="text-sm font-medium">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-bold text-sm">
+                                    Coleta {journey.collects.length > 1 ? `#${idx + 1}` : ""} na Montadora
+                                  </p>
+                                  <span className="text-xs font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-2 py-0.5 rounded-full">
+                                    {collectStatusLabel[c.status] ?? c.status}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">
                                   {c.manufacturer?.name ?? "—"} → {c.yard?.name ?? "—"}
+                                  {c.collectDate && <span className="ml-2">· {fmtDateOnly(c.collectDate)}</span>}
                                 </p>
                               </div>
+                              {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
                             </div>
-                            {c.checkinLatitude && c.checkinLongitude && (
-                              <div className="flex items-start gap-2">
-                                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                <div>
-                                  <p className="text-xs text-muted-foreground">Localização Check-in</p>
-                                  <a
-                                    href={`https://maps.google.com/?q=${c.checkinLatitude},${c.checkinLongitude}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm text-primary underline"
-                                    data-testid={`link-checkin-location-${idx}`}
-                                  >
-                                    Ver no mapa
-                                  </a>
+
+                            {isExpanded && (
+                              <div className="border-t px-5 py-4 space-y-5">
+                                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                                  <InfoItem icon={Calendar} label="Data da Coleta" value={fmtDate(c.collectDate)} />
+                                  <InfoItem icon={User} label="Motorista" value={c.driver ? `${c.driver.firstName} ${c.driver.lastName}` : "—"} />
+                                  <InfoItem icon={Factory} label="Montadora" value={c.manufacturer?.name ?? "—"} />
+                                  <InfoItem icon={Warehouse} label="Pátio Destino" value={c.yard ? `${c.yard.name}${c.yard.city ? ` – ${c.yard.city}` : ""}` : "—"} />
+                                  {c.checkinLatitude && c.checkinLongitude && (
+                                    <InfoItem icon={MapPin} label="Local Check-in" value="Ver no mapa" href={`https://maps.google.com/?q=${c.checkinLatitude},${c.checkinLongitude}`} />
+                                  )}
+                                </div>
+                                <PhotoGallery photos={checkinPhotos} title={`Fotos do Check-in (${checkinPhotos.filter(p => p.url).length} foto${checkinPhotos.filter(p => p.url).length !== 1 ? "s" : ""})`} />
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* ── PÁTIO ─────────────────────────────────── */}
+                {(() => {
+                  const key = "patio";
+                  const isExpanded = expanded[key] ?? false;
+                  const isPatioDone = currentStep > 1;
+                  const isPatioActive = currentStep === 1;
+                  const hasDates = v?.collectDateTime || v?.yardEntryDateTime || v?.dispatchDateTime;
+                  return (
+                    <div className="relative flex gap-4 pb-4" data-testid="section-patio">
+                      <div className="hidden md:flex flex-col items-center shrink-0">
+                        <StepNode done={isPatioDone} active={isPatioActive} icon={Warehouse} step={1} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <button className="w-full text-left" onClick={() => toggleSection(key)} data-testid="toggle-patio">
+                          <div className={cn(
+                            "rounded-2xl border bg-card shadow-sm transition-all hover:shadow-md",
+                            isPatioDone && "border-blue-200 dark:border-blue-800",
+                            isPatioActive && "border-primary/40"
+                          )}>
+                            <div className="flex items-center gap-3 px-5 py-4">
+                              <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl md:hidden", isPatioDone ? "bg-blue-100 dark:bg-blue-900/30" : "bg-muted")}>
+                                <Warehouse className={cn("h-4.5 w-4.5", isPatioDone ? "text-blue-600" : "text-muted-foreground")} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-bold text-sm">Permanência no Pátio</p>
+                                  {v?.yard && <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{v.yard.name}</span>}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {v?.yardEntryDateTime ? `Entrada: ${fmtDateOnly(v.yardEntryDateTime)}` : "Sem data de entrada registrada"}
+                                  {v?.dispatchDateTime && <span className="ml-2">· Saída: {fmtDateOnly(v.dispatchDateTime)}</span>}
+                                </p>
+                              </div>
+                              {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                            </div>
+                            {isExpanded && hasDates && (
+                              <div className="border-t px-5 py-4">
+                                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                                  {v?.collectDateTime && <InfoItem icon={Clock} label="Data da Coleta" value={fmtDate(v.collectDateTime)} />}
+                                  {v?.yardEntryDateTime && <InfoItem icon={Clock} label="Entrada no Pátio" value={fmtDate(v.yardEntryDateTime)} />}
+                                  {v?.dispatchDateTime && <InfoItem icon={Clock} label="Despacho" value={fmtDate(v.dispatchDateTime)} />}
                                 </div>
                               </div>
                             )}
                           </div>
-                          <div>
-                            <p className="text-sm font-medium mb-2 flex items-center gap-1">
-                              <Camera className="h-4 w-4" />
-                              Fotos do Check-in (Retirada na Montadora)
-                            </p>
-                            <PhotoGrid photos={checkinPhotos} />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })
-                )}
-              </TabsContent>
-
-              <TabsContent value="logistica" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Warehouse className="h-4 w-4" />
-                      Movimentações de Pátio
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <MovementsTable journey={journey} />
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 text-sm">
-                      {v?.collectDateTime && (
-                        <div className="rounded-lg border p-3">
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1"><Clock className="h-3 w-3" />Coleta</p>
-                          <p className="font-medium" data-testid="text-collect-datetime">{fmtDate(v.collectDateTime)}</p>
-                        </div>
-                      )}
-                      {v?.yardEntryDateTime && (
-                        <div className="rounded-lg border p-3">
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1"><Clock className="h-3 w-3" />Entrada no Pátio</p>
-                          <p className="font-medium" data-testid="text-yard-entry-datetime">{fmtDate(v.yardEntryDateTime)}</p>
-                        </div>
-                      )}
-                      {v?.dispatchDateTime && (
-                        <div className="rounded-lg border p-3">
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1"><Clock className="h-3 w-3" />Despacho</p>
-                          <p className="font-medium" data-testid="text-dispatch-datetime">{fmtDate(v.dispatchDateTime)}</p>
-                        </div>
-                      )}
+                        </button>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  );
+                })()}
 
-              <TabsContent value="transporte" className="space-y-4">
+                {/* ── TRANSPORTES ───────────────────────────── */}
                 {journey.transports.length === 0 ? (
-                  <Card>
-                    <CardContent className="flex items-center justify-center py-12 text-muted-foreground">
-                      <Truck className="mr-2 h-5 w-5" />
-                      Nenhum transporte registrado para este veículo
-                    </CardContent>
-                  </Card>
+                  <div className="relative flex gap-4 pb-4">
+                    <div className="hidden md:flex flex-col items-center shrink-0">
+                      <StepNode done={false} active={false} icon={Truck} step={2} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="rounded-2xl border border-dashed bg-muted/20 px-5 py-6 text-center text-muted-foreground">
+                        <Truck className="mx-auto h-6 w-6 mb-2 opacity-30" />
+                        <p className="text-sm">Nenhum transporte registrado</p>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   journey.transports.map((t, idx) => {
-                    const cfg = transportStatusConfig[t.status] ?? { label: t.status, badgeClass: "" };
+                    const key = `transport-${idx}`;
+                    const isExpanded = expanded[key] ?? false;
+                    const isDone = t.status === "entregue";
+                    const isActive = t.status === "em_transito" || t.status === "aguardando_saida";
                     const checkinPhotos = [
-                      { label: "Frontal",     url: t.checkinFrontalPhoto },
-                      { label: "Lateral 1",   url: t.checkinLateral1Photo },
-                      { label: "Lateral 2",   url: t.checkinLateral2Photo },
-                      { label: "Traseira",    url: t.checkinTraseiraPhoto },
-                      { label: "Odômetro",    url: t.checkinOdometerPhoto },
+                      { label: "Frontal", url: t.checkinFrontalPhoto },
+                      { label: "Lateral 1", url: t.checkinLateral1Photo },
+                      { label: "Lateral 2", url: t.checkinLateral2Photo },
+                      { label: "Traseira", url: t.checkinTraseiraPhoto },
+                      { label: "Odômetro", url: t.checkinOdometerPhoto },
                       { label: "Combustível", url: t.checkinFuelLevelPhoto },
-                      { label: "Selfie",      url: t.checkinSelfiePhoto },
+                      { label: "Selfie", url: t.checkinSelfiePhoto },
                       ...(t.checkinDamagePhotos ?? []).map((url, i) => ({ label: `Avaria ${i + 1}`, url })),
                     ];
-                    const hasRoute = t.routeDistanceKm || t.routeDurationMinutes;
+                    const statusColor = isDone ? "border-green-200 dark:border-green-800" : isActive ? "border-primary/40" : "";
+                    const statusBadgeColor = isDone ? "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800" : isActive ? "text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800" : "text-muted-foreground bg-muted border-border";
                     return (
-                      <Card key={t.id} data-testid={`card-transport-${idx}`}>
-                        <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-base">
-                              OTD {t.requestNumber ?? `#${idx + 1}`}
-                            </CardTitle>
-                            <Badge variant="outline" className={cfg.badgeClass}>{cfg.label}</Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-5">
-                          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                            <div className="flex items-start gap-2">
-                              <User className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                              <div>
-                                <p className="text-xs text-muted-foreground">Motorista</p>
-                                <p className="text-sm font-medium" data-testid={`text-transport-driver-${idx}`}>
-                                  {t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : "—"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                              <div>
-                                <p className="text-xs text-muted-foreground">Pátio de Origem</p>
-                                <p className="text-sm font-medium">{t.originYard ? `${t.originYard.name}${t.originYard.city ? " – " + t.originYard.city : ""}` : "—"}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                              <div>
-                                <p className="text-xs text-muted-foreground">Destino</p>
-                                <p className="text-sm font-medium">
-                                  {t.deliveryLocation
-                                    ? [t.deliveryLocation.name, t.deliveryLocation.city, t.deliveryLocation.state].filter(Boolean).join(", ")
-                                    : "—"}
-                                </p>
-                              </div>
-                            </div>
-                            {hasRoute && (
-                              <>
-                                {t.routeDistanceKm && (
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">Distância</p>
-                                    <p className="text-sm font-medium" data-testid={`text-distance-${idx}`}>{t.routeDistanceKm} km</p>
-                                  </div>
-                                )}
-                                {t.routeDurationMinutes && (
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">Duração estimada</p>
-                                    <p className="text-sm font-medium" data-testid={`text-duration-${idx}`}>
-                                      {Math.floor(t.routeDurationMinutes / 60)}h {t.routeDurationMinutes % 60}min
-                                    </p>
-                                  </div>
-                                )}
-                                {t.estimatedTolls && (
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">Pedágios estimados</p>
-                                    <p className="text-sm font-medium">R$ {Number(t.estimatedTolls).toFixed(2)}</p>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                            {t.checkinLatitude && t.checkinLongitude && (
-                              <div className="flex items-start gap-2">
-                                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                <div>
-                                  <p className="text-xs text-muted-foreground">Localização Saída</p>
-                                  <a
-                                    href={`https://maps.google.com/?q=${t.checkinLatitude},${t.checkinLongitude}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm text-primary underline"
-                                    data-testid={`link-transport-location-${idx}`}
-                                  >
-                                    Ver no mapa
-                                  </a>
+                      <div key={key} className="relative flex gap-4 pb-4" data-testid={`section-transport-${idx}`}>
+                        <div className="hidden md:flex flex-col items-center shrink-0">
+                          <StepNode done={isDone} active={isActive} icon={Truck} step={2} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <button className="w-full text-left" onClick={() => toggleSection(key)} data-testid={`toggle-transport-${idx}`}>
+                            <div className={cn("rounded-2xl border bg-card shadow-sm transition-all hover:shadow-md", statusColor)}>
+                              <div className="flex items-center gap-3 px-5 py-4">
+                                <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl md:hidden", isDone ? "bg-green-100 dark:bg-green-900/30" : isActive ? "bg-blue-100 dark:bg-blue-900/30" : "bg-muted")}>
+                                  <Truck className={cn("h-4.5 w-4.5", isDone ? "text-green-600" : isActive ? "text-blue-600" : "text-muted-foreground")} />
                                 </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-bold text-sm">
+                                      Transporte {t.requestNumber ? `OTD ${t.requestNumber}` : `#${idx + 1}`}
+                                    </p>
+                                    <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border", statusBadgeColor)}>
+                                      {transportStatusLabel[t.status] ?? t.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {t.originYard?.name ?? "—"} → {t.deliveryLocation ? `${t.deliveryLocation.name}, ${t.deliveryLocation.city}` : "—"}
+                                    {t.routeDistanceKm && <span className="ml-2">· {t.routeDistanceKm} km</span>}
+                                  </p>
+                                </div>
+                                {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
                               </div>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium mb-2 flex items-center gap-1">
-                              <Camera className="h-4 w-4" />
-                              Fotos do Check-in (Saída do Pátio)
-                            </p>
-                            <PhotoGrid photos={checkinPhotos} />
-                          </div>
-                        </CardContent>
-                      </Card>
+
+                              {isExpanded && (
+                                <div className="border-t px-5 py-4 space-y-5">
+                                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                                    <InfoItem icon={User} label="Motorista" value={t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : "—"} />
+                                    <InfoItem icon={Warehouse} label="Pátio de Origem" value={t.originYard ? `${t.originYard.name}${t.originYard.city ? ` – ${t.originYard.city}` : ""}` : "—"} />
+                                    <InfoItem icon={MapPin} label="Destino" value={t.deliveryLocation ? [t.deliveryLocation.name, t.deliveryLocation.city, t.deliveryLocation.state].filter(Boolean).join(", ") : "—"} />
+                                    <InfoItem icon={User} label="Cliente" value={t.client?.name ?? "—"} />
+                                    {t.routeDistanceKm != null && <InfoItem icon={Route} label="Distância" value={`${t.routeDistanceKm} km`} />}
+                                    {t.routeDurationMinutes != null && <InfoItem icon={Clock} label="Duração estimada" value={`${Math.floor(t.routeDurationMinutes / 60)}h ${t.routeDurationMinutes % 60}min`} />}
+                                    {t.estimatedTolls && <InfoItem icon={FileText} label="Pedágios estimados" value={`R$ ${Number(t.estimatedTolls).toFixed(2)}`} />}
+                                    {t.estimatedFuel && <InfoItem icon={FuelIcon} label="Combustível estimado" value={`R$ ${Number(t.estimatedFuel).toFixed(2)}`} />}
+                                    {t.checkinLatitude && t.checkinLongitude && (
+                                      <InfoItem icon={MapPin} label="Localização Saída" value="Ver no mapa" href={`https://maps.google.com/?q=${t.checkinLatitude},${t.checkinLongitude}`} />
+                                    )}
+                                  </div>
+                                  <PhotoGallery photos={checkinPhotos} title={`Fotos de Saída do Pátio (${checkinPhotos.filter(p => p.url).length} fotos)`} />
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        </div>
+                      </div>
                     );
                   })
                 )}
-              </TabsContent>
 
-              <TabsContent value="entrega" className="space-y-4">
-                {!latestTransport || latestTransport.status !== "entregue" ? (
-                  <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground gap-2">
-                      <CheckCircle2 className="h-10 w-10 opacity-30" />
-                      <p className="text-base font-medium">Entrega não registrada</p>
-                      <p className="text-sm">O veículo ainda não foi entregue ao cliente</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  journey.transports
-                    .filter((t) => t.status === "entregue")
-                    .map((t, idx) => {
-                      const checkoutPhotos = [
-                        { label: "Frontal",     url: t.checkoutFrontalPhoto },
-                        { label: "Lateral 1",   url: t.checkoutLateral1Photo },
-                        { label: "Lateral 2",   url: t.checkoutLateral2Photo },
-                        { label: "Traseira",    url: t.checkoutTraseiraPhoto },
-                        { label: "Odômetro",    url: t.checkoutOdometerPhoto },
-                        { label: "Combustível", url: t.checkoutFuelLevelPhoto },
-                        { label: "Selfie",      url: t.checkoutSelfiePhoto },
-                        ...(t.checkoutDamagePhotos ?? []).map((url, i) => ({ label: `Avaria ${i + 1}`, url })),
-                      ];
-                      return (
-                        <Card key={t.id} data-testid={`card-delivery-${idx}`}>
-                          <CardHeader>
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="h-5 w-5 text-green-500" />
-                              <CardTitle className="text-base">Entrega Concluída</CardTitle>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-5">
-                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                              {v?.deliveryDateTime && (
-                                <div className="flex items-start gap-2">
-                                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">Data/Hora da Entrega</p>
-                                    <p className="text-sm font-medium" data-testid="text-delivery-datetime">{fmtDate(v.deliveryDateTime)}</p>
-                                  </div>
-                                </div>
-                              )}
-                              <div className="flex items-start gap-2">
-                                <User className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                <div>
-                                  <p className="text-xs text-muted-foreground">Motorista</p>
-                                  <p className="text-sm font-medium">
-                                    {t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : "—"}
-                                  </p>
-                                </div>
+                {/* ── ENTREGA ───────────────────────────────── */}
+                {(() => {
+                  const key = "entrega";
+                  const isExpanded = expanded[key] ?? false;
+                  const deliveredTransports = journey.transports.filter((t) => t.status === "entregue");
+                  return (
+                    <div className="relative flex gap-4" data-testid="section-entrega">
+                      <div className="hidden md:flex flex-col items-center shrink-0">
+                        <StepNode done={hasDelivery ?? false} active={false} icon={Flag} step={3} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {!hasDelivery ? (
+                          <div className={cn(
+                            "rounded-2xl border border-dashed px-5 py-5 text-muted-foreground",
+                            currentStep < 3 ? "bg-muted/10" : "bg-muted/20"
+                          )}>
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
+                                <Flag className="h-4.5 w-4.5 opacity-30" />
                               </div>
-                              <div className="flex items-start gap-2">
-                                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                <div>
-                                  <p className="text-xs text-muted-foreground">Endereço de Entrega</p>
-                                  <p className="text-sm font-medium">
-                                    {t.deliveryLocation
-                                      ? [t.deliveryLocation.address, t.deliveryLocation.city, t.deliveryLocation.state].filter(Boolean).join(", ")
+                              <div>
+                                <p className="font-semibold text-sm">Entrega Final</p>
+                                <p className="text-xs">O veículo ainda não foi entregue ao cliente</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <button className="w-full text-left" onClick={() => toggleSection(key)} data-testid="toggle-entrega">
+                            <div className="rounded-2xl border border-green-200 dark:border-green-800 bg-card shadow-sm transition-all hover:shadow-md">
+                              <div className="flex items-center gap-3 px-5 py-4">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-100 dark:bg-green-900/30 md:hidden">
+                                  <CheckCircle2 className="h-4.5 w-4.5 text-green-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-bold text-sm text-green-700 dark:text-green-400">Entrega Concluída</p>
+                                    <span className="text-xs font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-2 py-0.5 rounded-full">
+                                      Entregue
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {deliveredTransports[0]?.deliveryLocation
+                                      ? [deliveredTransports[0].deliveryLocation.city, deliveredTransports[0].deliveryLocation.state].filter(Boolean).join(" – ")
                                       : "—"}
+                                    {v?.deliveryDateTime && <span className="ml-2">· {fmtDateOnly(v.deliveryDateTime)}</span>}
                                   </p>
                                 </div>
+                                {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
                               </div>
-                              {t.checkoutLatitude && t.checkoutLongitude && (
-                                <div className="flex items-start gap-2">
-                                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">Localização Check-out</p>
-                                    <a
-                                      href={`https://maps.google.com/?q=${t.checkoutLatitude},${t.checkoutLongitude}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm text-primary underline"
-                                      data-testid={`link-delivery-location-${idx}`}
-                                    >
-                                      Ver no mapa
-                                    </a>
+
+                              {isExpanded && (
+                                <div className="border-t px-5 py-4 space-y-5">
+                                  {deliveredTransports.map((t, idx) => {
+                                    const checkoutPhotos = [
+                                      { label: "Frontal", url: t.checkoutFrontalPhoto },
+                                      { label: "Lateral 1", url: t.checkoutLateral1Photo },
+                                      { label: "Lateral 2", url: t.checkoutLateral2Photo },
+                                      { label: "Traseira", url: t.checkoutTraseiraPhoto },
+                                      { label: "Odômetro", url: t.checkoutOdometerPhoto },
+                                      { label: "Combustível", url: t.checkoutFuelLevelPhoto },
+                                      { label: "Selfie", url: t.checkoutSelfiePhoto },
+                                      ...(t.checkoutDamagePhotos ?? []).map((url, i) => ({ label: `Avaria ${i + 1}`, url })),
+                                    ];
+                                    return (
+                                      <div key={t.id} className={idx > 0 ? "pt-4 border-t" : ""}>
+                                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 mb-5">
+                                          {v?.deliveryDateTime && <InfoItem icon={Calendar} label="Data da Entrega" value={fmtDate(v.deliveryDateTime)} />}
+                                          <InfoItem icon={User} label="Motorista" value={t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : "—"} />
+                                          <InfoItem icon={MapPin} label="Endereço" value={t.deliveryLocation ? [t.deliveryLocation.address, t.deliveryLocation.addressNumber, t.deliveryLocation.city, t.deliveryLocation.state].filter(Boolean).join(", ") : "—"} />
+                                          <InfoItem icon={User} label="Cliente" value={t.client?.name ?? "—"} />
+                                          {t.checkoutLatitude && t.checkoutLongitude && (
+                                            <InfoItem icon={MapPin} label="Local Check-out" value="Ver no mapa" href={`https://maps.google.com/?q=${t.checkoutLatitude},${t.checkoutLongitude}`} />
+                                          )}
+                                          {v?.notes && <InfoItem icon={FileText} label="Observações" value={v.notes} />}
+                                        </div>
+                                        <PhotoGallery photos={checkoutPhotos} title={`Comprovante de Entrega (${checkoutPhotos.filter(p => p.url).length} fotos)`} />
+                                      </div>
+                                    );
+                                  })}
+
+                                  <div className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 px-5 py-3.5 text-white">
+                                    <div className="flex items-center gap-3">
+                                      <CheckCircle2 className="h-6 w-6 shrink-0" />
+                                      <div>
+                                        <p className="font-bold text-sm">Veículo entregue com sucesso ao cliente</p>
+                                        {v?.deliveryDateTime && (
+                                          <p className="text-xs text-green-100 mt-0.5">
+                                            Entrega registrada em {fmtDate(v.deliveryDateTime)}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               )}
                             </div>
-                            {v?.notes && (
-                              <div className="rounded-lg border p-3">
-                                <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                                  <FileText className="h-3 w-3" />
-                                  Observações
-                                </p>
-                                <p className="text-sm" data-testid="text-notes">{v.notes}</p>
-                              </div>
-                            )}
-                            <div>
-                              <p className="text-sm font-medium mb-2 flex items-center gap-1">
-                                <Camera className="h-4 w-4" />
-                                Fotos do Check-out (Comprovante de Entrega)
-                              </p>
-                              <PhotoGrid photos={checkoutPhotos} />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })
-                )}
-              </TabsContent>
-            </Tabs>
-          </>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </>
