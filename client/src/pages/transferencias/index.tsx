@@ -47,7 +47,8 @@ import {
   XCircle,
   Loader2,
   ArrowRight,
-  Trash2,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import type { Yard, Vehicle } from "@shared/schema";
 
@@ -80,6 +81,7 @@ export default function TransferenciasPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
   const [showCreate, setShowCreate] = useState(false);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [completeId, setCompleteId] = useState<string | null>(null);
@@ -244,6 +246,27 @@ export default function TransferenciasPage() {
               <SelectItem value="cancelada">Cancelada</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex items-center border rounded-md">
+            <Button
+              variant={viewMode === "cards" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-r-none px-3"
+              onClick={() => setViewMode("cards")}
+              data-testid="button-view-cards"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-l-none px-3"
+              onClick={() => setViewMode("list")}
+              data-testid="button-view-list"
+            >
+              <List className="h-4 w-4" />
+              <span className="ml-1 hidden sm:inline">Lista</span>
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -256,7 +279,7 @@ export default function TransferenciasPage() {
             <p className="text-lg font-medium">Nenhuma transferência encontrada</p>
             <p className="text-sm">Crie uma nova transferência para mover um veículo entre pátios.</p>
           </div>
-        ) : (
+        ) : viewMode === "cards" ? (
           <div className="space-y-3">
             {filtered.map((t) => {
               const cfg = statusConfig[t.status] ?? statusConfig.pendente;
@@ -320,6 +343,80 @@ export default function TransferenciasPage() {
               );
             })}
           </div>
+        ) : (
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Chassi</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Origem</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Destino</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Data</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Observações</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((t) => {
+                    const cfg = statusConfig[t.status] ?? statusConfig.pendente;
+                    const StatusIcon = cfg.icon;
+                    return (
+                      <tr key={t.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-transfer-${t.id}`}>
+                        <td className="px-4 py-3 font-mono font-semibold text-xs" data-testid={`text-chassi-list-${t.id}`}>
+                          {t.vehicleChassi}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={cfg.variant} className="text-xs whitespace-nowrap">
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {cfg.label}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground max-w-[150px] truncate">
+                          {t.originYard?.name ?? t.originYardId}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground max-w-[150px] truncate">
+                          {t.destinationYard?.name ?? t.destinationYardId}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                          {format(new Date(t.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground max-w-[180px] truncate">
+                          {t.notes ?? "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1 justify-end">
+                            {t.status === "em_transito" && (
+                              <Button
+                                size="sm"
+                                onClick={() => setCompleteId(t.id)}
+                                data-testid={`button-complete-list-${t.id}`}
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                Finalizar
+                              </Button>
+                            )}
+                            {(t.status === "pendente" || t.status === "em_transito") && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setCancelId(t.id)}
+                                data-testid={`button-cancel-list-${t.id}`}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         )}
       </div>
 
