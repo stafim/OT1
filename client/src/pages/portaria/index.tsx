@@ -1073,17 +1073,23 @@ export default function PortariaPage() {
           </h2>
 
           {transfersLoading ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map((i) => (
-                <Card key={i}><CardContent className="p-4"><Skeleton className="h-4 w-32 mb-2" /><Skeleton className="h-3 w-48 mb-4" /><Skeleton className="h-8 w-full" /></CardContent></Card>
-              ))}
-            </div>
+            viewMode === "cards" ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i}><CardContent className="p-4"><Skeleton className="h-4 w-32 mb-2" /><Skeleton className="h-3 w-48 mb-4" /><Skeleton className="h-8 w-full" /></CardContent></Card>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            )
           ) : pendingTransfersList.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-xl">
               <CheckCircle2 className="h-10 w-10 mx-auto mb-2 opacity-30" />
               <p className="font-medium">Nenhuma transferência aguardando autorização</p>
             </div>
-          ) : (
+          ) : viewMode === "cards" ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {pendingTransfersList.map((t) => (
                 <Card key={t.id} className="border-purple-200 dark:border-purple-800" data-testid={`card-transfer-portaria-${t.id}`}>
@@ -1124,6 +1130,58 @@ export default function PortariaPage() {
                 </Card>
               ))}
             </div>
+          ) : (
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Chassi</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Origem</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Destino</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Observações</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingTransfersList.map((t) => (
+                      <tr key={t.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-transfer-portaria-${t.id}`}>
+                        <td className="px-4 py-3 font-mono font-semibold text-xs" data-testid={`text-chassi-transfer-list-${t.id}`}>
+                          {t.vehicleChassi}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                            <Clock className="h-3 w-3 mr-1" />Pendente
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground max-w-[150px] truncate">
+                          {t.originYard?.name ?? t.originYardId}
+                        </td>
+                        <td className="px-4 py-3 max-w-[150px] truncate font-medium text-purple-600 dark:text-purple-400">
+                          {t.destinationYard?.name ?? t.destinationYardId}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground max-w-[180px] truncate">
+                          {t.notes ?? "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            size="sm"
+                            className="bg-purple-600 hover:bg-purple-700"
+                            onClick={() => authorizeTransferMutation.mutate(t.id)}
+                            disabled={authorizeTransferMutation.isPending}
+                            data-testid={`button-authorize-transfer-list-${t.id}`}
+                          >
+                            {authorizeTransferMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
+                            Autorizar
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           )}
         </div>
       </div>
