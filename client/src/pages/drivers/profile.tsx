@@ -1,10 +1,24 @@
-import { useParams, Link } from "wouter";
+import { useState } from "react";
+import { useParams, Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   BarChart,
   Bar,
@@ -28,6 +42,9 @@ import {
   Clock,
   Route,
   TrendingUp,
+  ChevronsUpDown,
+  Check,
+  Search,
   ShieldCheck,
   ShieldAlert,
   Shield,
@@ -187,6 +204,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function DriverProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const [, navigate] = useLocation();
+  const [open, setOpen] = useState(false);
+
+  const { data: allDrivers } = useQuery<Driver[]>({
+    queryKey: ["/api/drivers"],
+  });
 
   const { data: profile, isLoading } = useQuery<DriverProfile>({
     queryKey: ["/api/drivers", id, "profile"],
@@ -237,6 +260,58 @@ export default function DriverProfilePage() {
           { label: driver.name },
         ]}
       />
+
+      {/* Driver Selector Bar */}
+      <div className="border-b bg-muted/30 px-4 md:px-6 py-3 print:hidden">
+        <div className="flex items-center gap-3 max-w-sm">
+          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                className="w-full justify-between font-normal text-sm h-9"
+                data-testid="button-driver-selector"
+              >
+                <span className="truncate">{driver.name}</span>
+                <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Buscar motorista..." data-testid="input-driver-search" />
+                <CommandList>
+                  <CommandEmpty>Nenhum motorista encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    {allDrivers?.map((d) => (
+                      <CommandItem
+                        key={d.id}
+                        value={d.name}
+                        onSelect={() => {
+                          setOpen(false);
+                          navigate(`/motoristas/${d.id}/perfil`);
+                        }}
+                        data-testid={`driver-option-${d.id}`}
+                      >
+                        <Check
+                          className={`mr-2 h-4 w-4 ${d.id === id ? "opacity-100" : "opacity-0"}`}
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-sm">{d.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {d.city}/{d.state} · CNH {d.cnhType}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
 
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6 print:p-4">
 
