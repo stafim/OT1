@@ -54,6 +54,8 @@ interface Analytics {
     totalDistanceKm: number;
     avgDeliveryTimeHours: number;
     deliveryRate: number;
+    onTimeDeliveries: number;
+    totalDeliveredWithDate: number;
   };
 }
 
@@ -184,7 +186,7 @@ function GeralDashboard({ analytics, isLoading }: { analytics: Analytics | undef
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <KPICard
-          title="Taxa de Entrega"
+          title="Eficiência (no Prazo)"
           value={`${analytics?.metrics.deliveryRate ?? 0}%`}
           icon={CheckCircle2}
           isLoading={isLoading}
@@ -637,15 +639,18 @@ function EficienciaDashboard({ analytics, isLoading }: { analytics: Analytics | 
   const deliveryRate = analytics?.metrics.deliveryRate ?? 0;
   const avgTime = analytics?.metrics.avgDeliveryTimeHours ?? 0;
   
+  const onTime = analytics?.metrics.onTimeDeliveries ?? 0;
+  const totalWithDate = analytics?.metrics.totalDeliveredWithDate ?? 0;
+
   const efficiencyData = [
-    { name: "Taxa de Entrega", value: deliveryRate, fill: COLORS.success },
+    { name: "Entregues no Prazo", value: deliveryRate, fill: COLORS.success },
   ];
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <KPICard
-          title="Taxa de Entrega"
+          title="Eficiência (no Prazo)"
           value={`${deliveryRate}%`}
           icon={Target}
           isLoading={isLoading}
@@ -683,7 +688,7 @@ function EficienciaDashboard({ analytics, isLoading }: { analytics: Analytics | 
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Gauge className="h-5 w-5" />
-              Taxa de Sucesso nas Entregas
+              Eficiência de Entrega
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -711,7 +716,10 @@ function EficienciaDashboard({ analytics, isLoading }: { analytics: Analytics | 
                 </ResponsiveContainer>
                 <div className="text-center -mt-16">
                   <p className="text-4xl font-bold text-green-600">{deliveryRate}%</p>
-                  <p className="text-sm text-muted-foreground">Taxa de Entrega</p>
+                  <p className="text-sm text-muted-foreground">Entregues no Prazo</p>
+                  {totalWithDate > 0 && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{onTime} de {totalWithDate} entregas</p>
+                  )}
                 </div>
               </div>
             )}

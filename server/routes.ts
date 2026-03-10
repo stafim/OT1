@@ -249,6 +249,18 @@ export async function registerRoutes(
           return acc + diff / arr.length;
         }, 0);
 
+      const deliveredTransports = transports.filter(t => t.status === "entregue" && t.deliveryDate && t.checkoutDateTime);
+      const onTimeDeliveries = deliveredTransports.filter(t => {
+        const checkoutDate = new Date(t.checkoutDateTime!);
+        const plannedDate = new Date(t.deliveryDate!);
+        checkoutDate.setHours(0, 0, 0, 0);
+        plannedDate.setHours(0, 0, 0, 0);
+        return checkoutDate <= plannedDate;
+      });
+      const deliveryRate = deliveredTransports.length > 0
+        ? Math.round((onTimeDeliveries.length / deliveredTransports.length) * 100)
+        : 0;
+
       res.json({
         transportsByStatus,
         collectsByStatus,
@@ -269,7 +281,9 @@ export async function registerRoutes(
           vehiclesInStock: vehicles.filter(v => v.status === "em_estoque").length,
           totalDistanceKm: Math.round(totalDistanceKm),
           avgDeliveryTimeHours: Math.round(avgDeliveryTime * 10) / 10,
-          deliveryRate: transports.length > 0 ? Math.round((transportsByStatus.entregue / transports.length) * 100) : 0,
+          deliveryRate,
+          onTimeDeliveries: onTimeDeliveries.length,
+          totalDeliveredWithDate: deliveredTransports.length,
         },
       });
     } catch (error) {
