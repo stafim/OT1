@@ -3185,6 +3185,114 @@ export async function registerRoutes(
     }
   });
 
+  // ============== PERFIL DE MOTORISTA ==============
+
+  app.get("/api/drivers/:id/profile", isAuthenticatedJWT, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const driver = await storage.getDriver(id);
+      if (!driver) return res.status(404).json({ message: "Motorista não encontrado" });
+
+      const driverTransports = await db
+        .select()
+        .from(transports)
+        .where(eq(transports.driverId, id))
+        .orderBy(desc(transports.createdAt));
+
+      const driverEvals = await db
+        .select()
+        .from(driverEvaluations)
+        .where(eq(driverEvaluations.driverId, id))
+        .orderBy(desc(driverEvaluations.createdAt));
+
+      const completed = driverTransports.filter((t) => t.status === "entregue");
+      const totalTrips = completed.length;
+      const totalKm = completed.reduce((sum, t) => sum + parseFloat(t.routeDistanceKm as string || "0"), 0);
+      const avgScore =
+        driverEvals.length > 0
+          ? driverEvals.reduce(
+              (sum, e) => sum + parseFloat(e.weightedScore || e.averageScore || "0"),
+              0
+            ) / driverEvals.length
+          : null;
+      const incidentCount = driverEvals.filter((e) => e.hadIncident === "true").length;
+
+      const now = new Date();
+      const monthlyPerformance = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+        const monthEvals = driverEvals.filter((e) => {
+          const ed = new Date(e.createdAt);
+          return ed.getFullYear() === d.getFullYear() && ed.getMonth() === d.getMonth();
+        });
+        const monthAvg =
+          monthEvals.length > 0
+            ? monthEvals.reduce(
+                (sum, e) => sum + parseFloat(e.weightedScore || e.averageScore || "0"),
+                0
+              ) / monthEvals.length
+            : null;
+        monthlyPerformance.push({
+          month: label,
+          score: monthAvg ? parseFloat(monthAvg.toFixed(1)) : null,
+          trips: monthEvals.length,
+        });
+      }
+
+      const recentTransports = driverTransports.slice(0, 25);
+      const recentTrips = await Promise.all(
+        recentTransports.map(async (t) => {
+          const [originYardRows, delLocRows, evalRows] = await Promise.all([
+            t.originYardId
+              ? db.select().from(yards).where(eq(yards.id, t.originYardId)).limit(1)
+              : Promise.resolve([]),
+            t.deliveryLocationId
+              ? db.select().from(deliveryLocations).where(eq(deliveryLocations.id, t.deliveryLocationId)).limit(1)
+              : Promise.resolve([]),
+            db.select().from(driverEvaluations).where(eq(driverEvaluations.transportId, t.id)).limit(1),
+          ]);
+          return {
+            ...t,
+            originYard: originYardRows[0] || null,
+            deliveryLocation: delLocRows[0] || null,
+            evaluation: evalRows[0] || null,
+          };
+        })
+      );
+
+      const infractions = driverEvals
+        .filter((e) => e.hadIncident === "true")
+        .slice(0, 10)
+        .map((e) => ({
+          id: e.id,
+          date: e.createdAt,
+          description: e.incidentDescription,
+          score: e.weightedScore || e.averageScore,
+        }));
+
+      const isOnTrip = driverTransports.some((t) => t.status === "em_transito");
+
+      res.json({
+        driver,
+        kpis: {
+          totalTrips,
+          totalKm: totalKm.toFixed(0),
+          avgScore: avgScore ? avgScore.toFixed(1) : null,
+          incidentCount,
+        },
+        monthlyPerformance,
+        recentTrips,
+        infractions,
+        isOnTrip,
+      });
+    } catch (error) {
+      console.error("Error fetching driver profile:", error);
+      res.status(500).json({ message: "Failed to fetch driver profile" });
+    }
+  });
+
   // ============== GESTÃO DE ROTAS (Route Management) ==============
   
   // Get all routes with relations

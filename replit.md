@@ -8,7 +8,8 @@ The system handles:
 - **Collections (Coletas)**: Picking up new vehicles from manufacturers
 - **Transports**: Managing vehicle transportation and delivery to customers
 - **Inventory (Estoque)**: Tracking vehicles through various statuses (pre-stock, in-stock, dispatched, delivered, withdrawn)
-- **Driver Management**: Coordinating drivers and sending location-based notifications
+- **Driver Management**: Coordinating drivers, sending location-based notifications, and detailed driver performance profiles
+- **Driver Profile Page** (`/motoristas/:id/perfil`): Score circular, KPI cards, 6-month performance chart (recharts), infraction history, trip history table, PDF print support
 - **Entity Management**: Manufacturers, yards, clients, and delivery locations
 
 ## User Preferences

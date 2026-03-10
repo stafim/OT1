@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Trash2, Eye } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye, BarChart2 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Driver } from "@shared/schema";
@@ -36,6 +37,7 @@ export default function DriversPage() {
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
   const [viewingDriverId, setViewingDriverId] = useState<string | null>(null);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: drivers, isLoading } = useQuery<Driver[]>({
     queryKey: ["/api/drivers"],
@@ -113,9 +115,21 @@ export default function DriversPage() {
     {
       key: "actions",
       label: "",
-      className: "w-32",
+      className: "w-40",
       render: (driver: Driver) => (
         <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/motoristas/${driver.id}/perfil`);
+            }}
+            title="Ver perfil"
+            data-testid={`button-profile-${driver.id}`}
+          >
+            <BarChart2 className="h-4 w-4" />
+          </Button>
           <Button
             size="icon"
             variant="ghost"
