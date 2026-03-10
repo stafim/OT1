@@ -95,11 +95,6 @@ const operationItems: MenuItem[] = [
     icon: MapPin,
   },
   {
-    title: "Performance Motorista",
-    url: "/motoristas",
-    icon: TrendingUp,
-  },
-  {
     title: "Transferências",
     url: "/transferencias",
     icon: ArrowLeftRight,
@@ -146,6 +141,11 @@ const motoristaItems: MenuItem[] = [
     title: "Ranking de Motoristas",
     url: "/ranking-motoristas",
     icon: Trophy,
+  },
+  {
+    title: "Performance Motorista",
+    url: "/motoristas",
+    icon: TrendingUp,
   },
 ];
 
