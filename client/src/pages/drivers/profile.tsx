@@ -52,6 +52,7 @@ import {
   Activity,
   Printer,
   ClipboardList,
+  Smartphone,
 } from "lucide-react";
 import type { Driver, Yard, DeliveryLocation } from "@shared/schema";
 import { DriverDetailDialog } from "./detail-dialog";
@@ -91,7 +92,27 @@ interface DriverProfile {
   recentTrips: TripWithDetails[];
   infractions: Array<{ id: string; date: string; description: string | null; score: string | null }>;
   isOnTrip: boolean;
+  lastAppActivity: string | null;
 }
+
+const formatLastAppActivity = (d: string | null | undefined): string => {
+  if (!d) return "Nunca acessou";
+  const now = new Date();
+  const dt = new Date(d);
+  const diffMs = now.getTime() - dt.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH = Math.floor(diffMs / 3600000);
+  const diffD = Math.floor(diffMs / 86400000);
+  if (diffMin < 1) return "Agora mesmo";
+  if (diffMin < 60) return `há ${diffMin} min`;
+  if (diffH < 24) return `há ${diffH}h`;
+  if (diffD === 1) return "ontem";
+  if (diffD < 7) return `há ${diffD} dias`;
+  if (diffD < 30) return `há ${Math.floor(diffD / 7)} sem.`;
+  const diffM = Math.floor(diffD / 30);
+  if (diffM < 12) return `há ${diffM} ${diffM === 1 ? "mês" : "meses"}`;
+  return dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+};
 
 const formatDate = (d: string | null | undefined) => {
   if (!d) return "—";
@@ -251,7 +272,7 @@ export default function DriverProfilePage() {
     );
   }
 
-  const { driver, kpis, monthlyPerformance, recentTrips, infractions, isOnTrip } = profile;
+  const { driver, kpis, monthlyPerformance, recentTrips, infractions, isOnTrip, lastAppActivity } = profile;
   const avgScore = kpis.avgScore ? parseFloat(kpis.avgScore) : null;
 
   return (
@@ -378,6 +399,14 @@ export default function DriverProfilePage() {
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3.5 w-3.5" />
                     {getTenure(driver.createdAt!.toString())} de empresa
+                  </span>
+                  <span
+                    className="flex items-center gap-1"
+                    title={lastAppActivity ? new Date(lastAppActivity).toLocaleString("pt-BR") : undefined}
+                    data-testid="text-last-app-activity"
+                  >
+                    <Smartphone className="h-3.5 w-3.5" />
+                    Último acesso: {formatLastAppActivity(lastAppActivity)}
                   </span>
                 </div>
               </div>

@@ -3274,6 +3274,14 @@ export async function registerRoutes(
 
       const isOnTrip = driverTransports.some((t) => t.status === "em_transito");
 
+      const lastAppActivity = driverTransports.reduce((latest, t) => {
+        const candidates = [t.checkinDateTime, t.checkoutDateTime].filter(Boolean) as string[];
+        for (const d of candidates) {
+          if (!latest || new Date(d) > new Date(latest)) return d;
+        }
+        return latest;
+      }, null as string | null);
+
       res.json({
         driver,
         kpis: {
@@ -3286,6 +3294,7 @@ export async function registerRoutes(
         recentTrips,
         infractions,
         isOnTrip,
+        lastAppActivity,
       });
     } catch (error) {
       console.error("Error fetching driver profile:", error);
