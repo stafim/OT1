@@ -16,6 +16,7 @@ import NotFound from "@/pages/not-found";
 import DriversPage from "@/pages/drivers/index";
 import DriverFormPage from "@/pages/drivers/form";
 import DriverProfilePage from "@/pages/drivers/profile";
+import DriverPerformancePage from "@/pages/drivers/performance";
 
 import ManufacturersPage from "@/pages/manufacturers/index";
 import ManufacturerFormPage from "@/pages/manufacturers/form";
@@ -68,6 +69,7 @@ function AuthenticatedRouter() {
     <Switch>
       <Route path="/" component={DashboardPage} />
       <Route path="/motoristas" component={DriversPage} />
+      <Route path="/performance-motoristas" component={DriverPerformancePage} />
       <Route path="/motoristas/:id/perfil" component={DriverProfilePage} />
       <Route path="/motoristas/:id" component={DriverFormPage} />
       <Route path="/montadoras" component={ManufacturersPage} />

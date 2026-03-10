@@ -144,7 +144,7 @@ const motoristaItems: MenuItem[] = [
   },
   {
     title: "Performance Motorista",
-    url: "/motoristas",
+    url: "/performance-motoristas",
     icon: TrendingUp,
   },
 ];
