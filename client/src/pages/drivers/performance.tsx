@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
+import { Input } from "@/components/ui/input";
 import {
   Users,
   Star,
@@ -14,6 +16,7 @@ import {
   Activity,
   Truck,
   ShieldCheck,
+  Search,
 } from "lucide-react";
 import {
   BarChart,
@@ -108,6 +111,8 @@ function KpiCard({
 }
 
 export default function DriverPerformancePage() {
+  const [search, setSearch] = useState("");
+
   const { data, isLoading } = useQuery<RankingResponse>({
     queryKey: ["/api/driver-ranking"],
   });
@@ -407,11 +412,28 @@ export default function DriverPerformancePage() {
 
         {/* Full driver table */}
         <Card data-testid="card-all-drivers-performance">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              Todos os Motoristas
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <CardTitle className="text-base flex items-center gap-2 shrink-0">
+                <Users className="h-4 w-4 text-primary" />
+                Todos os Motoristas
+              </CardTitle>
+              <div className="relative flex-1 max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Buscar motorista..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-8 text-sm"
+                  data-testid="input-driver-search"
+                />
+              </div>
+              {search && (
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {allDrivers.filter((d) => d.name.toLowerCase().includes(search.toLowerCase())).length} resultado(s)
+                </span>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {isLoading ? (
@@ -433,9 +455,20 @@ export default function DriverPerformancePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {[...allDrivers]
-                      .sort((a, b) => (b.averageScore ?? -1) - (a.averageScore ?? -1))
-                      .map((d) => (
+                    {(() => {
+                      const rows = [...allDrivers]
+                        .sort((a, b) => (b.averageScore ?? -1) - (a.averageScore ?? -1))
+                        .filter((d) => !search || d.name.toLowerCase().includes(search.toLowerCase()));
+                      if (rows.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                              Nenhum motorista encontrado para "{search}"
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return rows.map((d) => (
                         <tr
                           key={d.id}
                           className="hover:bg-muted/20 transition-colors"
@@ -472,7 +505,8 @@ export default function DriverPerformancePage() {
                             </Link>
                           </td>
                         </tr>
-                      ))}
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
