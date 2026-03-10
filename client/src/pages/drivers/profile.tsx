@@ -51,8 +51,10 @@ import {
   CheckCircle2,
   Activity,
   Printer,
+  ClipboardList,
 } from "lucide-react";
 import type { Driver, Yard, DeliveryLocation } from "@shared/schema";
+import { DriverDetailDialog } from "./detail-dialog";
 
 interface DriverEvaluation {
   id: string;
@@ -206,6 +208,7 @@ export default function DriverProfilePage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const { data: allDrivers } = useQuery<Driver[]>({
     queryKey: ["/api/drivers"],
@@ -380,7 +383,7 @@ export default function DriverProfilePage() {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2 shrink-0 print:hidden">
+              <div className="flex gap-2 shrink-0 print:hidden flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
@@ -389,6 +392,15 @@ export default function DriverProfilePage() {
                 >
                   <Printer className="h-4 w-4 mr-2" />
                   Gerar Relatório PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDetailOpen(true)}
+                  data-testid="button-view-registration"
+                >
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  Dados Cadastrais
                 </Button>
                 <Link href={`/motoristas/${id}`}>
                   <Button size="sm" data-testid="button-edit-profile">
@@ -657,6 +669,16 @@ export default function DriverProfilePage() {
           body { background: white !important; }
         }
       `}</style>
+
+      <DriverDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        driverId={id}
+        onEdit={() => {
+          setDetailOpen(false);
+          navigate(`/motoristas/${id}`);
+        }}
+      />
     </div>
   );
 }
