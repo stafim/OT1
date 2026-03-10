@@ -530,10 +530,10 @@ export default function CotacaoFreteProPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Cotação de Frete PRO"
+        title="Cotação de Frete"
         breadcrumbs={[
           { label: "Operação", href: "/" },
-          { label: "Cotação de Frete PRO" },
+          { label: "Cotação de Frete" },
         ]}
       />
       <div className="flex-1 overflow-auto p-4 md:p-6">

@@ -114,7 +114,7 @@ const operationItems: MenuItem[] = [
     icon: Activity,
   },
   {
-    title: "Cotação de Frete PRO",
+    title: "Cotação de Frete",
     url: "/cotacao-frete-pro",
     icon: Sparkles,
   },
