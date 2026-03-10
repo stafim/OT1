@@ -926,7 +926,15 @@ export default function DriverEvaluationsPage() {
                           <ScoreDisplay score={scoreNum} label="pts" />
                         </div>
                         {score.notes && (
-                          <p className="text-xs text-muted-foreground border-t pt-1 mt-1">{score.notes}</p>
+                          <div className="flex items-start gap-2 border-t pt-1 mt-1">
+                            <div className="flex items-center gap-1 shrink-0">
+                              <User className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {selectedEvaluation.evaluatorName || "Avaliador"}:
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{score.notes}</p>
+                          </div>
                         )}
                       </div>
                     );
